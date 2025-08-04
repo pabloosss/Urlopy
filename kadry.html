@@ -3,176 +3,136 @@
 <head>
   <meta charset="UTF-8">
   <title>Panel Kadrowy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial; margin: 20px; }
-    .hidden { display: none; }
-    .tabs button { margin-right: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 6px; }
-    input, select, button { margin: 5px 0; padding: 6px; }
-    .row { display: flex; gap: 10px; }
-    .row > div { flex: 1; }
+    body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 30px; }
+    .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; }
+    .zakladki button { margin-right: 10px; padding: 10px 20px; }
+    .sekcja { display: none; margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    input, select { width: 100%; padding: 8px; margin: 5px 0; }
+    .active { display: block; }
   </style>
 </head>
 <body>
-
-  <h1>Panel Kadrowy</h1>
-
-  <div class="tabs">
-    <button onclick="pokazZakladke('pracownicy')">📋 Lista pracowników</button>
-    <button onclick="pokazZakladke('wnioski')">📄 Wnioski urlopowe</button>
-  </div>
-
-  <div id="zakladka-pracownicy">
-    <h2>Dodaj pracownika</h2>
-    <div class="row">
-      <div><input type="text" id="noweImie" placeholder="Imię i nazwisko" /></div>
-      <div>
-        <select id="rola" onchange="pokazPrzelozonego()">
-          <option value="Spedytor">Spedytor</option>
-          <option value="Menedżer">Menedżer</option>
-        </select>
-      </div>
-      <div id="menedzerSelect" class="hidden">
-        <select id="wyborMenedzera"></select>
-      </div>
+  <div class="container">
+    <h2>Panel Kadrowy</h2>
+    <div class="zakladki">
+      <button onclick="pokaz('pracownicy')">Lista pracowników</button>
+      <button onclick="pokaz('wnioski')">Wnioski urlopowe</button>
     </div>
-    <button onclick="dodajPracownika()">➕ Dodaj pracownika</button>
 
-    <h3>Lista pracowników</h3>
-    <table id="tabelaPracownikow">
-      <thead><tr><th>Imię</th><th>Rola</th><th>Przełożony</th><th>Pozostało dni</th><th>Usuń</th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div id="pracownicy" class="sekcja">
+      <h3>Dodaj pracownika</h3>
+      <input type="text" id="imie" placeholder="Imię i nazwisko">
+      <select id="rola">
+        <option value="spedytor">Spedytor</option>
+        <option value="menedzer">Menedżer</option>
+      </select>
+      <div id="menedzerWybierzContainer" style="display: none;">
+        <label for="podkogo">Pod kogo?</label>
+        <select id="podkogo"></select>
+      </div>
+      <button onclick="dodajPracownika()">Dodaj</button>
+
+      <h3>Lista pracowników</h3>
+      <table id="tabelaPracownikow">
+        <thead><tr><th>Imię</th><th>Rola</th><th>Pod kogo</th><th>Usuń</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="wnioski" class="sekcja">
+      <h3>Wnioski urlopowe</h3>
+      <table id="tabelaWnioskow">
+        <thead><tr><th>Imię</th><th>Od</th><th>Do</th><th>Dni</th><th>Pozostało</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
-  <div id="zakladka-wnioski" class="hidden">
-    <h2>Wnioski urlopowe</h2>
-    <table id="tabelaWnioski">
-      <thead><tr><th>Imię</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Pozostało</th><th>Status</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <script>
+    if (!localStorage.getItem("menedzerowie")) {
+      const menedzerowie = [
+        { imie: "Pisarczyk Paweł", login: "pisarczyk.pawel", haslo: "lew4319" },
+        { imie: "Wroblewski Hubert", login: "wroblewski.hubert", haslo: "domek728" },
+        { imie: "Nowikow Dariusz", login: "nowikow.dariusz", haslo: "pociag612" },
+        { imie: "Szmulik Damian", login: "szmulik.damian", haslo: "kosa9214" },
+        { imie: "Nurzynski Paweł", login: "nurzynski.pawel", haslo: "alfa8327" },
+        { imie: "Ewa Dusińska", login: "dusińska.ewa", haslo: "luna3491" }
+      ];
+      localStorage.setItem("menedzerowie", JSON.stringify(menedzerowie));
+    }
 
-<script>
-let pracownicy = JSON.parse(localStorage.getItem("pracownicy") || "[]");
-let wnioski = JSON.parse(localStorage.getItem("wnioski") || "[]");
-let menedzerowieLoginy = JSON.parse(localStorage.getItem("menedzerowieLoginy") || "[]");
+    const zalogowany = JSON.parse(localStorage.getItem("zalogowanyMenedzer"));
+    if (!zalogowany) {
+      alert("Brak dostępu. Zaloguj się jako menedżer.");
+      window.location.href = "index.html";
+    }
 
-function pokazZakladke(nazwa) {
-  document.getElementById("zakladka-pracownicy").classList.add("hidden");
-  document.getElementById("zakladka-wnioski").classList.add("hidden");
-  document.getElementById("zakladka-" + nazwa).classList.remove("hidden");
-}
+    function pokaz(id) {
+      document.querySelectorAll('.sekcja').forEach(div => div.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      if (id === 'wnioski') wyswietlWnioski();
+      if (id === 'pracownicy') wyswietlPracownikow();
+    }
 
-function pokazPrzelozonego() {
-  const rola = document.getElementById("rola").value;
-  const menedzerDiv = document.getElementById("menedzerSelect");
-  const menedzerSelect = document.getElementById("wyborMenedzera");
-  menedzerSelect.innerHTML = "";
+    function dodajPracownika() {
+      const imie = document.getElementById("imie").value;
+      const rola = document.getElementById("rola").value;
+      const podkogo = rola === "spedytor" ? document.getElementById("podkogo").value : "";
+      const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
+      pracownicy.push({ imie, rola, podkogo });
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+      document.getElementById("imie").value = "";
+      wyswietlPracownikow();
+    }
 
-  if (rola === "Spedytor") {
-    const menedzerowie = pracownicy.filter(p => p.rola === "Menedżer");
-    if (menedzerowie.length === 0) {
-      menedzerSelect.innerHTML = "<option disabled>Brak dostępnych menedżerów</option>";
-    } else {
-      menedzerowie.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.imie;
-        opt.textContent = m.imie;
-        menedzerSelect.appendChild(opt);
+    function wyswietlPracownikow() {
+      const tbody = document.querySelector("#tabelaPracownikow tbody");
+      const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
+      tbody.innerHTML = "";
+      pracownicy.forEach((p, i) => {
+        tbody.innerHTML += `<tr><td>${p.imie}</td><td>${p.rola}</td><td>${p.podkogo || '-'}</td><td><button onclick="usunPracownika(${i})">Usuń</button></td></tr>`;
+      });
+      const menedzerzy = pracownicy.filter(p => p.rola === "menedzer");
+      const select = document.getElementById("podkogo");
+      select.innerHTML = menedzerzy.map(m => `<option value="${m.imie}">${m.imie}</option>`).join('');
+    }
+
+    function usunPracownika(i) {
+      const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
+      pracownicy.splice(i, 1);
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+      wyswietlPracownikow();
+    }
+
+    document.getElementById("rola").addEventListener("change", function () {
+      document.getElementById("menedzerWybierzContainer").style.display = this.value === "spedytor" ? "block" : "none";
+    });
+
+    function wyswietlWnioski() {
+      const tbody = document.querySelector("#tabelaWnioskow tbody");
+      const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
+      const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
+
+      tbody.innerHTML = "";
+      wnioski.forEach(w => {
+        const pracownik = pracownicy.find(p => p.imie === w.nazwisko);
+        if (pracownik && (zalogowany.imie === pracownik.podkogo || zalogowany.imie === pracownik.imie)) {
+          const pozostalo = 20 - zsumujWnioski(pracownik.imie, wnioski);
+          tbody.innerHTML += `<tr><td>${w.nazwisko}</td><td>${w.dataOd}</td><td>${w.dataDo}</td><td>${w.dni}</td><td>${pozostalo}</td></tr>`;
+        }
       });
     }
-    menedzerDiv.classList.remove("hidden");
-  } else {
-    menedzerDiv.classList.add("hidden");
-  }
-}
 
-function dodajPracownika() {
-  const imie = document.getElementById("noweImie").value.trim();
-  const rola = document.getElementById("rola").value;
-  let przelozony = "";
+    function zsumujWnioski(nazwisko, lista) {
+      return lista.filter(w => w.nazwisko === nazwisko).reduce((s, w) => s + w.dni, 0);
+    }
 
-  if (!imie) return alert("Podaj imię i nazwisko");
-
-  if (rola === "Spedytor") {
-    przelozony = document.getElementById("wyborMenedzera").value || "Brak";
-  }
-
-  const nowy = {
-    imie,
-    rola,
-    przelozony,
-    urlopy: 0,
-    limit: 20
-  };
-
-  pracownicy.push(nowy);
-  localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
-
-  if (rola === "Menedżer") {
-    const login = imie.toLowerCase().replace(/\s+/g, "");
-    const haslo = "haslo123";
-    menedzerowieLoginy.push({ login, haslo, imie });
-    localStorage.setItem("menedzerowieLoginy", JSON.stringify(menedzerowieLoginy));
-    alert(`✅ Utworzono konto menedżera\nLogin: ${login}\nHasło: ${haslo}`);
-  }
-
-  document.getElementById("noweImie").value = "";
-  pokazPrzelozonego();
-  wypelnijTabelePracownikow();
-}
-
-function wypelnijTabelePracownikow() {
-  const tbody = document.querySelector("#tabelaPracownikow tbody");
-  tbody.innerHTML = "";
-
-  pracownicy.forEach((p, index) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${p.imie}</td>
-      <td>${p.rola}</td>
-      <td>${p.przelozony || "-"}</td>
-      <td>${p.limit - p.urlopy}</td>
-      <td><button onclick="usunPracownika(${index})">🗑️</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function usunPracownika(index) {
-  if (confirm("Na pewno usunąć pracownika?")) {
-    pracownicy.splice(index, 1);
-    localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
-    wypelnijTabelePracownikow();
-  }
-}
-
-function wypelnijWnioski() {
-  const tbody = document.querySelector("#tabelaWnioski tbody");
-  tbody.innerHTML = "";
-
-  wnioski.forEach(w => {
-    const prac = pracownicy.find(p => p.imie === w.imie);
-    const pozostalo = prac ? prac.limit - prac.urlopy : "??";
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${w.imie}</td>
-      <td>${w.od}</td>
-      <td>${w.do}</td>
-      <td>${w.dni}</td>
-      <td>${pozostalo}</td>
-      <td>${w.status || "Oczekuje"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-wypelnijTabelePracownikow();
-wypelnijWnioski();
-pokazZakladke("pracownicy");
-</script>
-
+    pokaz("wnioski");
+  </script>
 </body>
 </html>
