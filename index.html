@@ -1,23 +1,21 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>System Urlopowy</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Wnioski urlopowe</title>
   <style>
-    body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 30px; text-align: center; }
-    .container { max-width: 600px; background: white; padding: 30px; border-radius: 10px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-    input, select { width: 100%; padding: 10px; margin: 10px 0; }
-    button { padding: 10px 20px; }
-    .link { margin-top: 20px; display: block; }
+    body { font-family: Arial; margin: 40px; background-color: #f0f0f0; }
+    .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, select, button { width: 100%; padding: 10px; margin: 10px 0; }
+    h2 { text-align: center; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Wniosek urlopowy</h2>
     <label for="nazwisko">Imię i nazwisko:</label>
-    <input type="text" id="nazwisko" placeholder="Wpisz nazwisko..." oninput="filtrujNazwiska()">
-    <div id="podpowiedzi"></div>
+    <input type="text" id="nazwisko" list="listaPracownikow" placeholder="Wpisz swoje nazwisko">
+    <datalist id="listaPracownikow"></datalist>
 
     <label for="od">Data od:</label>
     <input type="date" id="od">
@@ -25,41 +23,56 @@
     <label for="do">Data do:</label>
     <input type="date" id="do">
 
-    <button onclick="zlozWniosek()">Złóż wniosek</button>
-    <p id="info"></p>
-    <a class="link" href="kadry.html">Przejdź do kadr</a>
+    <button onclick="zlozWniosek()">Wyślij wniosek</button>
+    <a href="kadry_login.html"><button>Przejdź do kadr</button></a>
   </div>
 
   <script>
-    let pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
-
-    function filtrujNazwiska() {
-      const input = document.getElementById("nazwisko").value.toLowerCase();
-      const podpowiedzi = pracownicy.filter(p => p.imie.toLowerCase().includes(input));
-      document.getElementById("podpowiedzi").innerHTML = podpowiedzi.map(p => `<div onclick="uzupelnij('${p.imie}')">${p.imie}</div>`).join('');
+    // Inicjalizacja przykładowych pracowników, jeśli ich nie ma
+    if (!localStorage.getItem("pracownicy")) {
+      const pracownicy = [
+        { imie: "Jan Kowalski", typ: "spedytor", menedzer: "Pisarczyk Paweł", urlopy: [], dniUrlopu: 20 },
+        { imie: "Anna Nowak", typ: "spedytor", menedzer: "Pisarczyk Paweł", urlopy: [], dniUrlopu: 20 },
+        { imie: "Karol Zieliński", typ: "spedytor", menedzer: "Wróblewski Hubert", urlopy: [], dniUrlopu: 20 }
+      ];
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
     }
 
-    function uzupelnij(imie) {
-      document.getElementById("nazwisko").value = imie;
-      document.getElementById("podpowiedzi").innerHTML = "";
-    }
+    const lista = JSON.parse(localStorage.getItem("pracownicy")) || [];
+    const datalist = document.getElementById("listaPracownikow");
+    lista.forEach(p => {
+      const option = document.createElement("option");
+      option.value = p.imie;
+      datalist.appendChild(option);
+    });
 
     function zlozWniosek() {
-      const nazwisko = document.getElementById("nazwisko").value;
+      const nazwisko = document.getElementById("nazwisko").value.trim();
       const dataOd = document.getElementById("od").value;
       const dataDo = document.getElementById("do").value;
 
       if (!nazwisko || !dataOd || !dataDo) {
-        document.getElementById("info").innerText = "Wypełnij wszystkie pola.";
+        alert("Uzupełnij wszystkie pola.");
         return;
       }
 
-      const dniUrlopu = Math.ceil((new Date(dataDo) - new Date(dataOd)) / (1000 * 60 * 60 * 24)) + 1;
-      const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
-      wnioski.push({ nazwisko, dataOd, dataDo, dni: dniUrlopu });
-      localStorage.setItem("wnioski", JSON.stringify(wnioski));
+      const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
+      const osoba = pracownicy.find(p => p.imie === nazwisko);
 
-      document.getElementById("info").innerText = "✅ Wniosek zapisany.";
+      if (!osoba) {
+        alert("Taki pracownik nie istnieje.");
+        return;
+      }
+
+      const dniWolne = Math.ceil((new Date(dataDo) - new Date(dataOd)) / (1000 * 60 * 60 * 24)) + 1;
+      if (dniWolne > osoba.dniUrlopu) {
+        alert("Nie masz tylu dni urlopowych.");
+        return;
+      }
+
+      osoba.urlopy.push({ od: dataOd, do: dataDo, status: "oczekuje" });
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+      alert("Wniosek złożony pomyślnie!");
       document.getElementById("nazwisko").value = "";
       document.getElementById("od").value = "";
       document.getElementById("do").value = "";
