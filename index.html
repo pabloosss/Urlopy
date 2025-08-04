@@ -2,87 +2,68 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Wniosek urlopowy</title>
+  <title>System Urlopowy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 20px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-    }
-    input, button {
-      padding: 10px;
-      margin: 10px 0;
-      width: 100%;
-      font-size: 16px;
-    }
-    #message {
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    .link-kadry {
-      text-align: center;
-      margin-top: 30px;
-    }
+    body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 30px; text-align: center; }
+    .container { max-width: 600px; background: white; padding: 30px; border-radius: 10px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+    input, select { width: 100%; padding: 10px; margin: 10px 0; }
+    button { padding: 10px 20px; }
+    .link { margin-top: 20px; display: block; }
   </style>
 </head>
 <body>
-  <h2>📝 Wniosek urlopowy</h2>
-  <form id="vacationForm">
-    <label for="name">Imię i nazwisko</label>
-    <input type="text" id="name" list="listaPracownikow" required>
-    <datalist id="listaPracownikow"></datalist>
+  <div class="container">
+    <h2>Wniosek urlopowy</h2>
+    <label for="nazwisko">Imię i nazwisko:</label>
+    <input type="text" id="nazwisko" placeholder="Wpisz nazwisko..." oninput="filtrujNazwiska()">
+    <div id="podpowiedzi"></div>
 
-    <label for="start">Data rozpoczęcia</label>
-    <input type="date" id="start" required>
+    <label for="od">Data od:</label>
+    <input type="date" id="od">
 
-    <label for="end">Data zakończenia</label>
-    <input type="date" id="end" required>
+    <label for="do">Data do:</label>
+    <input type="date" id="do">
 
-    <button type="submit">Złóż wniosek</button>
-    <div id="message"></div>
-  </form>
-
-  <div class="link-kadry">
-    <a href="login.html">🔐 Przejdź do kadr</a>
+    <button onclick="zlozWniosek()">Złóż wniosek</button>
+    <p id="info"></p>
+    <a class="link" href="kadry.html">Przejdź do kadr</a>
   </div>
 
   <script>
-    const form = document.getElementById('vacationForm');
-    const message = document.getElementById('message');
-    const selectName = document.getElementById('name');
-    const datalist = document.getElementById('listaPracownikow');
+    let pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
 
-    function zaladujNazwiska() {
-      const pracownicy = JSON.parse(localStorage.getItem("pracownicy") || "[]");
-      datalist.innerHTML = "";
-      pracownicy.forEach(p => {
-        const option = document.createElement("option");
-        option.value = p.imie;
-        datalist.appendChild(option);
-      });
+    function filtrujNazwiska() {
+      const input = document.getElementById("nazwisko").value.toLowerCase();
+      const podpowiedzi = pracownicy.filter(p => p.imie.toLowerCase().includes(input));
+      document.getElementById("podpowiedzi").innerHTML = podpowiedzi.map(p => `<div onclick="uzupelnij('${p.imie}')">${p.imie}</div>`).join('');
     }
 
-    zaladujNazwiska();
+    function uzupelnij(imie) {
+      document.getElementById("nazwisko").value = imie;
+      document.getElementById("podpowiedzi").innerHTML = "";
+    }
 
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const imie = selectName.value.trim();
-      const start = document.getElementById('start').value;
-      const end = document.getElementById('end').value;
-      const dozwolone = Array.from(datalist.options).map(o => o.value);
+    function zlozWniosek() {
+      const nazwisko = document.getElementById("nazwisko").value;
+      const dataOd = document.getElementById("od").value;
+      const dataDo = document.getElementById("do").value;
 
-      if (!dozwolone.includes(imie)) {
-        message.textContent = "❌ Taka osoba nie istnieje w bazie pracowników.";
+      if (!nazwisko || !dataOd || !dataDo) {
+        document.getElementById("info").innerText = "Wypełnij wszystkie pola.";
         return;
       }
 
-      // Tutaj można dopisać kod do zapisu wniosku, np. do localStorage lub do bazy
-      message.textContent = "✅ Wniosek został zapisany lokalnie (na razie demo).";
-      form.reset();
-    });
+      const dniUrlopu = Math.ceil((new Date(dataDo) - new Date(dataOd)) / (1000 * 60 * 60 * 24)) + 1;
+      const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
+      wnioski.push({ nazwisko, dataOd, dataDo, dni: dniUrlopu });
+      localStorage.setItem("wnioski", JSON.stringify(wnioski));
+
+      document.getElementById("info").innerText = "✅ Wniosek zapisany.";
+      document.getElementById("nazwisko").value = "";
+      document.getElementById("od").value = "";
+      document.getElementById("do").value = "";
+    }
   </script>
 </body>
 </html>
