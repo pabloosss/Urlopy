@@ -2,13 +2,42 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Kadry – panel</title>
+  <title>Panel kadrowy</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 30px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      font-size: 16px;
+    }
+    .pracownik {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ddd;
+      padding: 5px 0;
+    }
+  </style>
 </head>
 <body>
   <h2>Panel kadrowy</h2>
+
   <div id="panelKadrowy" style="display: none;">
-    <!-- tu będzie lista pracowników, dodawanie, usuwanie itd -->
-    <p>Witaj w kadrach!</p>
+    <h3>➕ Dodaj pracownika</h3>
+    <input type="text" id="noweImie" placeholder="Imię i nazwisko">
+    <input type="number" id="urlopy" placeholder="Liczba dni urlopu">
+    <button onclick="dodajPracownika()">Dodaj</button>
+
+    <h3>📋 Lista pracowników</h3>
+    <div id="listaPracownikow"></div>
   </div>
 
   <script src="main.js"></script>
