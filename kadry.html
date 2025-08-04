@@ -2,19 +2,25 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Kadry – Zarządzanie</title>
+  <title>Panel Kadrowy</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      max-width: 800px;
+      max-width: 900px;
       margin: auto;
-    }
-    h2 {
-      margin-top: 30px;
     }
     .hidden {
       display: none;
+    }
+    .tab-btns {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .tab-btns button {
+      flex: 1;
+      padding: 10px;
     }
     table {
       width: 100%;
@@ -26,18 +32,17 @@
       padding: 6px;
       text-align: left;
     }
-    input, button {
+    input, select, button {
       padding: 8px;
-      margin-top: 10px;
+      margin-top: 5px;
       margin-bottom: 5px;
       width: 100%;
     }
-    .tab-btns {
+    .row {
       display: flex;
       gap: 10px;
-      margin-bottom: 20px;
     }
-    .tab-btns button {
+    .row > div {
       flex: 1;
     }
   </style>
@@ -50,14 +55,27 @@
     <button onclick="pokazZakladke('wnioski')">📄 Wnioski urlopowe</button>
   </div>
 
-  <!-- Zakładka: Pracownicy -->
+  <!-- Zakładka: Lista pracowników -->
   <div id="zakladka-pracownicy">
-    <h2>Lista pracowników</h2>
-    <input type="text" id="noweImie" placeholder="Imię i nazwisko">
+    <h2>Dodaj pracownika</h2>
+    <div class="row">
+      <div><input type="text" id="noweImie" placeholder="Imię i nazwisko"></div>
+      <div>
+        <select id="rola">
+          <option value="Spedytor">Spedytor</option>
+          <option value="Menedżer">Menedżer</option>
+        </select>
+      </div>
+      <div id="przypiszMen" class="hidden">
+        <select id="doMenadzera"></select>
+      </div>
+    </div>
     <button onclick="dodajPracownika()">➕ Dodaj pracownika</button>
+
+    <h2>Lista pracowników</h2>
     <table id="tabelaPracownikow">
       <thead>
-        <tr><th>Imię i nazwisko</th><th>Pozostało dni urlopu</th><th>Usuń</th></tr>
+        <tr><th>Imię i nazwisko</th><th>Rola</th><th>Przełożony</th><th>Pozostało dni</th><th>Usuń</th></tr>
       </thead>
       <tbody></tbody>
     </table>
@@ -68,112 +86,8 @@
     <h2>Wnioski urlopowe</h2>
     <table id="tabelaWnioski">
       <thead>
-        <tr><th>Imię i nazwisko</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Pozostało</th></tr>
+        <tr><th>Imię i nazwisko</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Pozostało</th><th>Status</th></tr>
       </thead>
       <tbody></tbody>
     </table>
   </div>
-
-  <script>
-    const DOM = {
-      zakPracownicy: document.getElementById("zakladka-pracownicy"),
-      zakWnioski: document.getElementById("zakladka-wnioski"),
-      tabelaPrac: document.querySelector("#tabelaPracownikow tbody"),
-      tabelaWnioski: document.querySelector("#tabelaWnioski tbody")
-    };
-
-    const BAZA_URL = 20;
-
-    function pokazZakladke(nazwa) {
-      DOM.zakPracownicy.classList.add("hidden");
-      DOM.zakWnioski.classList.add("hidden");
-      if (nazwa === "pracownicy") DOM.zakPracownicy.classList.remove("hidden");
-      else DOM.zakWnioski.classList.remove("hidden");
-      odswiez();
-    }
-
-    function pobierzPracownikow() {
-      return JSON.parse(localStorage.getItem("pracownicy") || "[]");
-    }
-
-    function zapiszPracownikow(lista) {
-      localStorage.setItem("pracownicy", JSON.stringify(lista));
-    }
-
-    function dodajPracownika() {
-      const imie = document.getElementById("noweImie").value.trim();
-      if (!imie) return;
-      const lista = pobierzPracownikow();
-      if (lista.some(p => p.imie === imie)) return alert("Taki pracownik już istnieje.");
-      lista.push({ imie: imie, urlop: BAZA_URL });
-      zapiszPracownikow(lista);
-      document.getElementById("noweImie").value = "";
-      odswiez();
-    }
-
-    function usunPracownika(imie) {
-      if (!confirm(`Na pewno usunąć ${imie}?`)) return;
-      let lista = pobierzPracownikow();
-      lista = lista.filter(p => p.imie !== imie);
-      zapiszPracownikow(lista);
-      odswiez();
-    }
-
-    function pobierzWnioski() {
-      return JSON.parse(localStorage.getItem("wnioski") || "[]");
-    }
-
-    function liczDniOdDo(start, end) {
-      const d1 = new Date(start);
-      const d2 = new Date(end);
-      const diff = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
-      return diff > 0 ? diff : 0;
-    }
-
-    function odswiez() {
-      // Pracownicy
-      const pracownicy = pobierzPracownikow();
-      const wnioski = pobierzWnioski();
-
-      DOM.tabelaPrac.innerHTML = "";
-      pracownicy.forEach(p => {
-        const zajete = wnioski
-          .filter(w => w.imie === p.imie)
-          .reduce((sum, w) => sum + liczDniOdDo(w.start, w.end), 0);
-        const pozostalo = BAZA_URL - zajete;
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${p.imie}</td>
-          <td>${pozostalo} dni</td>
-          <td><button onclick="usunPracownika('${p.imie}')">🗑️</button></td>
-        `;
-        DOM.tabelaPrac.appendChild(tr);
-      });
-
-      // Wnioski
-      DOM.tabelaWnioski.innerHTML = "";
-      wnioski.forEach(w => {
-        const dni = liczDniOdDo(w.start, w.end);
-        const prac = pracownicy.find(p => p.imie === w.imie);
-        const pozostalo = prac ? BAZA_URL - wnioski
-          .filter(x => x.imie === w.imie)
-          .reduce((sum, x) => sum + liczDniOdDo(x.start, x.end), 0) : "-";
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${w.imie}</td>
-          <td>${w.start}</td>
-          <td>${w.end}</td>
-          <td>${dni}</td>
-          <td>${pozostalo}</td>
-        `;
-        DOM.tabelaWnioski.appendChild(tr);
-      });
-    }
-
-    // Inicjalizacja
-    pokazZakladke("pracownicy");
-  </script>
-</body>
-</html>
