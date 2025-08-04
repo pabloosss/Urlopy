@@ -1,34 +1,15 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Wniosek urlopowy</title>
   <style>
-    body {
-      font-family: Arial;
-      background-color: #f4f4f4;
-      padding: 40px;
-    }
-    .container {
-      max-width: 600px;
-      background: white;
-      margin: auto;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    input, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      margin-bottom: 20px;
-    }
-    h2 {
-      text-align: center;
-    }
-    button {
-      cursor: pointer;
-    }
+    body { font-family: Arial; background-color: #f4f4f4; padding: 40px; }
+    .container { max-width: 600px; background: white; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input, select, button { width: 100%; padding: 10px; margin-top: 10px; margin-bottom: 20px; }
+    h2 { text-align: center; }
+    button { cursor: pointer; }
   </style>
 </head>
 <body>
@@ -50,17 +31,17 @@
   </div>
 
   <script>
-    // Inicjalizacja przykładowych danych, jeśli brak
+    // Inicjalizacja danych (tylko spedytorzy, menedżerowie są na stałe)
     if (!localStorage.getItem("pracownicy")) {
       const pracownicy = [
-        { imie: "Jan Kowalski", typ: "spedytor", menedzer: "Pisarczyk Paweł", urlopy: [], dniUrlopu: 20 },
-        { imie: "Anna Nowak", typ: "spedytor", menedzer: "Wróblewski Hubert", urlopy: [], dniUrlopu: 20 },
-        { imie: "Karol Zieliński", typ: "spedytor", menedzer: "Nowikow Dariusz", urlopy: [], dniUrlopu: 20 }
+        { imie: "Jan Kowalski", menedzer: "Pisarczyk Paweł", urlopy: [], dniUrlopu: 20 },
+        { imie: "Anna Nowak", menedzer: "Wróblewski Hubert", urlopy: [], dniUrlopu: 20 },
+        { imie: "Karol Zieliński", menedzer: "Nowikow Dariusz", urlopy: [], dniUrlopu: 20 }
       ];
       localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
     }
 
-    // Wypełnianie datalisty nazwisk
+    // Wypełnianie datalisty
     const lista = JSON.parse(localStorage.getItem("pracownicy")) || [];
     const datalist = document.getElementById("listaPracownikow");
     lista.forEach(p => {
@@ -98,8 +79,7 @@
 
       localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
       alert("Wniosek urlopowy złożony!");
-      
-      // Resetowanie formularza
+
       document.getElementById("nazwisko").value = "";
       document.getElementById("od").value = "";
       document.getElementById("do").value = "";
