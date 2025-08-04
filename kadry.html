@@ -1,93 +1,177 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Panel Kadrowy</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 900px;
-      margin: auto;
-    }
-    .hidden {
-      display: none;
-    }
-    .tab-btns {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .tab-btns button {
-      flex: 1;
-      padding: 10px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: left;
-    }
-    input, select, button {
-      padding: 8px;
-      margin-top: 5px;
-      margin-bottom: 5px;
-      width: 100%;
-    }
-    .row {
-      display: flex;
-      gap: 10px;
-    }
-    .row > div {
-      flex: 1;
-    }
+    body { font-family: Arial; margin: 20px; }
+    .hidden { display: none; }
+    .tabs button { margin-right: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 6px; }
+    input, select, button { margin: 5px 0; padding: 6px; }
+    .row { display: flex; gap: 10px; }
+    .row > div { flex: 1; }
   </style>
 </head>
 <body>
+
   <h1>Panel Kadrowy</h1>
 
-  <div class="tab-btns">
+  <div class="tabs">
     <button onclick="pokazZakladke('pracownicy')">📋 Lista pracowników</button>
     <button onclick="pokazZakladke('wnioski')">📄 Wnioski urlopowe</button>
   </div>
 
-  <!-- Zakładka: Lista pracowników -->
+  <!-- Zakładka pracownicy -->
   <div id="zakladka-pracownicy">
     <h2>Dodaj pracownika</h2>
     <div class="row">
-      <div><input type="text" id="noweImie" placeholder="Imię i nazwisko"></div>
+      <div><input type="text" id="noweImie" placeholder="Imię i nazwisko" /></div>
       <div>
-        <select id="rola">
+        <select id="rola" onchange="pokazPrzelozonego()">
           <option value="Spedytor">Spedytor</option>
           <option value="Menedżer">Menedżer</option>
         </select>
       </div>
-      <div id="przypiszMen" class="hidden">
-        <select id="doMenadzera"></select>
+      <div id="menedzerSelect" class="hidden">
+        <select id="wyborMenedzera"></select>
       </div>
     </div>
     <button onclick="dodajPracownika()">➕ Dodaj pracownika</button>
 
-    <h2>Lista pracowników</h2>
+    <h3>Lista pracowników</h3>
     <table id="tabelaPracownikow">
-      <thead>
-        <tr><th>Imię i nazwisko</th><th>Rola</th><th>Przełożony</th><th>Pozostało dni</th><th>Usuń</th></tr>
-      </thead>
+      <thead><tr><th>Imię</th><th>Rola</th><th>Przełożony</th><th>Pozostało dni</th><th>Usuń</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
 
-  <!-- Zakładka: Wnioski -->
+  <!-- Zakładka wnioski -->
   <div id="zakladka-wnioski" class="hidden">
     <h2>Wnioski urlopowe</h2>
     <table id="tabelaWnioski">
-      <thead>
-        <tr><th>Imię i nazwisko</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Pozostało</th><th>Status</th></tr>
-      </thead>
+      <thead><tr><th>Imię</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Pozostało</th><th>Status</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
+
+<script>
+let pracownicy = JSON.parse(localStorage.getItem("pracownicy") || "[]");
+let wnioski = JSON.parse(localStorage.getItem("wnioski") || "[]");
+
+function pokazZakladke(nazwa) {
+  document.getElementById("zakladka-pracownicy").classList.add("hidden");
+  document.getElementById("zakladka-wnioski").classList.add("hidden");
+  document.getElementById("zakladka-" + nazwa).classList.remove("hidden");
+}
+
+function pokazPrzelozonego() {
+  const rola = document.getElementById("rola").value;
+  const menedzerDiv = document.getElementById("menedzerSelect");
+  const menedzerSelect = document.getElementById("wyborMenedzera");
+  menedzerSelect.innerHTML = "";
+
+  if (rola === "Spedytor") {
+    const menedzerowie = pracownicy.filter(p => p.rola === "Menedżer");
+    if (menedzerowie.length === 0) {
+      menedzerSelect.innerHTML = "<option disabled>Brak dostępnych menedżerów</option>";
+    } else {
+      menedzerowie.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.imie;
+        opt.textContent = m.imie;
+        menedzerSelect.appendChild(opt);
+      });
+    }
+    menedzerDiv.classList.remove("hidden");
+  } else {
+    menedzerDiv.classList.add("hidden");
+  }
+}
+
+function dodajPracownika() {
+  const imie = document.getElementById("noweImie").value.trim();
+  const rola = document.getElementById("rola").value;
+  let przelozony = "";
+
+  if (!imie) return alert("Podaj imię i nazwisko");
+
+  if (rola === "Spedytor") {
+    przelozony = document.getElementById("wyborMenedzera").value || "Brak";
+  }
+
+  const nowy = {
+    imie,
+    rola,
+    przelozony,
+    urlopy: 0,
+    limit: 20
+  };
+
+  pracownicy.push(nowy);
+  localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+
+  if (rola === "Menedżer") {
+    const login = imie.toLowerCase().replace(/\s+/g, "");
+    const haslo = "haslo123";
+    alert(`✅ Utworzono konto menedżera\nLogin: ${login}\nHasło: ${haslo}`);
+  }
+
+  document.getElementById("noweImie").value = "";
+  pokazPrzelozonego();
+  wypelnijTabelePracownikow();
+}
+
+function wypelnijTabelePracownikow() {
+  const tbody = document.querySelector("#tabelaPracownikow tbody");
+  tbody.innerHTML = "";
+
+  pracownicy.forEach((p, index) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${p.imie}</td>
+      <td>${p.rola}</td>
+      <td>${p.przelozony || "-"}</td>
+      <td>${p.limit - p.urlopy}</td>
+      <td><button onclick="usunPracownika(${index})">🗑️</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function usunPracownika(index) {
+  if (confirm("Na pewno usunąć pracownika?")) {
+    pracownicy.splice(index, 1);
+    localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+    wypelnijTabelePracownikow();
+  }
+}
+
+function wypelnijWnioski() {
+  const tbody = document.querySelector("#tabelaWnioski tbody");
+  tbody.innerHTML = "";
+
+  wnioski.forEach(w => {
+    const prac = pracownicy.find(p => p.imie === w.imie);
+    const pozostalo = prac ? prac.limit - prac.urlopy : "??";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${w.imie}</td>
+      <td>${w.od}</td>
+      <td>${w.do}</td>
+      <td>${w.dni}</td>
+      <td>${pozostalo}</td>
+      <td>${w.status || "Oczekuje"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+wypelnijTabelePracownikow();
+wypelnijWnioski();
+pokazZakladke("pracownicy");
+</script>
+
+</body>
+</html>
