@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wniosek urlopowy</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    input, textarea, select, button {
+      width: 100%;
+      padding: 8px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Wniosek urlopowy</h2>
+  <form id="vacationForm">
+    <label for="name">Imię i nazwisko</label>
+    <input list="names" id="name" name="name" required />
+    <datalist id="names">
+      <option value="Paweł Ruchlicki" />
+      <option value="Karolina Krupiewska" />
+      <option value="Jan Kowalski" />
+      <option value="Anna Nowak" />
+    </datalist>
+
+    <label for="start">Data rozpoczęcia</label>
+    <input type="date" id="start" name="start" required />
+
+    <label for="end">Data zakończenia</label>
+    <input type="date" id="end" name="end" required />
+
+    <label for="reason">Powód (opcjonalnie)</label>
+    <textarea id="reason" name="reason" rows="3"></textarea>
+
+    <button type="submit">Wyślij wniosek</button>
+  </form>
+
+  <p id="message"></p>
+
+  <script>
+    const form = document.getElementById('vacationForm');
+    const message = document.getElementById('message');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = {
+        name: form.name.value,
+        start: form.start.value,
+        end: form.end.value,
+        reason: form.reason.value,
+      };
+
+      try {
+        const res = await fetch('https://twoj-backend-url.com/api/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+
+        if (res.ok) {
+          message.textContent = '✅ Wniosek został wysłany.';
+          form.reset();
+        } else {
+          message.textContent = '❌ Wystąpił błąd przy wysyłaniu.';
+        }
+      } catch (err) {
+        message.textContent = '❌ Błąd połączenia z serwerem.';
+      }
+    });
+  </script>
+</body>
+</html>
