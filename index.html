@@ -1,38 +1,39 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Wniosek urlopowy</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 500px;
+      max-width: 600px;
       margin: 40px auto;
       padding: 20px;
       border: 1px solid #ccc;
       border-radius: 10px;
     }
-    input, textarea, button {
-      width: 100%;
+    input, button {
       padding: 10px;
       margin: 10px 0;
+      width: 100%;
       font-size: 16px;
     }
-    button.kadry {
-      background-color: #444;
-      color: white;
-      margin-top: 20px;
+    #message {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    .link-kadry {
+      text-align: center;
+      margin-top: 30px;
     }
   </style>
 </head>
 <body>
-
-  <h2>Wniosek urlopowy</h2>
-
+  <h2>📝 Wniosek urlopowy</h2>
   <form id="vacationForm">
     <label for="name">Imię i nazwisko</label>
-    <input type="text" id="name" required>
+    <input type="text" id="name" list="listaPracownikow" required>
+    <datalist id="listaPracownikow"></datalist>
 
     <label for="start">Data rozpoczęcia</label>
     <input type="date" id="start" required>
@@ -40,22 +41,45 @@
     <label for="end">Data zakończenia</label>
     <input type="date" id="end" required>
 
-    <label for="reason">Powód (opcjonalnie)</label>
-    <textarea id="reason" rows="3"></textarea>
-
-    <button type="submit">Wyślij wniosek</button>
+    <button type="submit">Złóż wniosek</button>
+    <div id="message"></div>
   </form>
 
-  <p id="message"></p>
-
-  <button class="kadry" onclick="window.location.href='login.html'">Przejdź do kadr</button>
+  <div class="link-kadry">
+    <a href="login.html">🔐 Przejdź do kadr</a>
+  </div>
 
   <script>
     const form = document.getElementById('vacationForm');
     const message = document.getElementById('message');
+    const selectName = document.getElementById('name');
+    const datalist = document.getElementById('listaPracownikow');
+
+    function zaladujNazwiska() {
+      const pracownicy = JSON.parse(localStorage.getItem("pracownicy") || "[]");
+      datalist.innerHTML = "";
+      pracownicy.forEach(p => {
+        const option = document.createElement("option");
+        option.value = p.imie;
+        datalist.appendChild(option);
+      });
+    }
+
+    zaladujNazwiska();
 
     form.addEventListener('submit', function(e) {
       e.preventDefault();
+      const imie = selectName.value.trim();
+      const start = document.getElementById('start').value;
+      const end = document.getElementById('end').value;
+      const dozwolone = Array.from(datalist.options).map(o => o.value);
+
+      if (!dozwolone.includes(imie)) {
+        message.textContent = "❌ Taka osoba nie istnieje w bazie pracowników.";
+        return;
+      }
+
+      // Tutaj można dopisać kod do zapisu wniosku, np. do localStorage lub do bazy
       message.textContent = "✅ Wniosek został zapisany lokalnie (na razie demo).";
       form.reset();
     });
