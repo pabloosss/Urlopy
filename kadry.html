@@ -15,65 +15,165 @@
       <div class="col-12"><button class="btn btn-primary">Zaloguj</button></div>
     </form>
   </div>
+
   <div class="container py-4 d-none" id="panelBox">
     <h1>Panel kadrowy</h1>
     <ul class="nav nav-tabs" id="tabBar">
-      <li class="nav-item"><button class="nav-link active" data-bs-target="#tabPrac">Pracownicy</button></li>
-      <li class="nav-item"><button class="nav-link" data-bs-target="#tabWnios">Wnioski</button></li>
+      <li class="nav-item" id="tabPracNav"><button class="nav-link active" data-bs-target="#tabPrac">Pracownicy</button></li>
+      <li class="nav-item" id="tabWniosNav"><button class="nav-link" data-bs-target="#tabWnios">Wnioski</button></li>
     </ul>
+
     <div class="tab-content p-3 bg-white border border-top-0">
       <div class="tab-pane show active" id="tabPrac">
-        <h3>Pracownicy</h3>
-        <form id="addEmpForm" class="row g-3 mb-3">
-          <div class="col-md-4"><input id="empName" class="form-control" placeholder="Imię i nazwisko" required></div>
-          <div class="col-md-3"><input id="empLimit" type="number" class="form-control" value="20" min="1" required></div>
-          <div class="col-auto"><button class="btn btn-success">Dodaj</button></div>
+        <h3>Lista pracowników</h3>
+        <form id="addEmpForm" class="row gy-2 gx-3 align-items-end mt-2 mb-3">
+          <div class="col-sm-3">
+            <label class="form-label">Imię i nazwisko</label>
+            <input class="form-control" id="empName" required>
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label">Limit urlopu</label>
+            <input type="number" class="form-control" id="empLimit" min="1" value="20" required>
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label">Menedżer</label>
+            <select id="empManager" class="form-select" required></select>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-success">Dodaj</button>
+          </div>
         </form>
         <table class="table" id="empTable">
-          <thead><tr><th>Pracownik</th><th>Dni urlopu</th><th>Usuń</th></tr></thead>
+          <thead><tr><th>Pracownik</th><th>Dni urlopu</th><th>Menedżer</th><th>Usuń</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
       <div class="tab-pane" id="tabWnios">
-        <h3>Wnioski</h3>
+        <h3>Wnioski urlopowe</h3>
         <table class="table" id="reqTable">
-          <thead><tr><th>Imię</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th></tr></thead>
+          <thead><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
     </div>
   </div>
+
   <script src="script.js"></script>
   <script>
-    loginForm.addEventListener('submit',e=>{
+    loginForm.addEventListener('submit', async e => {
       e.preventDefault();
-      if(loginUser.value==='admin' && loginPass.value==='admin3@1'){
-        loginBox.classList.add('d-none');
-        panelBox.classList.remove('d-none');
-        loadEmployees(); loadRequests();
-      } else alert('Błędny login/hasło');
-    });
-    tabBar.addEventListener('click',e=>{
-      if(e.target.classList.contains('nav-link')){
-        tabBar.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
-        e.target.classList.add('active');
-        document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('show'));
-        document.querySelector(e.target.dataset.bsTarget).classList.add('show');
+      const user = loginUser.value.trim();
+      const pass = loginPass.value.trim();
+      let isAdmin = false;
+      let isMgr   = false;
+      let mgrName = null;
+
+      if (user === 'admin' && pass === 'admin3@1') {
+        isAdmin = true;
+      } else {
+        const m = MANAGERS.find(m=>m.login===user && m.password===pass);
+        if (m) { isMgr = true; mgrName = m.login; }
+      }
+      if (!isAdmin && !isMgr) { alert('Błędny login/hasło'); return; }
+
+      loginBox.classList.add('d-none');
+      panelBox.classList.remove('d-none');
+
+      if (isAdmin) {
+        // admin: full access
+        await loadDB();
+        populateManagerSelect();
+        loadEmployees();
+        renderBalances();
+        loadRequests();
+      } else {
+        // manager: only requests for own team
+        tabPracNav.style.display = 'none';
+        await loadDB();
+        renderBalances();
+        loadRequests(mgrName);
       }
     });
-    addEmpForm.addEventListener('submit',async e=>{
-      e.preventDefault();
-      const imie = empName.value.trim();
-      const dni  = Number(empLimit.value);
-      if(!imie){alert('Wpisz imię!');return;}
-      await fetch('/api/addEmployee',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({imie,dni_urlopowe:dni})
-      });
-      empName.value=''; empLimit.value=20;
-      await loadDB(); loadEmployees(); renderBalances();
+
+    tabBar.addEventListener('click', e => {
+      if (e.target.classList.contains('nav-link')) {
+        tabBar.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+        e.target.classList.add('active');
+        document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('show','active'));
+        document.querySelector(e.target.dataset.bsTarget).classList.add('show','active');
+      }
     });
+
+    addEmpForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const imie    = empName.value.trim();
+      const dni     = Number(empLimit.value);
+      const manager = empManager.value;
+      if (!imie) { alert('Imię jest wymagane'); return; }
+      await fetch('/api/addEmployee', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ imie, dni_urlopowe: dni, manager })
+      });
+      empName.value = '';
+      empLimit.value = 20;
+      await loadDB();
+      loadEmployees();
+      renderBalances();
+    });
+
+    function loadEmployees() {
+      empTable.tBodies[0].innerHTML = '';
+      DB.pracownicy.forEach((p,i) => {
+        empTable.tBodies[0].insertAdjacentHTML('beforeend',
+          `<tr>
+             <td>${p.imie}</td>
+             <td>${p.dni_urlopowe}</td>
+             <td>${p.manager}</td>
+             <td><button class="btn btn-sm btn-danger" onclick="deleteEmp(${i})">Usuń</button></td>
+           </tr>`);
+      });
+    }
+    async function deleteEmp(i) {
+      alert('Usuwanie pracownika wymaga ręcznej operacji w repozytorium.');
+    }
+
+    function loadRequests(mgrLogin) {
+      const tbody = reqTable.tBodies[0];
+      tbody.innerHTML = '';
+      const reqs = DB.wnioski.filter(w => {
+        if (!mgrLogin) return true;
+        const emp = DB.pracownicy.find(p=>p.imie===w.imie);
+        return emp && emp.manager===mgrLogin;
+      });
+      reqs.forEach((w,i) => {
+        const actions = (w.status==='oczekuje' && tabPracNav.style.display!=='none') ?
+          `<button class="btn btn-sm btn-success me-1" onclick="decide(${i},true)">OK</button>
+           <button class="btn btn-sm btn-warning" onclick="decide(${i},false)">NO</button>`
+        : '';
+        tbody.insertAdjacentHTML('beforeend',
+          `<tr>
+             <td>${w.imie}</td>
+             <td>${w.od}</td>
+             <td>${w.do}</td>
+             <td>${w.ile}</td>
+             <td>${w.status}</td>
+             <td>${actions}</td>
+           </tr>`);
+      });
+    }
+    async function decide(idx, ok) {
+      const w = DB.wnioski[idx];
+      if (ok) {
+        const prac = DB.pracownicy.find(p=>p.imie===w.imie);
+        prac.dni_urlopowe -= w.ile;
+      }
+      w.status = ok ? 'zaakceptowany' : 'odrzucony';
+      await fetch('/api/addRequest', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(w)
+      });
+      await loadDB(); loadRequests(); renderBalances();
+    }
   </script>
 </body>
 </html>
