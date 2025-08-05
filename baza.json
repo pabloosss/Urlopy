@@ -1,1 +1,38 @@
 
+{
+  "pracownicy": [
+    {
+      "id": 1,
+      "imie_nazwisko": "Nowak Jan",
+      "dni_urlopowe": 20,
+      "menedzer": "ppisarczyk"
+    },
+    {
+      "id": 2,
+      "imie_nazwisko": "Kowalska Anna",
+      "dni_urlopowe": 18,
+      "menedzer": "hwroblewski"
+    }
+  ],
+  "wnioski": [
+    {
+      "id": 1,
+      "pracownik": "Nowak Jan",
+      "od": "2025-08-10",
+      "do": "2025-08-15",
+      "liczba_dni": 5,
+      "status": "oczekuje",
+      "zatwierdzony_przez": null
+    }
+  ],
+  "menedzerowie": [
+    {
+      "login": "ppisarczyk",
+      "haslo": "haslo111"
+    },
+    {
+      "login": "hwroblewski",
+      "haslo": "haslo112"
+    }
+  ]
+}
