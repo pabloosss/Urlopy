@@ -1,42 +1,45 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Logowanie do kadr</title>
   <style>
-    body { font-family: Arial; max-width: 400px; margin: auto; padding: 20px; }
-    input, button { width: 100%; padding: 10px; margin: 10px 0; }
+    body { font-family: Arial, sans-serif; margin: 50px; background: #f0f0f0; }
+    h2 { color: #333; }
+    input, button { display: block; margin: 10px 0; padding: 8px; width: 300px; }
   </style>
 </head>
 <body>
-  <h2>Logowanie</h2>
-  <input id="login" placeholder="Login">
-  <input id="haslo" type="password" placeholder="Hasło">
-  <button onclick="zaloguj()">Zaloguj</button>
+  <h2>Logowanie do panelu kadr</h2>
+  <form id="loginForm">
+    <input type="text" id="login" placeholder="Login" required />
+    <input type="password" id="haslo" placeholder="Hasło" required />
+    <button type="submit">Zaloguj się</button>
+  </form>
 
   <script>
-    const menedzerowie = [
-      { login: 'pisarczyk', haslo: 'hasloPawel', imie: 'Pisarczyk Paweł' },
-      { login: 'wroblewski', haslo: 'hasloHubert', imie: 'Wróblewski Hubert' },
-      { login: 'nowikow', haslo: 'hasloDariusz', imie: 'Nowikow Dariusz' },
-      { login: 'szmulik', haslo: 'hasloDamian', imie: 'Szmulik Damian' },
-      { login: 'nurzynski', haslo: 'hasloNurzynski', imie: 'Nurzyński Paweł' },
-      { login: 'dusińska', haslo: 'hasloEwa', imie: 'Ewa Dusińska' },
-      { login: 'admin', haslo: 'admin3@1', imie: 'ADMIN' }
-    ];
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const login = document.getElementById("login").value;
+      const haslo = document.getElementById("haslo").value;
 
-    function zaloguj() {
-      const login = document.getElementById('login').value.trim().toLowerCase();
-      const haslo = document.getElementById('haslo').value;
-      const user = menedzerowie.find(u => u.login === login && u.haslo === haslo);
+      const menedzerowie = JSON.parse(localStorage.getItem("menedzerowie")) || [];
+      const admin = login === "admin" && haslo === "admin3@1";
+      const znaleziony = menedzerowie.find(m => m.login === login && m.haslo === haslo);
 
-      if (user) {
-        localStorage.setItem('menedzerZalogowany', JSON.stringify(user));
-        location.href = 'kadry.html';
+      if (admin) {
+        sessionStorage.setItem("rola", "admin");
+        sessionStorage.setItem("login", "admin");
+        window.location.href = "kadry.html";
+      } else if (znaleziony) {
+        sessionStorage.setItem("rola", "menedzer");
+        sessionStorage.setItem("login", znaleziony.login);
+        window.location.href = "kadry.html";
       } else {
-        alert('Błędny login lub hasło');
+        alert("Nieprawidłowy login lub hasło");
       }
-    }
+    });
   </script>
 </body>
 </html>
