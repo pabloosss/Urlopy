@@ -16,12 +16,17 @@
 
   <script>
     const menedzerowie = [
-      { login: 'pisarczyk', haslo: 'hasloPaweł', imie: 'Pisarczyk Paweł' },
+      { login: 'pisarczyk', haslo: 'hasloPawel', imie: 'Pisarczyk Paweł' },
+      { login: 'wroblewski', haslo: 'hasloHubert', imie: 'Wróblewski Hubert' },
+      { login: 'nowikow', haslo: 'hasloDariusz', imie: 'Nowikow Dariusz' },
+      { login: 'szmulik', haslo: 'hasloDamian', imie: 'Szmulik Damian' },
+      { login: 'nurzynski', haslo: 'hasloNurzynski', imie: 'Nurzyński Paweł' },
+      { login: 'dusińska', haslo: 'hasloEwa', imie: 'Ewa Dusińska' },
       { login: 'admin', haslo: 'admin3@1', imie: 'ADMIN' }
     ];
 
     function zaloguj() {
-      const login = document.getElementById('login').value;
+      const login = document.getElementById('login').value.trim().toLowerCase();
       const haslo = document.getElementById('haslo').value;
       const user = menedzerowie.find(u => u.login === login && u.haslo === haslo);
 
