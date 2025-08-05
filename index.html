@@ -1,49 +1,57 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wniosek urlopowy</title>
   <style>
-    body { font-family: Arial; max-width: 600px; margin: auto; padding: 20px; }
-    input, select, button { width: 100%; padding: 10px; margin: 10px 0; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+    h1 { color: #333; }
+    label, select, input { display: block; margin: 10px 0; }
+    button { padding: 10px 20px; margin-top: 10px; }
+    .top-right { position: absolute; top: 20px; right: 20px; }
   </style>
 </head>
 <body>
-  <h2>Wniosek urlopowy</h2>
-  <label>Imię i nazwisko</label>
-  <input list="lista-pracownikow" id="pracownik" placeholder="Wpisz swoje imię i nazwisko">
-  <datalist id="lista-pracownikow"></datalist>
+  <div class="top-right">
+    <button onclick="window.location.href='kadry_login.html'">Przejdź do kadr</button>
+  </div>
+  <h1>Wniosek urlopowy</h1>
+  <form id="leaveForm">
+    <label for="name">Imię i nazwisko:</label>
+    <input list="names" id="name" name="name" required />
+    <datalist id="names"></datalist>
 
-  <label>Data od</label>
-  <input type="date" id="dataOd">
+    <label for="start">Data rozpoczęcia:</label>
+    <input type="date" id="start" name="start" required />
 
-  <label>Data do</label>
-  <input type="date" id="dataDo">
+    <label for="end">Data zakończenia:</label>
+    <input type="date" id="end" name="end" required />
 
-  <button onclick="zlozWniosek()">Złóż wniosek</button>
-
-  <p><a href="kadry_login.html">Przejdź do kadr</a></p>
+    <button type="submit">Wyślij wniosek</button>
+  </form>
 
   <script>
-    const pracownicy = JSON.parse(localStorage.getItem('pracownicy')) || [];
-    const datalist = document.getElementById('lista-pracownikow');
+    const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
+    const datalist = document.getElementById("names");
     pracownicy.forEach(p => {
-      const option = document.createElement('option');
-      option.value = p.imie;
+      const option = document.createElement("option");
+      option.value = p.nazwisko;
       datalist.appendChild(option);
     });
 
-    function zlozWniosek() {
-      const imie = document.getElementById('pracownik').value;
-      const od = document.getElementById('dataOd').value;
-      const doo = document.getElementById('dataDo').value;
-      if (!imie || !od || !doo) return alert('Wypełnij wszystkie pola');
+    document.getElementById("leaveForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const name = document.getElementById("name").value;
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
 
-      const wnioski = JSON.parse(localStorage.getItem('wnioski')) || [];
-      wnioski.push({ imie, od, do: doo, status: 'oczekuje' });
-      localStorage.setItem('wnioski', JSON.stringify(wnioski));
-      alert('Wniosek złożony');
-    }
+      const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
+      wnioski.push({ nazwisko: name, start, end, status: "oczekuje" });
+      localStorage.setItem("wnioski", JSON.stringify(wnioski));
+      alert("Wniosek został złożony!");
+      document.getElementById("leaveForm").reset();
+    });
   </script>
 </body>
 </html>
