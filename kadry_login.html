@@ -1,43 +1,35 @@
-<!-- kadry_login.html -->
 <!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Logowanie - Kadry</title>
+  <title>Logowanie do kadr</title>
   <style>
-    body { font-family: Arial; background: #eef2f3; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    .login { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
-    input { width: 100%; margin: 10px 0; padding: 10px; }
-    button { width: 100%; padding: 10px; }
+    body { font-family: Arial; max-width: 400px; margin: auto; padding: 20px; }
+    input, button { width: 100%; padding: 10px; margin: 10px 0; }
   </style>
 </head>
 <body>
-  <div class="login">
-    <h2>Logowanie - Panel Kadry</h2>
-    <input type="text" id="login" placeholder="Login">
-    <input type="password" id="haslo" placeholder="Hasło">
-    <button onclick="zaloguj()">Zaloguj</button>
-  </div>
+  <h2>Logowanie</h2>
+  <input id="login" placeholder="Login">
+  <input id="haslo" type="password" placeholder="Hasło">
+  <button onclick="zaloguj()">Zaloguj</button>
 
   <script>
-    const menedzerzy = {
-      "Pisarczyk Paweł": "hasloP1",
-      "Wroblewski Hubert": "hasloP2",
-      "Nowikow Dariusz": "hasloP3",
-      "Szmulik Damian": "hasloP4",
-      "Nurzyński Paweł": "hasloP5",
-      "Ewa Dusińska": "hasloP6"
-    };
+    const menedzerowie = [
+      { login: 'pisarczyk', haslo: 'hasloPaweł', imie: 'Pisarczyk Paweł' },
+      { login: 'admin', haslo: 'admin3@1', imie: 'ADMIN' }
+    ];
 
     function zaloguj() {
-      const login = document.getElementById("login").value.trim();
-      const haslo = document.getElementById("haslo").value.trim();
+      const login = document.getElementById('login').value;
+      const haslo = document.getElementById('haslo').value;
+      const user = menedzerowie.find(u => u.login === login && u.haslo === haslo);
 
-      if (menedzerzy[login] && menedzerzy[login] === haslo) {
-        localStorage.setItem("menedzerZalogowany", login);
-        window.location.href = "kadry.html";
+      if (user) {
+        localStorage.setItem('menedzerZalogowany', JSON.stringify(user));
+        location.href = 'kadry.html';
       } else {
-        alert("Błędny login lub hasło");
+        alert('Błędny login lub hasło');
       }
     }
   </script>
