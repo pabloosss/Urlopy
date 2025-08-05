@@ -26,6 +26,22 @@
     const wszyscy = JSON.parse(localStorage.getItem('pracownicy')) || [];
     const wnioski = JSON.parse(localStorage.getItem('wnioski')) || [];
 
+    // Menedżerowie domyślni
+    const staliMenedzerowie = [
+      'Pisarczyk Paweł', 'Wróblewski Hubert', 'Nowikow Dariusz', 'Szmulik Damian', 'Nurzyński Paweł', 'Ewa Dusińska'
+    ];
+
+    // ADMIN może dodać pracowników
+    if (zalogowany.imie === 'ADMIN') {
+      let html = '<h3>Dodaj pracownika</h3>';
+      html += '<input id="nowyPracownik" placeholder="Imię i nazwisko">';
+      html += '<select id="menadzerSelect">';
+      staliMenedzerowie.forEach(m => html += `<option value="${m}">${m}</option>`);
+      html += '</select>';
+      html += '<button onclick="dodajPracownika()">Dodaj</button>';
+      document.getElementById('panel').innerHTML = html;
+    }
+
     const przypisani = zalogowany.imie === 'ADMIN'
       ? wszyscy
       : wszyscy.filter(p => p.menadzer === zalogowany.imie);
@@ -48,7 +64,17 @@
     });
     html += '</table>';
 
-    document.getElementById('panel').innerHTML = html;
+    document.getElementById('panel').innerHTML += html;
+
+    function dodajPracownika() {
+      const imie = document.getElementById('nowyPracownik').value.trim();
+      const menadzer = document.getElementById('menadzerSelect').value;
+      if (!imie) return alert('Podaj imię i nazwisko');
+      wszyscy.push({ imie, menadzer });
+      localStorage.setItem('pracownicy', JSON.stringify(wszyscy));
+      alert('Dodano pracownika');
+      location.reload();
+    }
 
     function wyloguj() {
       localStorage.removeItem('menedzerZalogowany');
