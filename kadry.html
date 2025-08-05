@@ -63,11 +63,15 @@
       window.location.href = "index.html";
     }
 
+    function jestAdmin() {
+      return menedzerZalogowany === 'admin';
+    }
+
     function zaladujPracownikow() {
       const tbody = document.getElementById("tabelaPracownicy");
       tbody.innerHTML = "";
       pracownicy.forEach(p => {
-        if (p.menedzer === menedzerZalogowany) {
+        if (jestAdmin() || p.menedzer === menedzerZalogowany) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${p.imie}</td><td>${p.menedzer}</td><td>${p.dniUrlopu || 20}</td>`;
           tbody.appendChild(tr);
@@ -80,7 +84,7 @@
       tbody.innerHTML = "";
       wnioski.forEach(w => {
         const prac = pracownicy.find(p => p.imie === w.pracownik);
-        if (prac && prac.menedzer === menedzerZalogowany) {
+        if (prac && (jestAdmin() || prac.menedzer === menedzerZalogowany)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${w.pracownik}</td><td>${w.od}</td><td>${w.do}</td><td>${w.ile}</td><td>${w.status || 'Oczekuje'}</td>`;
           tbody.appendChild(tr);
