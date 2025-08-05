@@ -19,14 +19,23 @@
   </form>
 
   <script>
+    // Stała lista menedżerów – wczytywana niezależnie od localStorage
+    const menedzerowieStali = [
+      { login: "ppisarczyk", haslo: "haslo111" },
+      { login: "hwroblewski", haslo: "haslo112" },
+      { login: "dnowikow", haslo: "haslo113" },
+      { login: "dszmulik", haslo: "haslo114" },
+      { login: "pnurzynski", haslo: "haslo115" },
+      { login: "edusinska", haslo: "haslo116" },
+    ];
+
     document.getElementById("loginForm").addEventListener("submit", function (e) {
       e.preventDefault();
       const login = document.getElementById("login").value;
       const haslo = document.getElementById("haslo").value;
 
-      const menedzerowie = JSON.parse(localStorage.getItem("menedzerowie")) || [];
       const admin = login === "admin" && haslo === "admin3@1";
-      const znaleziony = menedzerowie.find(m => m.login === login && m.haslo === haslo);
+      const znaleziony = menedzerowieStali.find(m => m.login === login && m.haslo === haslo);
 
       if (admin) {
         sessionStorage.setItem("rola", "admin");
