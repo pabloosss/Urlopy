@@ -1,88 +1,48 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
   <title>Wniosek urlopowy</title>
   <style>
-    body { font-family: Arial; background-color: #f4f4f4; padding: 40px; }
-    .container { max-width: 600px; background: white; margin: auto; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    input, select, button { width: 100%; padding: 10px; margin-top: 10px; margin-bottom: 20px; }
-    h2 { text-align: center; }
-    button { cursor: pointer; }
+    body { font-family: Arial; max-width: 600px; margin: auto; padding: 20px; }
+    input, select, button { width: 100%; padding: 10px; margin: 10px 0; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Wniosek urlopowy</h2>
+  <h2>Wniosek urlopowy</h2>
+  <label>Imię i nazwisko</label>
+  <input list="lista-pracownikow" id="pracownik" placeholder="Wpisz swoje imię i nazwisko">
+  <datalist id="lista-pracownikow"></datalist>
 
-    <label for="nazwisko">Imię i nazwisko:</label>
-    <input type="text" id="nazwisko" list="listaPracownikow" placeholder="Wpisz swoje imię i nazwisko">
-    <datalist id="listaPracownikow"></datalist>
+  <label>Data od</label>
+  <input type="date" id="dataOd">
 
-    <label for="od">Data od:</label>
-    <input type="date" id="od">
+  <label>Data do</label>
+  <input type="date" id="dataDo">
 
-    <label for="do">Data do:</label>
-    <input type="date" id="do">
+  <button onclick="zlozWniosek()">Złóż wniosek</button>
 
-    <button onclick="zlozWniosek()">Wyślij wniosek</button>
-    <a href="kadry_login.html"><button type="button">Przejdź do kadr</button></a>
-  </div>
+  <p><a href="kadry_login.html">Przejdź do kadr</a></p>
 
   <script>
-    // Inicjalizacja danych (tylko spedytorzy, menedżerowie są na stałe)
-    if (!localStorage.getItem("pracownicy")) {
-      const pracownicy = [
-        { imie: "Jan Kowalski", menedzer: "Pisarczyk Paweł", urlopy: [], dniUrlopu: 20 },
-        { imie: "Anna Nowak", menedzer: "Wróblewski Hubert", urlopy: [], dniUrlopu: 20 },
-        { imie: "Karol Zieliński", menedzer: "Nowikow Dariusz", urlopy: [], dniUrlopu: 20 }
-      ];
-      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
-    }
-
-    // Wypełnianie datalisty
-    const lista = JSON.parse(localStorage.getItem("pracownicy")) || [];
-    const datalist = document.getElementById("listaPracownikow");
-    lista.forEach(p => {
-      const option = document.createElement("option");
+    const pracownicy = JSON.parse(localStorage.getItem('pracownicy')) || [];
+    const datalist = document.getElementById('lista-pracownikow');
+    pracownicy.forEach(p => {
+      const option = document.createElement('option');
       option.value = p.imie;
       datalist.appendChild(option);
     });
 
     function zlozWniosek() {
-      const nazwisko = document.getElementById("nazwisko").value.trim();
-      const dataOd = document.getElementById("od").value;
-      const dataDo = document.getElementById("do").value;
+      const imie = document.getElementById('pracownik').value;
+      const od = document.getElementById('dataOd').value;
+      const doo = document.getElementById('dataDo').value;
+      if (!imie || !od || !doo) return alert('Wypełnij wszystkie pola');
 
-      if (!nazwisko || !dataOd || !dataDo) {
-        alert("Uzupełnij wszystkie pola.");
-        return;
-      }
-
-      const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
-      const osoba = pracownicy.find(p => p.imie === nazwisko);
-
-      if (!osoba) {
-        alert("Nie znaleziono pracownika o tym nazwisku.");
-        return;
-      }
-
-      const dniWolne = Math.ceil((new Date(dataDo) - new Date(dataOd)) / (1000 * 60 * 60 * 24)) + 1;
-      if (dniWolne > osoba.dniUrlopu) {
-        alert("Nie masz tylu dni urlopowych.");
-        return;
-      }
-
-      osoba.urlopy.push({ od: dataOd, do: dataDo, status: "oczekuje" });
-      osoba.dniUrlopu -= dniWolne;
-
-      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
-      alert("Wniosek urlopowy złożony!");
-
-      document.getElementById("nazwisko").value = "";
-      document.getElementById("od").value = "";
-      document.getElementById("do").value = "";
+      const wnioski = JSON.parse(localStorage.getItem('wnioski')) || [];
+      wnioski.push({ imie, od, do: doo, status: 'oczekuje' });
+      localStorage.setItem('wnioski', JSON.stringify(wnioski));
+      alert('Wniosek złożony');
     }
   </script>
 </body>
