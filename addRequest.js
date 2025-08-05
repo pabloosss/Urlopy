@@ -9,12 +9,15 @@ exports.handler = async (event) => {
   const { data } = await octo.repos.getContent({ owner: OWNER, repo: REPO, path: PATH });
   const json = JSON.parse(Buffer.from(data.content, "base64").toString());
 
-  const { imie, od, do: dok, ile } = JSON.parse(event.body);
-  json.wnioski.push({ imie, od, do: dok, ile, status: "oczekuje" });
+  const row = JSON.parse(event.body);
+  row.status = 'oczekuje';
+  json.wnioski.push(row);
 
   await octo.repos.createOrUpdateFileContents({
-    owner: OWNER, repo: REPO, path: PATH,
-    message: `Nowy wniosek od ${imie}`,
+    owner: OWNER,
+    repo: REPO,
+    path: PATH,
+    message: `Nowy wniosek od ${row.imie}`,
     content: Buffer.from(JSON.stringify(json, null, 2)).toString("base64"),
     sha: data.sha
   });
