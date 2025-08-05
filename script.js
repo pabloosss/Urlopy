@@ -8,27 +8,32 @@ const MANAGERS = [
   { login: "Ewa Dusińska",       password: "hasloP6", name: "Ewa Dusińska" }
 ];
 
+// Wspólna baza danych
 let DB = { pracownicy: [], wnioski: [] };
 
+// Inicjalizacja: wczytanie danych z funkcji serverless
 async function loadDB() {
   const res = await fetch('/api/getData');
   DB = await res.json();
 }
 
+// Pomocnik: liczba dni włącznie
 function daysBetween(a, b) {
   return ((new Date(b)) - (new Date(a))) / 86400000 + 1;
 }
 
+// Uzupełnienie listy wyboru pracowników
 function populateEmployeeSelect() {
   empSelect.innerHTML = '';
   DB.pracownicy.forEach(p => {
     const o = document.createElement('option');
-    o.textContent = p.imie;
     o.value = p.imie;
+    o.textContent = p.imie;
     empSelect.appendChild(o);
   });
 }
 
+// Rysowanie bilansu dni urlopu
 function renderBalances() {
   balanceList.innerHTML = '';
   DB.pracownicy.forEach(p => {
@@ -39,6 +44,7 @@ function renderBalances() {
   });
 }
 
+// Uzupełnienie listy wyboru menedżerów w panelu kadr
 function populateManagerSelect() {
   empManager.innerHTML = '';
   MANAGERS.forEach(m => {
