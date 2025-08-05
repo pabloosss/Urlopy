@@ -2,171 +2,134 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panel kadr</title>
+  <title>Panel Kadrowy</title>
   <style>
-    body { font-family: Arial; background: #f6f6f6; padding: 20px; }
-    .bar { display: flex; gap: 10px; margin-bottom: 10px; }
-    .card { background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    input, select, button { margin: 6px 0; padding: 8px; }
-    .hidden { display: none; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #fff; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    h2 { margin-top: 40px; }
   </style>
 </head>
 <body>
-  <div class="bar">
-    <button onclick="location.href='index.html'">← Wnioski</button>
-    <div style="margin-left:auto">
-      <button onclick="logout()">Wyloguj</button>
-    </div>
-  </div>
+  <h1>Panel Kadrowy</h1>
 
-  <div id="adminSection" class="card hidden">
+  <div id="adminPanel" style="display:none;">
     <h2>Dodaj pracownika</h2>
-    <input id="newName" placeholder="Imię i nazwisko" />
-    <select id="newManager"></select>
-    <input id="newDays" type="number" min="0" value="20" />
-    <button onclick="addEmployee()">Dodaj</button>
+    <input id="noweImie" placeholder="Imię i nazwisko" />
+    <input id="dni" type="number" placeholder="Liczba dni urlopowych" value="20" />
+    <select id="przelozony">
+      <option value="">-- Wybierz przełożonego --</option>
+    </select>
+    <button onclick="dodajPracownika()">Dodaj</button>
 
     <h2>Lista pracowników</h2>
-    <table>
-      <thead><tr><th>Imię i nazwisko</th><th>Menedżer</th><th>Dni (pozostało)</th><th>Akcje</th></tr></thead>
-      <tbody id="empTable"></tbody>
+    <table id="tabelaPracownikow">
+      <thead><tr><th>Imię</th><th>Dni urlopu</th><th>Przełożony</th><th>Akcje</th></tr></thead>
+      <tbody></tbody>
     </table>
   </div>
 
-  <div id="requestsSection" class="card">
+  <div id="wnioskiPanel">
     <h2>Wnioski urlopowe</h2>
-    <table>
-      <thead><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Status</th><th>Akcja</th></tr></thead>
-      <tbody id="reqTable"></tbody>
+    <table id="tabelaWnioskow">
+      <thead><tr><th>Imię</th><th>Od</th><th>Do</th><th>Status</th><th>Akcje</th></tr></thead>
+      <tbody></tbody>
     </table>
   </div>
-
-  <p id="msg"></p>
 
   <script>
-    const rola = sessionStorage.getItem("rola");
-    const login = sessionStorage.getItem("login");
-    if (!rola || !login) { location.href = "kadry_login.html"; }
+    let data, rola, login;
 
-    async function loadDb() {
-      const r = await fetch("/api/db");
-      if (!r.ok) throw new Error("Brak bazy");
-      return await r.json();
-    }
+    async function wczytajDane() {
+      const res = await fetch('baza.json');
+      data = await res.json();
+      rola = sessionStorage.getItem("rola");
+      login = sessionStorage.getItem("login");
 
-    async function refresh() {
-      const db = await loadDb();
-      window.__db = db; // do podglądu w konsoli
-
-      // Admin może zarządzać
       if (rola === "admin") {
-        document.getElementById("adminSection").classList.remove("hidden");
-        fillManagersSelect(db);
-        fillEmployees(db.pracownicy || []);
+        document.getElementById("adminPanel").style.display = "block";
+        const przel = document.getElementById("przelozony");
+        data.managerowie.forEach(m => {
+          const opt = document.createElement("option");
+          opt.value = m.login;
+          opt.textContent = m.login;
+          przel.appendChild(opt);
+        });
       }
 
-      fillRequests(db);
+      pokazPracownikow();
+      pokazWnioski();
     }
 
-    function fillManagersSelect(db) {
-      const sel = document.getElementById("newManager");
-      sel.innerHTML = "";
-      (db.menedzerowie || []).forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m.login;
-        opt.textContent = m.login;
-        sel.appendChild(opt);
+    function pokazPracownikow() {
+      const tbody = document.querySelector("#tabelaPracownikow tbody");
+      tbody.innerHTML = "";
+      if (rola !== "admin") return;
+
+      data.pracownicy.forEach(p => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.imie}</td>
+          <td>${p.dni}</td>
+          <td>${p.szef || ""}</td>
+          <td><button onclick="usunPracownika('${p.imie}')">Usuń</button></td>`;
+        tbody.appendChild(tr);
       });
     }
 
-    function fillEmployees(list) {
-      const tbody = document.getElementById("empTable");
+    function pokazWnioski() {
+      const tbody = document.querySelector("#tabelaWnioskow tbody");
       tbody.innerHTML = "";
-      list.forEach(p => {
+      data.wnioski.forEach((w, i) => {
+        const prac = data.pracownicy.find(p => p.imie === w.imie);
+        if (rola === "manager" && prac?.szef !== login) return;
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${p.imie_nazwisko}</td>
-          <td>${p.menedzer}</td>
-          <td><input type="number" min="0" value="${p.dni_urlopowe || 0}" onchange="setDays(${p.id}, this.value)" /></td>
+          <td>${w.imie}</td>
+          <td>${w.od}</td>
+          <td>${w.do}</td>
+          <td>${w.status}</td>
           <td>
-            <button onclick="delEmp(${p.id})">Usuń</button>
+            <button onclick="zmienStatus(${i}, 'zaakceptowany')">Akceptuj</button>
+            <button onclick="zmienStatus(${i}, 'odrzucony')">Odrzuć</button>
           </td>`;
         tbody.appendChild(tr);
       });
     }
 
-    function requestsForRole(db) {
-      if (rola === "admin") return db.wnioski || [];
-      // menedżer – tylko swoich pracowników
-      const myEmployees = (db.pracownicy || [])
-        .filter(p => p.menedzer === login)
-        .map(p => p.imie_nazwisko);
-      return (db.wnioski || []).filter(w => myEmployees.includes(w.pracownik));
+    async function dodajPracownika() {
+      const imie = document.getElementById("noweImie").value;
+      const dni = parseInt(document.getElementById("dni").value);
+      const szef = document.getElementById("przelozony").value;
+
+      data.pracownicy.push({ imie, dni, szef });
+      await zapisz();
+
+      pokazPracownikow();
+      alert("Dodano pracownika");
     }
 
-    function fillRequests(db) {
-      const tbody = document.getElementById("reqTable");
-      tbody.innerHTML = "";
-      const items = requestsForRole(db);
-      items.forEach(w => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${w.pracownik ?? ""}</td>
-          <td>${w.od ?? ""}</td>
-          <td>${w.do ?? ""}</td>
-          <td>${w.liczba_dni ?? ""}</td>
-          <td>${w.status ?? ""}</td>
-          <td>
-            <button onclick="setStatus(${w.id}, 'zaakceptowany')">Akceptuj</button>
-            <button onclick="setStatus(${w.id}, 'odrzucony')">Odrzuć</button>
-          </td>`;
-        tbody.appendChild(tr);
-      });
+    async function usunPracownika(imie) {
+      data.pracownicy = data.pracownicy.filter(p => p.imie !== imie);
+      await zapisz();
+      pokazPracownikow();
     }
 
-    async function addEmployee() {
-      const name = document.getElementById("newName").value.trim();
-      const men = document.getElementById("newManager").value;
-      const dni = parseInt(document.getElementById("newDays").value, 10) || 20;
-      if (!name || !men) { msg("Uzupełnij wszystkie pola."); return; }
-      const r = await fetch("/api/pracownik", {
-        method: "POST",
+    async function zmienStatus(index, status) {
+      data.wnioski[index].status = status;
+      await zapisz();
+      pokazWnioski();
+    }
+
+    async function zapisz() {
+      await fetch('baza.json', {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, menedzer: men, dni })
+        body: JSON.stringify(data)
       });
-      if (r.ok) { msg("Dodano pracownika."); refresh(); } else { msg("Błąd dodawania."); }
     }
 
-    async function delEmp(id) {
-      const r = await fetch(`/api/pracownik/${id}`, { method: "DELETE" });
-      if (r.ok) { msg("Usunięto pracownika."); refresh(); } else { msg("Błąd usuwania."); }
-    }
-
-    async function setDays(id, dni) {
-      const r = await fetch(`/api/pracownik/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dni: Number(dni) })
-      });
-      if (!r.ok) msg("Błąd zmiany dni.");
-    }
-
-    async function setStatus(id, status) {
-      const r = await fetch(`/api/wniosek/${id}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, reviewer: login })
-      });
-      if (r.ok) { refresh(); } else { msg("Błąd zmiany statusu."); }
-    }
-
-    function logout() { sessionStorage.clear(); location.href = "kadry_login.html"; }
-    function msg(t) { document.getElementById("msg").textContent = t; }
-
-    refresh();
+    wczytajDane();
   </script>
 </body>
 </html>
