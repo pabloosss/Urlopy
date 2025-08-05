@@ -1,99 +1,59 @@
-<!-- kadry.html -->
 <!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Panel Kadrowy</title>
+  <title>Kadry</title>
   <style>
-    body { font-family: Arial; background: #f5f5f5; padding: 20px; }
-    h2 { margin-top: 40px; }
-    .tab-button { margin-right: 10px; padding: 10px 15px; cursor: pointer; background: #ccc; border: none; border-radius: 5px; }
-    .active { background: #999 !important; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-    tr:nth-child(even) { background-color: #f2f2f2; }
-    .hidden { display: none; }
+    body { font-family: Arial; padding: 20px; max-width: 1000px; margin: auto; }
+    h2 { margin-top: 30px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    input, select, button { padding: 8px; margin: 5px 0; }
   </style>
 </head>
 <body>
-  <h1>Panel Kadrowy</h1>
-  <div>
-    <button class="tab-button active" onclick="switchTab('wnioski')">Wnioski urlopowe</button>
-    <button class="tab-button" onclick="switchTab('lista')">Lista pracowników</button>
-    <button class="tab-button" onclick="wyloguj()" style="float:right; background:#e66">Wyloguj</button>
-  </div>
-
-  <div id="wnioski" class="tab-content">
-    <h2>Wnioski urlopowe</h2>
-    <table>
-      <thead>
-        <tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Status</th></tr>
-      </thead>
-      <tbody id="tabelaWnioski"></tbody>
-    </table>
-  </div>
-
-  <div id="lista" class="tab-content hidden">
-    <h2>Lista pracowników</h2>
-    <table>
-      <thead><tr><th>Imię i nazwisko</th><th>Przypisany menedżer</th><th>Dni urlopu (pozostałe)</th></tr></thead>
-      <tbody id="tabelaPracownicy"></tbody>
-    </table>
-  </div>
+  <h2>Kadry - panel menedżera</h2>
+  <button onclick="wyloguj()">Wyloguj</button>
+  <div id="panel"></div>
 
   <script>
-    const menedzerZalogowany = localStorage.getItem("menedzerZalogowany");
-    if (!menedzerZalogowany) {
-      alert("Brak dostępu. Zaloguj się jako menedżer.");
-      window.location.href = "kadry_login.html";
+    const zalogowany = JSON.parse(localStorage.getItem('menedzerZalogowany'));
+    if (!zalogowany) {
+      alert('Brak dostępu. Zaloguj się jako menedżer.');
+      location.href = 'kadry_login.html';
     }
 
-    const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
-    const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
+    const wszyscy = JSON.parse(localStorage.getItem('pracownicy')) || [];
+    const wnioski = JSON.parse(localStorage.getItem('wnioski')) || [];
 
-    function switchTab(id) {
-      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-      document.getElementById(id).classList.remove('hidden');
-    }
+    const przypisani = zalogowany.imie === 'ADMIN'
+      ? wszyscy
+      : wszyscy.filter(p => p.menadzer === zalogowany.imie);
+
+    const przypisaneWnioski = zalogowany.imie === 'ADMIN'
+      ? wnioski
+      : wnioski.filter(w => przypisani.find(p => p.imie === w.imie));
+
+    let html = '<h3>Lista pracowników</h3>';
+    html += '<table><tr><th>Imię i nazwisko</th><th>Menedżer</th></tr>';
+    przypisani.forEach(p => {
+      html += `<tr><td>${p.imie}</td><td>${p.menadzer}</td></tr>`;
+    });
+    html += '</table>';
+
+    html += '<h3>Wnioski urlopowe</h3>';
+    html += '<table><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Status</th></tr>';
+    przypisaneWnioski.forEach(w => {
+      html += `<tr><td>${w.imie}</td><td>${w.od}</td><td>${w.do}</td><td>${w.status}</td></tr>`;
+    });
+    html += '</table>';
+
+    document.getElementById('panel').innerHTML = html;
 
     function wyloguj() {
-      localStorage.removeItem("menedzerZalogowany");
-      window.location.href = "index.html";
+      localStorage.removeItem('menedzerZalogowany');
+      location.href = 'kadry_login.html';
     }
-
-    function jestAdmin() {
-      return menedzerZalogowany === 'admin';
-    }
-
-    function zaladujPracownikow() {
-      const tbody = document.getElementById("tabelaPracownicy");
-      tbody.innerHTML = "";
-      pracownicy.forEach(p => {
-        if (jestAdmin() || p.menedzer === menedzerZalogowany) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${p.imie}</td><td>${p.menedzer}</td><td>${p.dniUrlopu || 20}</td>`;
-          tbody.appendChild(tr);
-        }
-      });
-    }
-
-    function zaladujWnioski() {
-      const tbody = document.getElementById("tabelaWnioski");
-      tbody.innerHTML = "";
-      wnioski.forEach(w => {
-        const prac = pracownicy.find(p => p.imie === w.pracownik);
-        if (prac && (jestAdmin() || prac.menedzer === menedzerZalogowany)) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${w.pracownik}</td><td>${w.od}</td><td>${w.do}</td><td>${w.ile}</td><td>${w.status || 'Oczekuje'}</td>`;
-          tbody.appendChild(tr);
-        }
-      });
-    }
-
-    zaladujPracownikow();
-    zaladujWnioski();
   </script>
 </body>
 </html>
