@@ -2,95 +2,57 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wniosek urlopowy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { font-family: Arial; background: #f4f4f4; padding: 24px; }
-    .card { max-width: 600px; margin: auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    label, input, button, datalist { display: block; width: 100%; margin-top: 12px; }
-    button { padding: 10px 16px; cursor: pointer; }
-    .top { text-align: right; margin-bottom: 12px; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7; }
+    input, select, button { display: block; margin: 10px 0; padding: 8px; width: 300px; }
   </style>
 </head>
 <body>
-  <div class="top">
-    <button onclick="location.href='kadry_login.html'">Przejdź do kadr</button>
-  </div>
-  <div class="card">
-    <h2>Wniosek urlopowy</h2>
-
-    <label>Imię i nazwisko</label>
-    <input list="pracownicyList" id="employee" placeholder="Wpisz lub wybierz z listy" />
+  <h2>Formularz urlopowy</h2>
+  <form id="wniosekForm">
+    <input list="pracownicyList" id="imie" placeholder="Imię i nazwisko" required />
     <datalist id="pracownicyList"></datalist>
-
-    <label>Od</label>
-    <input type="date" id="fromDate" />
-
-    <label>Do</label>
-    <input type="date" id="toDate" />
-
-    <button onclick="submitRequest()">Wyślij wniosek</button>
-    <p id="msg"></p>
-  </div>
+    <input type="date" id="od" required />
+    <input type="date" id="do" required />
+    <button type="submit">Wyślij wniosek</button>
+  </form>
 
   <script>
-    async function loadDb() {
-      const r = await fetch("/api/db");
-      if (!r.ok) throw new Error("Brak bazy");
-      return await r.json();
-    }
-
-    function fillEmployees(list) {
-      const dl = document.getElementById("pracownicyList");
-      dl.innerHTML = "";
-      list.forEach(p => {
+    async function zaladujPracownikow() {
+      const res = await fetch('baza.json');
+      const data = await res.json();
+      const list = document.getElementById("pracownicyList");
+      list.innerHTML = "";
+      data.pracownicy.forEach(p => {
         const opt = document.createElement("option");
-        opt.value = p.imie_nazwisko;
-        dl.appendChild(opt);
+        opt.value = p.imie;
+        list.appendChild(opt);
       });
     }
 
-    async function init() {
-      try {
-        const db = await loadDb();
-        fillEmployees(db.pracownicy || []);
-      } catch (e) {
-        document.getElementById("msg").textContent = "Nie udało się pobrać listy pracowników.";
-      }
-    }
+    document.getElementById("wniosekForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const imie = document.getElementById("imie").value;
+      const od = document.getElementById("od").value;
+      const doDnia = document.getElementById("do").value;
 
-    function daysInclusive(a, b) {
-      const d1 = new Date(a);
-      const d2 = new Date(b);
-      return Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
-    }
+      const res = await fetch('baza.json');
+      const data = await res.json();
+      data.wnioski.push({ imie, od, do: doDnia, status: "oczekuje" });
 
-    async function submitRequest() {
-      const employee = document.getElementById("employee").value.trim();
-      const od = document.getElementById("fromDate").value;
-      const do_ = document.getElementById("toDate").value;
-      const msg = document.getElementById("msg");
-
-      if (!employee || !od || !do_) { msg.textContent = "Uzupełnij wszystkie pola."; return; }
-      if (daysInclusive(od, do_) <= 0) { msg.textContent = "Zakres dat jest niepoprawny."; return; }
-
-      const r = await fetch("/api/wniosek", {
-        method: "POST",
+      await fetch('baza.json', {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employee, od, do_: do_ })
+        body: JSON.stringify(data)
       });
 
-      if (r.ok) {
-        msg.textContent = "✅ Wniosek złożony. Czeka na akceptację.";
-        document.getElementById("employee").value = "";
-        document.getElementById("fromDate").value = "";
-        document.getElementById("toDate").value = "";
-      } else {
-        msg.textContent = "❌ Nie udało się zapisać wniosku.";
-      }
-    }
+      alert("Wniosek wysłany!");
+      e.target.reset();
+    });
 
-    init();
+    zaladujPracownikow();
   </script>
 </body>
 </html>
