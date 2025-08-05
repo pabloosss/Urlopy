@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8" />
   <title>Wniosek urlopowy</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h1>Wniosek urlopowy</h1>
+    <h1 class="mb-4">Wniosek urlopowy</h1>
+
     <form id="vacForm" class="row g-3 needs-validation" novalidate>
       <div class="col-md-6">
         <label for="empSelect" class="form-label">Pracownik</label>
@@ -23,37 +24,46 @@
         <label for="dateTo" class="form-label">Do</label>
         <input type="date" id="dateTo" class="form-control" required>
       </div>
+
       <div class="col-12">
         <button class="btn btn-primary" type="submit">Wyślij wniosek</button>
         <a href="kadry.html" class="btn btn-outline-secondary ms-2">Przejdź do kadr</a>
       </div>
     </form>
-    <hr>
+
+    <hr class="my-4">
     <h2>Pozostało dni urlopu</h2>
     <ul id="balanceList" class="list-group"></ul>
   </div>
+
   <script src="script.js"></script>
   <script>
-    (async()=>{
+    (async () => {
       await loadDB();
       populateEmployeeSelect();
       renderBalances();
     })();
 
-    vacForm.addEventListener('submit', async e=>{
+    vacForm.addEventListener('submit', async e => {
       e.preventDefault();
-      if(!e.target.checkValidity()){ e.target.classList.add('was-validated'); return; }
+      if (!e.target.checkValidity()) {
+        e.target.classList.add('was-validated');
+        return;
+      }
       const imie = empSelect.value;
       const od   = dateFrom.value;
       const dok  = dateTo.value;
-      const dni  = daysBetween(od,dok);
-      if(dni<=0){ alert('Zakres musi mieć przynajmniej dzień.'); return; }
-      const prac = DB.pracownicy.find(p=>p.imie===imie);
-      if(prac.dni_urlopowe<dni){ alert(`Ma tylko ${prac.dni_urlopowe} dni urlopu!`); return; }
+      const dni  = daysBetween(od, dok);
+      if (dni <= 0) { alert('Zakres musi mieć przynajmniej dzień.'); return; }
+      const prac = DB.pracownicy.find(p => p.imie === imie);
+      if (prac.dni_urlopowe < dni) {
+        alert(`Ma tylko ${prac.dni_urlopowe} dni urlopu!`);
+        return;
+      }
       await fetch('/api/addRequest', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({imie,od,do:dok,ile:dni})
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imie, od, do: dok, ile: dni })
       });
       alert('Wysłano!');
       e.target.reset();
