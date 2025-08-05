@@ -1,14 +1,17 @@
-// Wspólna logika front-endu
-
-const API_URL = '/api';
+// Lista menedżerów (login = imię i nazwisko, password = hasło)
 const MANAGERS = [
-  { login: 'menadzer1', password: 'haslo1', name: 'Jan Menadżer' },
-  { login: 'menadzer2', password: 'haslo2', name: 'Anna Menadżer' }
+  { login: "Pisarczyk Paweł",    password: "hasloP1", name: "Pisarczyk Paweł" },
+  { login: "Wroblewski Hubert",  password: "hasloP2", name: "Wroblewski Hubert" },
+  { login: "Nowikow Dariusz",    password: "hasloP3", name: "Nowikow Dariusz" },
+  { login: "Szmulik Damian",     password: "hasloP4", name: "Szmulik Damian" },
+  { login: "Nurzyński Paweł",    password: "hasloP5", name: "Nurzyński Paweł" },
+  { login: "Ewa Dusińska",       password: "hasloP6", name: "Ewa Dusińska" }
 ];
+
 let DB = { pracownicy: [], wnioski: [] };
 
 async function loadDB() {
-  const res = await fetch(`${API_URL}/getData`);
+  const res = await fetch('/api/getData');
   DB = await res.json();
 }
 
