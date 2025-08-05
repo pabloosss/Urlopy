@@ -1,42 +1,140 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>Logowanie do kadr</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Kadrowy</title>
   <style>
-    body { font-family: Arial; max-width: 400px; margin: auto; padding: 20px; }
-    input, button { width: 100%; padding: 10px; margin: 10px 0; }
+    body { font-family: Arial, sans-serif; margin: 30px; background: #fff; }
+    h2 { margin-top: 40px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    input, select, button { margin: 5px; padding: 5px; }
   </style>
 </head>
 <body>
-  <h2>Logowanie</h2>
-  <input id="login" placeholder="Login">
-  <input id="haslo" type="password" placeholder="Hasło">
-  <button onclick="zaloguj()">Zaloguj</button>
+  <h1>Panel Kadrowy</h1>
+  <p id="welcome"></p>
+
+  <div id="adminSection" style="display:none">
+    <h2>Dodaj pracownika</h2>
+    <input type="text" id="newName" placeholder="Imię i nazwisko" />
+    <select id="managerSelect"></select>
+    <button onclick="dodajPracownika()">Dodaj</button>
+
+    <h2>Lista pracowników</h2>
+    <table id="listaPracownikow"></table>
+  </div>
+
+  <h2>Wnioski urlopowe</h2>
+  <table id="tabelaWnioskow"></table>
 
   <script>
-    const menedzerowie = [
-      { login: 'pisarczyk', haslo: 'hasloPawel', imie: 'Pisarczyk Paweł' },
-      { login: 'wroblewski', haslo: 'hasloHubert', imie: 'Wróblewski Hubert' },
-      { login: 'nowikow', haslo: 'hasloDariusz', imie: 'Nowikow Dariusz' },
-      { login: 'szmulik', haslo: 'hasloDamian', imie: 'Szmulik Damian' },
-      { login: 'nurzynski', haslo: 'hasloNurzynski', imie: 'Nurzyński Paweł' },
-      { login: 'dusińska', haslo: 'hasloEwa', imie: 'Ewa Dusińska' },
-      { login: 'admin', haslo: 'admin3@1', imie: 'ADMIN', admin: true }
+    const staliMenedzerowie = [
+      { login: "ppisarczyk", imie: "Pisarczyk Paweł", haslo: "haslo111" },
+      { login: "hwroblewski", imie: "Wróblewski Hubert", haslo: "haslo112" },
+      { login: "dnowikow", imie: "Nowikow Dariusz", haslo: "haslo113" },
+      { login: "dszmulik", imie: "Szmulik Damian", haslo: "haslo114" },
+      { login: "pnurzynski", imie: "Nurzyński Paweł", haslo: "haslo115" },
+      { login: "edusinska", imie: "Ewa Dusińska", haslo: "haslo116" }
     ];
 
-    function zaloguj() {
-      const login = document.getElementById('login').value.trim().toLowerCase();
-      const haslo = document.getElementById('haslo').value;
-      const user = menedzerowie.find(u => u.login === login && u.haslo === haslo);
+    const login = sessionStorage.getItem("login");
+    const rola = sessionStorage.getItem("rola");
 
-      if (user) {
-        localStorage.setItem('menedzerZalogowany', JSON.stringify(user));
-        location.href = 'kadry.html';
-      } else {
-        alert('Błędny login lub hasło');
-      }
+    if (!login || !rola) {
+      alert("Brak dostępu. Zaloguj się jako menedżer.");
+      window.location.href = "kadry_login.html";
     }
+
+    const pracownicy = JSON.parse(localStorage.getItem("pracownicy") || "[]");
+    const wnioski = JSON.parse(localStorage.getItem("wnioski") || "[]");
+
+    document.getElementById("welcome").innerText =
+      rola === "admin"
+        ? `Zalogowano jako ADMIN`
+        : `Zalogowano jako: ${staliMenedzerowie.find(m => m.login === login)?.imie || login}`;
+
+    if (rola === "admin") {
+      document.getElementById("adminSection").style.display = "block";
+      const select = document.getElementById("managerSelect");
+      staliMenedzerowie.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.login;
+        opt.textContent = m.imie;
+        select.appendChild(opt);
+      });
+    }
+
+    function dodajPracownika() {
+      const name = document.getElementById("newName").value.trim();
+      const manager = document.getElementById("managerSelect").value;
+      if (!name || !manager) return;
+      pracownicy.push({ nazwisko: name, menedzer: manager, dni: 20 });
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+      pokazPracownikow(); pokazWnioski(); document.getElementById("newName").value = "";
+    }
+
+    function pokazPracownikow() {
+      const table = document.getElementById("listaPracownikow");
+      table.innerHTML = "<tr><th>Imię i nazwisko</th><th>Menedżer</th><th>Dni urlopu</th><th>Usuń</th></tr>";
+      pracownicy.forEach((p, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.nazwisko}</td>
+          <td>${staliMenedzerowie.find(m => m.login === p.menedzer)?.imie || p.menedzer}</td>
+          <td><input type='number' min='0' value='${p.dni}' onchange='zmienDni(${i}, this.value)' /></td>
+          <td><button onclick='usunPracownika(${i})'>Usuń</button></td>`;
+        table.appendChild(tr);
+      });
+    }
+
+    function zmienDni(i, val) {
+      pracownicy[i].dni = parseInt(val);
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+    }
+
+    function usunPracownika(i) {
+      pracownicy.splice(i, 1);
+      localStorage.setItem("pracownicy", JSON.stringify(pracownicy));
+      pokazPracownikow(); pokazWnioski();
+    }
+
+    function pokazWnioski() {
+      const table = document.getElementById("tabelaWnioskow");
+      table.innerHTML = "<tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th>Akcja</th></tr>";
+      wnioski.forEach((w, i) => {
+        const prac = pracownicy.find(p => p.nazwisko === w.nazwisko);
+        if (!prac) return;
+        if (rola !== "admin" && prac.menedzer !== login) return;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${w.nazwisko}</td>
+          <td>${w.od}</td>
+          <td>${w.do}</td>
+          <td>${w.dni}</td>
+          <td>${w.status || "Oczekuje"}</td>
+          <td>
+            <button onclick='akceptuj(${i})'>✅</button>
+            <button onclick='odrzuc(${i})'>❌</button>
+          </td>`;
+        table.appendChild(tr);
+      });
+    }
+
+    function akceptuj(i) {
+      wnioski[i].status = "Zaakceptowano";
+      localStorage.setItem("wnioski", JSON.stringify(wnioski));
+      pokazWnioski();
+    }
+    function odrzuc(i) {
+      wnioski[i].status = "Odrzucono";
+      localStorage.setItem("wnioski", JSON.stringify(wnioski));
+      pokazWnioski();
+    }
+
+    pokazPracownikow();
+    pokazWnioski();
   </script>
 </body>
 </html>
