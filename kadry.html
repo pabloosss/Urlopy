@@ -5,144 +5,168 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel kadr</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f9f9f9; padding: 20px; }
-    h1, h2 { color: #333; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    button { margin-top: 10px; padding: 5px 10px; }
+    body { font-family: Arial; background: #f6f6f6; padding: 20px; }
+    .bar { display: flex; gap: 10px; margin-bottom: 10px; }
+    .card { background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    input, select, button { margin: 6px 0; padding: 8px; }
     .hidden { display: none; }
-    .flex-row { display: flex; gap: 10px; }
-    .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
-  <h1>Panel kadr</h1>
-  <div id="adminPanel" class="hidden">
-    <div class="flex-row">
-      <button onclick="pokazWidok('lista')">Lista pracowników</button>
-      <button onclick="pokazWidok('wnioski')">Wnioski urlopowe</button>
-    </div>
-
-    <div id="lista" class="card hidden">
-      <h2>Lista pracowników</h2>
-      <input type="text" id="imieNazwisko" placeholder="Imię i nazwisko">
-      <input type="number" id="dniUrlopu" placeholder="Dni urlopu (domyślnie 20)">
-      <select id="menedzerSelect">
-        <option value="ppisarczyk">Pisarczyk Paweł</option>
-        <option value="hwroblewski">Wróblewski Hubert</option>
-        <option value="dnowikow">Nowikow Dariusz</option>
-        <option value="dszmulik">Szmulik Damian</option>
-        <option value="pnurzynski">Nurzyński Paweł</option>
-        <option value="edusinska">Ewa Dusińska</option>
-      </select>
-      <button onclick="dodajPracownika()">Dodaj pracownika</button>
-      <table>
-        <thead><tr><th>Imię i nazwisko</th><th>Dni urlopu</th><th>Menedżer</th><th>Usuń</th></tr></thead>
-        <tbody id="tabelaPracownikow"></tbody>
-      </table>
-    </div>
-
-    <div id="wnioski" class="card hidden">
-      <h2>Wnioski urlopowe</h2>
-      <table>
-        <thead><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Ilość dni</th><th>Status</th><th>Akcja</th></tr></thead>
-        <tbody id="tabelaWnioskow"></tbody>
-      </table>
+  <div class="bar">
+    <button onclick="location.href='index.html'">← Wnioski</button>
+    <div style="margin-left:auto">
+      <button onclick="logout()">Wyloguj</button>
     </div>
   </div>
 
-  <div id="menedzerPanel" class="hidden">
-    <h2>Twoi pracownicy - wnioski</h2>
+  <div id="adminSection" class="card hidden">
+    <h2>Dodaj pracownika</h2>
+    <input id="newName" placeholder="Imię i nazwisko" />
+    <select id="newManager"></select>
+    <input id="newDays" type="number" min="0" value="20" />
+    <button onclick="addEmployee()">Dodaj</button>
+
+    <h2>Lista pracowników</h2>
     <table>
-      <thead><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Ilość dni</th><th>Status</th><th>Akcja</th></tr></thead>
-      <tbody id="tabelaWnioskowMenedzera"></tbody>
+      <thead><tr><th>Imię i nazwisko</th><th>Menedżer</th><th>Dni (pozostało)</th><th>Akcje</th></tr></thead>
+      <tbody id="empTable"></tbody>
     </table>
   </div>
 
+  <div id="requestsSection" class="card">
+    <h2>Wnioski urlopowe</h2>
+    <table>
+      <thead><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Liczba dni</th><th>Status</th><th>Akcja</th></tr></thead>
+      <tbody id="reqTable"></tbody>
+    </table>
+  </div>
+
+  <p id="msg"></p>
+
   <script>
-    const przypisania = JSON.parse(localStorage.getItem("pracownicy")) || [];
-    const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
     const rola = sessionStorage.getItem("rola");
     const login = sessionStorage.getItem("login");
+    if (!rola || !login) { location.href = "kadry_login.html"; }
 
-    function pokazWidok(id) {
-      document.getElementById("lista").classList.add("hidden");
-      document.getElementById("wnioski").classList.add("hidden");
-      document.getElementById(id).classList.remove("hidden");
-      if (id === "lista") wypelnijListe();
-      if (id === "wnioski") wypelnijWnioski();
+    async function loadDb() {
+      const r = await fetch("/api/db");
+      if (!r.ok) throw new Error("Brak bazy");
+      return await r.json();
     }
 
-    function dodajPracownika() {
-      const imieNazwisko = document.getElementById("imieNazwisko").value;
-      const dni = parseInt(document.getElementById("dniUrlopu").value) || 20;
-      const menedzer = document.getElementById("menedzerSelect").value;
-      przypisania.push({ imie: imieNazwisko, dni, menedzer });
-      localStorage.setItem("pracownicy", JSON.stringify(przypisania));
-      wypelnijListe();
+    async function refresh() {
+      const db = await loadDb();
+      window.__db = db; // do podglądu w konsoli
+
+      // Admin może zarządzać
+      if (rola === "admin") {
+        document.getElementById("adminSection").classList.remove("hidden");
+        fillManagersSelect(db);
+        fillEmployees(db.pracownicy || []);
+      }
+
+      fillRequests(db);
     }
 
-    function usunPracownika(index) {
-      przypisania.splice(index, 1);
-      localStorage.setItem("pracownicy", JSON.stringify(przypisania));
-      wypelnijListe();
+    function fillManagersSelect(db) {
+      const sel = document.getElementById("newManager");
+      sel.innerHTML = "";
+      (db.menedzerowie || []).forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.login;
+        opt.textContent = m.login;
+        sel.appendChild(opt);
+      });
     }
 
-    function wypelnijListe() {
-      const tbody = document.getElementById("tabelaPracownikow");
+    function fillEmployees(list) {
+      const tbody = document.getElementById("empTable");
       tbody.innerHTML = "";
-      przypisania.forEach((p, i) => {
+      list.forEach(p => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${p.imie}</td><td>${p.dni}</td><td>${p.menedzer}</td><td><button onclick="usunPracownika(${i})">Usuń</button></td>`;
+        tr.innerHTML = `
+          <td>${p.imie_nazwisko}</td>
+          <td>${p.menedzer}</td>
+          <td><input type="number" min="0" value="${p.dni_urlopowe || 0}" onchange="setDays(${p.id}, this.value)" /></td>
+          <td>
+            <button onclick="delEmp(${p.id})">Usuń</button>
+          </td>`;
         tbody.appendChild(tr);
       });
     }
 
-    function wypelnijWnioski() {
-      const tbody = document.getElementById("tabelaWnioskow");
+    function requestsForRole(db) {
+      if (rola === "admin") return db.wnioski || [];
+      // menedżer – tylko swoich pracowników
+      const myEmployees = (db.pracownicy || [])
+        .filter(p => p.menedzer === login)
+        .map(p => p.imie_nazwisko);
+      return (db.wnioski || []).filter(w => myEmployees.includes(w.pracownik));
+    }
+
+    function fillRequests(db) {
+      const tbody = document.getElementById("reqTable");
       tbody.innerHTML = "";
-      wnioski.forEach((w, i) => {
+      const items = requestsForRole(db);
+      items.forEach(w => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${w.pracownik}</td><td>${w.od}</td><td>${w.do}</td><td>${w.dni}</td><td>${w.status}</td><td>
-        <button onclick="zmienStatus(${i}, 'zaakceptowany')">Akceptuj</button>
-        <button onclick="zmienStatus(${i}, 'odrzucony')">Odrzuć</button>
-        </td>`;
+        tr.innerHTML = `
+          <td>${w.pracownik ?? ""}</td>
+          <td>${w.od ?? ""}</td>
+          <td>${w.do ?? ""}</td>
+          <td>${w.liczba_dni ?? ""}</td>
+          <td>${w.status ?? ""}</td>
+          <td>
+            <button onclick="setStatus(${w.id}, 'zaakceptowany')">Akceptuj</button>
+            <button onclick="setStatus(${w.id}, 'odrzucony')">Odrzuć</button>
+          </td>`;
         tbody.appendChild(tr);
       });
     }
 
-    function zmienStatus(i, status) {
-      wnioski[i].status = status;
-      localStorage.setItem("wnioski", JSON.stringify(wnioski));
-      wypelnijWnioski();
-      wypelnijWnioskiMenedzera();
-    }
-
-    function wypelnijWnioskiMenedzera() {
-      const tbody = document.getElementById("tabelaWnioskowMenedzera");
-      tbody.innerHTML = "";
-      const pracownicy = przypisania.filter(p => p.menedzer === login).map(p => p.imie);
-      const widoczne = wnioski.filter(w => pracownicy.includes(w.pracownik));
-      widoczne.forEach((w, i) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${w.pracownik}</td><td>${w.od}</td><td>${w.do}</td><td>${w.dni}</td><td>${w.status}</td><td>
-        <button onclick="zmienStatus(${i}, 'zaakceptowany')">Akceptuj</button>
-        <button onclick="zmienStatus(${i}, 'odrzucony')">Odrzuć</button>
-        </td>`;
-        tbody.appendChild(tr);
+    async function addEmployee() {
+      const name = document.getElementById("newName").value.trim();
+      const men = document.getElementById("newManager").value;
+      const dni = parseInt(document.getElementById("newDays").value, 10) || 20;
+      if (!name || !men) { msg("Uzupełnij wszystkie pola."); return; }
+      const r = await fetch("/api/pracownik", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, menedzer: men, dni })
       });
+      if (r.ok) { msg("Dodano pracownika."); refresh(); } else { msg("Błąd dodawania."); }
     }
 
-    if (rola === "admin") {
-      document.getElementById("adminPanel").classList.remove("hidden");
-      pokazWidok("lista");
-    } else if (rola === "menedzer") {
-      document.getElementById("menedzerPanel").classList.remove("hidden");
-      wypelnijWnioskiMenedzera();
-    } else {
-      alert("Brak dostępu. Zaloguj się jako admin lub menedżer.");
-      window.location.href = "kadry_login.html";
+    async function delEmp(id) {
+      const r = await fetch(`/api/pracownik/${id}`, { method: "DELETE" });
+      if (r.ok) { msg("Usunięto pracownika."); refresh(); } else { msg("Błąd usuwania."); }
     }
+
+    async function setDays(id, dni) {
+      const r = await fetch(`/api/pracownik/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dni: Number(dni) })
+      });
+      if (!r.ok) msg("Błąd zmiany dni.");
+    }
+
+    async function setStatus(id, status) {
+      const r = await fetch(`/api/wniosek/${id}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, reviewer: login })
+      });
+      if (r.ok) { refresh(); } else { msg("Błąd zmiany statusu."); }
+    }
+
+    function logout() { sessionStorage.clear(); location.href = "kadry_login.html"; }
+    function msg(t) { document.getElementById("msg").textContent = t; }
+
+    refresh();
   </script>
 </body>
 </html>
