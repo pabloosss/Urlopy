@@ -1,128 +1,70 @@
-// script.js – wspólna logika front-endu
+py-4" id="loginBox">
+    <h1 class="mb-3">Logowanie do kadr</h1>
+    <form id="loginForm" class="row g-3" autocomplete="off">
+      <div class="col-md-6">
+        <label class="form-label">Login</label>
+        <input id="loginUser" class="form-control" required />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Hasło</label>
+        <input type="password" id="loginPass" class="form-control" required />
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary">Zaloguj</button>
+      </div>
+    </form>
+  </div>
 
-// Lista menedżerów (login = imię i nazwisko, password = hasło)
-const MANAGERS = [
-  { login: "Pisarczyk Paweł",    password: "hasloP1", name: "Pisarczyk Paweł" },
-  { login: "Wroblewski Hubert",  password: "hasloP2", name: "Wroblewski Hubert" },
-  { login: "Nowikow Dariusz",    password: "hasloP3", name: "Nowikow Dariusz" },
-  { login: "Szmulik Damian",     password: "hasloP4", name: "Szmulik Damian" },
-  { login: "Nurzyński Paweł",    password: "hasloP5", name: "Nurzyński Paweł" },
-  { login: "Ewa Dusińska",       password: "hasloP6", name: "Ewa Dusińska" }
-];
+  <!-- Panel po zalogowaniu -->
+  <div class="container py-4 d-none" id="panelBox">
+    <h1 class="mb-4">Panel kadrowy</h1>
+    <ul class="nav nav-tabs" id="tabBar">
+      <li class="nav-item" id="tabPracNav">
+        <button class="nav-link active" data-bs-target="#tabPrac">Pracownicy</button>
+      </li>
+      <li class="nav-item" id="tabWniosNav">
+        <button class="nav-link" data-bs-target="#tabWnios">Wnioski</button>
+      </li>
+    </ul>
 
-let DB = { pracownicy: [], wnioski: [] };
+    <div class="tab-content p-3 bg-white border border-top-0">
+      <!-- Zakładka Pracownicy -->
+      <div class="tab-pane show active" id="tabPrac">
+        <h3>Lista pracowników</h3>
+        <form id="addEmpForm" class="row gy-2 gx-3 align-items-end mt-2 mb-3">
+          <div class="col-sm-3">
+            <label class="form-label">Imię i nazwisko</label>
+            <input id="empName" class="form-control" required />
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label">Limit urlopu</label>
+            <input type="number" id="empLimit" class="form-control" min="1" value="20" required />
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label">Menedżer</label>
+            <select id="empManager" class="form-select" required></select>
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-success">Dodaj</button>
+          </div>
+        </form>
+        <table class="table" id="empTable">
+          <thead><tr><th>Pracownik</th><th>Dni urlopu</th><th>Menedżer</th><th>Usuń</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-async function loadDB() {
-  const res = await fetch('/api/getData');
-  DB = await res.json();
-}
+      <!-- Zakładka Wnioski -->
+      <div class="tab-pane" id="tabWnios">
+        <h3>Wnioski urlopowe</h3>
+        <table class="table" id="reqTable">
+          <thead><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-function daysBetween(a, b) {
-  return ((new Date(b)) - (new Date(a))) / 86400000 + 1;
-}
-
-function populateEmployeeSelect() {
-  const sel = document.getElementById('empSelect');
-  sel.innerHTML = '';
-  DB.pracownicy.forEach(p => {
-    const o = document.createElement('option');
-    o.value = p.imie;
-    o.textContent = p.imie;
-    sel.appendChild(o);
-  });
-}
-
-function renderBalances() {
-  const ul = document.getElementById('balanceList');
-  ul.innerHTML = '';
-  DB.pracownicy.forEach(p => {
-    ul.insertAdjacentHTML('beforeend',
-      `<li class="list-group-item d-flex justify-content-between">
-         <span>${p.imie}</span><span>${p.dni_urlopowe} dni</span>
-       </li>`);
-  });
-}
-
-function populateManagerSelect() {
-  const sel = document.getElementById('empManager');
-  sel.innerHTML = '';
-  MANAGERS.forEach(m => {
-    const o = document.createElement('option');
-    o.value = m.login;
-    o.textContent = m.name;
-    sel.appendChild(o);
-  });
-}
-
-// Po załadowaniu DOM
-window.addEventListener('DOMContentLoaded', () => {
-  // Formularz logowania
-  const loginForm = document.getElementById('loginForm');
-  const loginBox  = document.getElementById('loginBox');
-  const panelBox  = document.getElementById('panelBox');
-  const tabPracNav = document.getElementById('tabPracNav');
-  const tabBar     = document.getElementById('tabBar');
-
-  loginForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    const user = document.getElementById('loginUser').value.trim();
-    const pass = document.getElementById('loginPass').value.trim();
-    let isAdmin = false;
-    let isMgr   = false;
-    let mgrName = '';
-
-    if (user === 'admin' && pass === 'admin3@1') {
-      isAdmin = true;
-    } else {
-      const m = MANAGERS.find(m => m.login === user && m.password === pass);
-      if (m) { isMgr = true; mgrName = m.login; }
-    }
-    if (!isAdmin && !isMgr) { alert('Błędny login/hasło'); return; }
-
-    loginBox.classList.add('d-none');
-    panelBox.classList.remove('d-none');
-
-    await loadDB();
-
-    if (isAdmin) {
-      populateManagerSelect();
-      populateEmployeeSelect();
-      renderBalances();
-      loadEmployees();
-      loadRequests();
-    } else {
-      tabPracNav.style.display = 'none';
-      populateEmployeeSelect();
-      renderBalances();
-      loadRequests(mgrName);
-    }
-  });
-
-  // Zakładki
-  tabBar.addEventListener('click', e => {
-    if (e.target.classList.contains('nav-link')) {
-      tabBar.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-      e.target.classList.add('active');
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
-      document.querySelector(e.target.dataset.bsTarget).classList.add('show', 'active');
-    }
-  });
-
-  // Obsługa dodawania pracowników
-  document.getElementById('addEmpForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const imie    = document.getElementById('empName').value.trim();
-    const dni     = Number(document.getElementById('empLimit').value);
-    const manager = document.getElementById('empManager').value;
-    if (!imie) { alert('Imię jest wymagane'); return; }
-    await fetch('/api/addEmployee', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imie, dni_urlopowe: dni, manager })
-    });
-    await loadDB();
-    populateEmployeeSelect(); renderBalances(); loadEmployees();
-  });
-
-  // Pozostałe funkcje loadEmployees, loadRequests, decide pozostają niezmienione
-});
+  <script src="script.js"></script>
+</body>
+</html>
