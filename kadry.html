@@ -2,83 +2,40 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Kadry</title>
+  <title>Logowanie do kadr</title>
   <style>
-    body { font-family: Arial; padding: 20px; max-width: 1000px; margin: auto; }
-    h2 { margin-top: 30px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    input, select, button { padding: 8px; margin: 5px 0; }
+    body { font-family: Arial; max-width: 400px; margin: auto; padding: 20px; }
+    input, button { width: 100%; padding: 10px; margin: 10px 0; }
   </style>
 </head>
 <body>
-  <h2>Kadry - panel menedżera</h2>
-  <button onclick="wyloguj()">Wyloguj</button>
-  <div id="panel"></div>
+  <h2>Logowanie</h2>
+  <input id="login" placeholder="Login">
+  <input id="haslo" type="password" placeholder="Hasło">
+  <button onclick="zaloguj()">Zaloguj</button>
 
   <script>
-    const zalogowany = JSON.parse(localStorage.getItem('menedzerZalogowany'));
-    if (!zalogowany) {
-      alert('Brak dostępu. Zaloguj się jako menedżer.');
-      location.href = 'kadry_login.html';
-    }
-
-    const wszyscy = JSON.parse(localStorage.getItem('pracownicy')) || [];
-    const wnioski = JSON.parse(localStorage.getItem('wnioski')) || [];
-
-    // Menedżerowie domyślni
-    const staliMenedzerowie = [
-      'Pisarczyk Paweł', 'Wróblewski Hubert', 'Nowikow Dariusz', 'Szmulik Damian', 'Nurzyński Paweł', 'Ewa Dusińska'
+    const menedzerowie = [
+      { login: 'pisarczyk', haslo: 'hasloPawel', imie: 'Pisarczyk Paweł' },
+      { login: 'wroblewski', haslo: 'hasloHubert', imie: 'Wróblewski Hubert' },
+      { login: 'nowikow', haslo: 'hasloDariusz', imie: 'Nowikow Dariusz' },
+      { login: 'szmulik', haslo: 'hasloDamian', imie: 'Szmulik Damian' },
+      { login: 'nurzynski', haslo: 'hasloNurzynski', imie: 'Nurzyński Paweł' },
+      { login: 'dusińska', haslo: 'hasloEwa', imie: 'Ewa Dusińska' },
+      { login: 'admin', haslo: 'admin3@1', imie: 'ADMIN', admin: true }
     ];
 
-    // ADMIN może dodać pracowników
-    if (zalogowany.imie === 'ADMIN') {
-      let html = '<h3>Dodaj pracownika</h3>';
-      html += '<input id="nowyPracownik" placeholder="Imię i nazwisko">';
-      html += '<select id="menadzerSelect">';
-      staliMenedzerowie.forEach(m => html += `<option value="${m}">${m}</option>`);
-      html += '</select>';
-      html += '<button onclick="dodajPracownika()">Dodaj</button>';
-      document.getElementById('panel').innerHTML = html;
-    }
+    function zaloguj() {
+      const login = document.getElementById('login').value.trim().toLowerCase();
+      const haslo = document.getElementById('haslo').value;
+      const user = menedzerowie.find(u => u.login === login && u.haslo === haslo);
 
-    const przypisani = zalogowany.imie === 'ADMIN'
-      ? wszyscy
-      : wszyscy.filter(p => p.menadzer === zalogowany.imie);
-
-    const przypisaneWnioski = zalogowany.imie === 'ADMIN'
-      ? wnioski
-      : wnioski.filter(w => przypisani.find(p => p.imie === w.imie));
-
-    let html = '<h3>Lista pracowników</h3>';
-    html += '<table><tr><th>Imię i nazwisko</th><th>Menedżer</th></tr>';
-    przypisani.forEach(p => {
-      html += `<tr><td>${p.imie}</td><td>${p.menadzer}</td></tr>`;
-    });
-    html += '</table>';
-
-    html += '<h3>Wnioski urlopowe</h3>';
-    html += '<table><tr><th>Pracownik</th><th>Od</th><th>Do</th><th>Status</th></tr>';
-    przypisaneWnioski.forEach(w => {
-      html += `<tr><td>${w.imie}</td><td>${w.od}</td><td>${w.do}</td><td>${w.status}</td></tr>`;
-    });
-    html += '</table>';
-
-    document.getElementById('panel').innerHTML += html;
-
-    function dodajPracownika() {
-      const imie = document.getElementById('nowyPracownik').value.trim();
-      const menadzer = document.getElementById('menadzerSelect').value;
-      if (!imie) return alert('Podaj imię i nazwisko');
-      wszyscy.push({ imie, menadzer });
-      localStorage.setItem('pracownicy', JSON.stringify(wszyscy));
-      alert('Dodano pracownika');
-      location.reload();
-    }
-
-    function wyloguj() {
-      localStorage.removeItem('menedzerZalogowany');
-      location.href = 'kadry_login.html';
+      if (user) {
+        localStorage.setItem('menedzerZalogowany', JSON.stringify(user));
+        location.href = 'kadry.html';
+      } else {
+        alert('Błędny login lub hasło');
+      }
     }
   </script>
 </body>
