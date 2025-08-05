@@ -5,53 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wniosek urlopowy</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
-    h1 { color: #333; }
-    label, select, input { display: block; margin: 10px 0; }
-    button { padding: 10px 20px; margin-top: 10px; }
-    .top-right { position: absolute; top: 20px; right: 20px; }
+    body { font-family: Arial; background: #f4f4f4; padding: 24px; }
+    .card { max-width: 600px; margin: auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    label, input, button, datalist { display: block; width: 100%; margin-top: 12px; }
+    button { padding: 10px 16px; cursor: pointer; }
+    .top { text-align: right; margin-bottom: 12px; }
   </style>
 </head>
 <body>
-  <div class="top-right">
-    <button onclick="window.location.href='kadry_login.html'">Przejdź do kadr</button>
+  <div class="top">
+    <button onclick="location.href='kadry_login.html'">Przejdź do kadr</button>
   </div>
-  <h1>Wniosek urlopowy</h1>
-  <form id="leaveForm">
-    <label for="name">Imię i nazwisko:</label>
-    <input list="names" id="name" name="name" required />
-    <datalist id="names"></datalist>
+  <div class="card">
+    <h2>Wniosek urlopowy</h2>
 
-    <label for="start">Data rozpoczęcia:</label>
-    <input type="date" id="start" name="start" required />
+    <label>Imię i nazwisko</label>
+    <input list="pracownicyList" id="employee" placeholder="Wpisz lub wybierz z listy" />
+    <datalist id="pracownicyList"></datalist>
 
-    <label for="end">Data zakończenia:</label>
-    <input type="date" id="end" name="end" required />
+    <label>Od</label>
+    <input type="date" id="fromDate" />
 
-    <button type="submit">Wyślij wniosek</button>
-  </form>
+    <label>Do</label>
+    <input type="date" id="toDate" />
+
+    <button onclick="submitRequest()">Wyślij wniosek</button>
+    <p id="msg"></p>
+  </div>
 
   <script>
-    const pracownicy = JSON.parse(localStorage.getItem("pracownicy")) || [];
-    const datalist = document.getElementById("names");
-    pracownicy.forEach(p => {
-      const option = document.createElement("option");
-      option.value = p.nazwisko;
-      datalist.appendChild(option);
-    });
+    async function loadDb() {
+      const r = await fetch("/api/db");
+      if (!r.ok) throw new Error("Brak bazy");
+      return await r.json();
+    }
 
-    document.getElementById("leaveForm").addEventListener("submit", function (e) {
-      e.preventDefault();
-      const name = document.getElementById("name").value;
-      const start = document.getElementById("start").value;
-      const end = document.getElementById("end").value;
+    function fillEmployees(list) {
+      const dl = document.getElementById("pracownicyList");
+      dl.innerHTML = "";
+      list.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = p.imie_nazwisko;
+        dl.appendChild(opt);
+      });
+    }
 
-      const wnioski = JSON.parse(localStorage.getItem("wnioski")) || [];
-      wnioski.push({ nazwisko: name, start, end, status: "oczekuje" });
-      localStorage.setItem("wnioski", JSON.stringify(wnioski));
-      alert("Wniosek został złożony!");
-      document.getElementById("leaveForm").reset();
-    });
+    async function init() {
+      try {
+        const db = await loadDb();
+        fillEmployees(db.pracownicy || []);
+      } catch (e) {
+        document.getElementById("msg").textContent = "Nie udało się pobrać listy pracowników.";
+      }
+    }
+
+    function daysInclusive(a, b) {
+      const d1 = new Date(a);
+      const d2 = new Date(b);
+      return Math.floor((d2 - d1) / (1000*60*60*24)) + 1;
+    }
+
+    async function submitRequest() {
+      const employee = document.getElementById("employee").value.trim();
+      const od = document.getElementById("fromDate").value;
+      const do_ = document.getElementById("toDate").value;
+      const msg = document.getElementById("msg");
+
+      if (!employee || !od || !do_) { msg.textContent = "Uzupełnij wszystkie pola."; return; }
+      if (daysInclusive(od, do_) <= 0) { msg.textContent = "Zakres dat jest niepoprawny."; return; }
+
+      const r = await fetch("/api/wniosek", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employee, od, do_: do_ })
+      });
+
+      if (r.ok) {
+        msg.textContent = "✅ Wniosek złożony. Czeka na akceptację.";
+        document.getElementById("employee").value = "";
+        document.getElementById("fromDate").value = "";
+        document.getElementById("toDate").value = "";
+      } else {
+        msg.textContent = "❌ Nie udało się zapisać wniosku.";
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
