@@ -5,50 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Logowanie do kadr</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 50px; background: #f0f0f0; }
-    h2 { color: #333; }
-    input, button { display: block; margin: 10px 0; padding: 8px; width: 300px; }
+    body { font-family: Arial; background: #eef2f3; height: 100vh; display: grid; place-items: center; }
+    .card { background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); width: 360px; }
+    input, button { width: 100%; margin-top: 12px; padding: 10px; }
   </style>
 </head>
 <body>
-  <h2>Logowanie do panelu kadr</h2>
-  <form id="loginForm">
-    <input type="text" id="login" placeholder="Login" required />
-    <input type="password" id="haslo" placeholder="Hasło" required />
-    <button type="submit">Zaloguj się</button>
-  </form>
+  <div class="card">
+    <h2>Panel kadr – logowanie</h2>
+    <input id="login" placeholder="Login (np. ppisarczyk, admin)" />
+    <input id="pass" type="password" placeholder="Hasło" />
+    <button onclick="login()">Zaloguj</button>
+    <p id="msg"></p>
+  </div>
 
   <script>
-    // Stała lista menedżerów – wczytywana niezależnie od localStorage
-    const menedzerowieStali = [
-      { login: "ppisarczyk", haslo: "haslo111" },
-      { login: "hwroblewski", haslo: "haslo112" },
-      { login: "dnowikow", haslo: "haslo113" },
-      { login: "dszmulik", haslo: "haslo114" },
-      { login: "pnurzynski", haslo: "haslo115" },
-      { login: "edusinska", haslo: "haslo116" },
-    ];
+    async function loadDb() {
+      const r = await fetch("/api/db");
+      if (!r.ok) throw new Error("Brak bazy");
+      return await r.json();
+    }
 
-    document.getElementById("loginForm").addEventListener("submit", function (e) {
-      e.preventDefault();
-      const login = document.getElementById("login").value;
-      const haslo = document.getElementById("haslo").value;
+    async function login() {
+      const u = document.getElementById("login").value.trim();
+      const p = document.getElementById("pass").value.trim();
+      const msg = document.getElementById("msg");
 
-      const admin = login === "admin" && haslo === "admin3@1";
-      const znaleziony = menedzerowieStali.find(m => m.login === login && m.haslo === haslo);
-
-      if (admin) {
+      if (u === "admin" && p === "admin3@1") {
         sessionStorage.setItem("rola", "admin");
         sessionStorage.setItem("login", "admin");
-        window.location.href = "kadry.html";
-      } else if (znaleziony) {
-        sessionStorage.setItem("rola", "menedzer");
-        sessionStorage.setItem("login", znaleziony.login);
-        window.location.href = "kadry.html";
-      } else {
-        alert("Nieprawidłowy login lub hasło");
+        location.href = "kadry.html";
+        return;
       }
-    });
+
+      try {
+        const db = await loadDb();
+        const m = (db.menedzerowie || []).find(x => x.login === u && x.haslo === p);
+        if (m) {
+          sessionStorage.setItem("rola", "menedzer");
+          sessionStorage.setItem("login", m.login);
+          location.href = "kadry.html";
+        } else {
+          msg.textContent = "Niepoprawny login lub hasło.";
+        }
+      } catch (e) {
+        msg.textContent = "Błąd logowania.";
+      }
+    }
   </script>
 </body>
 </html>
