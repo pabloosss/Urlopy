@@ -39,22 +39,29 @@
 
   <script src="script.js"></script>
   <script>
+    // Inicjalizacja i wyrenderowanie
     populateEmployeeSelect();
     renderBalances();
 
-    document.getElementById('vacForm').addEventListener('submit', e => {
+    vacForm.addEventListener('submit', e => {
       e.preventDefault();
-      if (!e.target.checkValidity()) { e.target.classList.add('was-validated'); return; }
+      if (!e.target.checkValidity()) {
+        e.target.classList.add('was-validated');
+        return;
+      }
 
-      const emp = empSelect.value;
-      const od  = dateFrom.value;
-      const do_ = dateTo.value;
-      const dni = daysBetween(od, do_);
+      const imie = empSelect.value;
+      const od    = dateFrom.value;
+      const dok   = dateTo.value;
+      const dni   = daysBetween(od, dok);
 
-      if (dni <= 0) { alert('Zakres dat musi obejmować co najmniej jeden dzień.'); return; }
+      if (dni <= 0) {
+        alert('Zakres dat musi obejmować co najmniej jeden dzień.');
+        return;
+      }
 
-      const baza = readDB();
-      const prac = baza.pracownicy.find(p => p.imie === emp);
+      const db = readDB();
+      const prac = db.pracownicy.find(p => p.imie === imie);
       if (!prac) return;
 
       if (prac.dni_urlopowe < dni) {
@@ -62,8 +69,8 @@
         return;
       }
 
-      baza.wnioski.push({ imie: emp, od, do: do_, ile: dni, status: 'oczekuje' });
-      writeDB(baza);
+      db.wnioski.push({ imie, od, do: dok, ile: dni, status: 'oczekuje' });
+      writeDB(db);
 
       alert('Wniosek wysłany!');
       e.target.reset();
