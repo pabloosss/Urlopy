@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8"/>
+  <title>Panel kadrowy</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-4" id="loginBox">
+    <h1>Logowanie do kadr</h1>
+    <form id="loginForm" class="row g-3">
+      <div class="col-md-6"><input id="loginUser" class="form-control" placeholder="Login" required></div>
+      <div class="col-md-6"><input id="loginPass" type="password" class="form-control" placeholder="Hasło" required></div>
+      <div class="col-12"><button class="btn btn-primary">Zaloguj</button></div>
+    </form>
+  </div>
+  <div class="container py-4 d-none" id="panelBox">
+    <h1>Panel kadrowy</h1>
+    <ul class="nav nav-tabs" id="tabBar">
+      <li class="nav-item"><button class="nav-link active" data-bs-target="#tabPrac">Pracownicy</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-target="#tabWnios">Wnioski</button></li>
+    </ul>
+    <div class="tab-content p-3 bg-white border border-top-0">
+      <div class="tab-pane show active" id="tabPrac">
+        <h3>Pracownicy</h3>
+        <form id="addEmpForm" class="row g-3 mb-3">
+          <div class="col-md-4"><input id="empName" class="form-control" placeholder="Imię i nazwisko" required></div>
+          <div class="col-md-3"><input id="empLimit" type="number" class="form-control" value="20" min="1" required></div>
+          <div class="col-auto"><button class="btn btn-success">Dodaj</button></div>
+        </form>
+        <table class="table" id="empTable">
+          <thead><tr><th>Pracownik</th><th>Dni urlopu</th><th>Usuń</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="tab-pane" id="tabWnios">
+        <h3>Wnioski</h3>
+        <table class="table" id="reqTable">
+          <thead><tr><th>Imię</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script>
+    loginForm.addEventListener('submit',e=>{
+      e.preventDefault();
+      if(loginUser.value==='admin' && loginPass.value==='admin3@1'){
+        loginBox.classList.add('d-none');
+        panelBox.classList.remove('d-none');
+        loadEmployees(); loadRequests();
+      } else alert('Błędny login/hasło');
+    });
+    tabBar.addEventListener('click',e=>{
+      if(e.target.classList.contains('nav-link')){
+        tabBar.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+        e.target.classList.add('active');
+        document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('show'));
+        document.querySelector(e.target.dataset.bsTarget).classList.add('show');
+      }
+    });
+    addEmpForm.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const imie = empName.value.trim();
+      const dni  = Number(empLimit.value);
+      if(!imie){alert('Wpisz imię!');return;}
+      await fetch('/api/addEmployee',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({imie,dni_urlopowe:dni})
+      });
+      empName.value=''; empLimit.value=20;
+      await loadDB(); loadEmployees(); renderBalances();
+    });
+  </script>
+</body>
+</html>
