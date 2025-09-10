@@ -3,25 +3,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Calamari-lite – serwer + front</title>
+  <title>Emerlog Urlopy alfa 0.1</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
   <style>
-    :root{ --primary:#0d6efd; --bg:#f6f9ff; }
+    :root{ --primary:#0d6efd; --bg:#f6f9ff; --present:#e8ffe8; --submitted:#fff4e5; --mgr:#fffbe5; --approved:#ffe5e5; --weekend:#f0f0f0; }
     body{background:var(--bg)} .brand-bar{background:linear-gradient(90deg,var(--primary),#37a0ff);color:#fff}
     .brand-logo{height:42px} .shadow-soft{box-shadow:0 8px 20px rgba(13,110,253,.12)}
     .card{border:0;border-radius:1rem} .btn{border-radius:.8rem}
     .nav-pills .nav-link.active{background:var(--primary)} .table thead th{background:#eef5ff}
     .required::after{content:" *"; color:#dc3545}
+    /* Kalendarz */
+    .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:.5rem;}
+    .cal-day{border-radius:.8rem; padding:.5rem; min-height:84px; border:1px solid #e9ecef; position:relative;}
+    .cal-day .d{position:absolute; top:.35rem; right:.5rem; font-size:.8rem; color:#6c757d;}
+    .cal-day.present{background:var(--present)}
+    .cal-day.submitted{background:var(--submitted)}
+    .cal-day.manager_approved{background:var(--mgr)}
+    .cal-day.approved{background:var(--approved)}
+    .cal-day.weekend{background:var(--weekend)}
+    .cal-legend .badge{margin-right:.5rem}
+    .badge-dot{display:inline-block; width:.75rem; height:.75rem; border-radius:50%; margin-right:.25rem}
+    .btn-icon{padding:.35rem .6rem}
   </style>
 </head>
 <body>
 <header class="brand-bar py-2 shadow-soft">
   <div class="container d-flex align-items-center gap-3">
-    <img id="companyLogo" class="brand-logo d-none" alt="Logo"/>
-    <h1 class="h5 mb-0 fw-bold" id="companyName">Calamari-lite</h1>
+    <h1 class="h6 mb-0 fw-bold">Emerlog Urlopy alfa 0.1</h1>
     <div class="ms-auto d-flex align-items-center gap-3">
-      <span class="badge text-bg-success">API</span>
+      <span id="badgeLeavesNav" class="badge text-bg-light d-none"></span>
       <span id="loggedAs" class="small"></span>
       <button class="btn btn-light btn-sm" id="btnLogout" style="display:none"><i class="fa-solid fa-right-from-bracket"></i> Wyloguj</button>
     </div>
@@ -53,53 +64,64 @@
         <div class="card shadow-soft"><div class="card-body">
           <ul class="nav nav-pills flex-column gap-2" id="mainNav">
             <li class="nav-item"><button data-target="dashboard" class="nav-link active w-100 text-start"><i class="fa-solid fa-gauge-high me-2"></i>Pulpit</button></li>
-            <li class="nav-item"><button data-target="timesheet" class="nav-link w-100 text-start"><i class="fa-regular fa-clock me-2"></i>Czas pracy</button></li>
-            <li class="nav-item"><button data-target="leaves" class="nav-link w-100 text-start"><i class="fa-regular fa-calendar-days me-2"></i>Urlopy</button></li>
+            <li class="nav-item"><button data-target="calendar" class="nav-link w-100 text-start"><i class="fa-regular fa-calendar me-2"></i>Kalendarz</button></li>
+            <li class="nav-item"><button data-target="leaves" class="nav-link w-100 text-start"><i class="fa-regular fa-calendar-days me-2"></i>Wnioski <span id="badgeLeaves" class="badge text-bg-danger ms-1 d-none"></span></button></li>
             <li class="nav-item"><button data-target="employees" class="nav-link w-100 text-start"><i class="fa-solid fa-id-card me-2"></i>Pracownicy</button></li>
             <li class="nav-item"><button data-target="reports" class="nav-link w-100 text-start"><i class="fa-solid fa-chart-simple me-2"></i>Raporty</button></li>
-            <li class="nav-item"><button data-target="settings" class="nav-link w-100 text-start"><i class="fa-solid fa-gear me-2"></i>Ustawienia</button></li>
           </ul>
         </div></div>
       </div>
 
       <div class="col-lg-9">
+        <!-- Dashboard -->
         <div id="view-dashboard" class="card shadow-soft"><div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3">
             <h2 class="h5 mb-0">Pulpit</h2>
             <div class="text-muted" id="dashDate"></div>
           </div>
           <div class="row g-3">
-            <div class="col-md-3"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-regular fa-clock fa-lg text-primary"></i><div><div class="small text-muted">Dzisiejsze godziny</div><div class="fs-4" id="todayHours">0:00</div></div></div></div></div>
-            <div class="col-md-3"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-solid fa-calendar-week fa-lg text-primary"></i><div><div class="small text-muted">Ten miesiąc</div><div class="fs-4" id="monthHours">0:00</div></div></div></div></div>
-            <div class="col-md-3"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-solid fa-bullseye fa-lg text-primary"></i><div><div class="small text-muted">Plan / kontrakt</div><div class="fs-6" id="contractInfo">—</div></div></div></div></div>
-            <div class="col-md-3"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-regular fa-sun fa-lg text-primary"></i><div><div class="small text-muted">Urlop – zostało (rok)</div><div class="fs-4" id="vacationInfo">—</div></div></div></div></div>
+            <div class="col-md-4"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-regular fa-sun fa-lg text-primary"></i><div><div class="small text-muted">Urlop – zostało (rok)</div><div class="fs-4" id="vacationInfo">—</div></div></div></div></div>
+            <div class="col-md-4"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-solid fa-users-viewfinder fa-lg text-primary"></i><div><div class="small text-muted">Wnioski do decyzji</div><div class="fs-4" id="pendingInfo">0</div></div></div></div></div>
+            <div class="col-md-4"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-regular fa-calendar-check fa-lg text-primary"></i><div><div class="small text-muted">Dzisiejszy status</div><div class="fs-6" id="todayStatus">—</div></div></div></div></div>
           </div>
         </div></div>
 
-        <div id="view-timesheet" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
+        <!-- Kalendarz -->
+        <div id="view-calendar" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="h5 mb-0">Ewidencja czasu</h2>
-            <div class="d-flex gap-2">
-              <input type="month" id="tsMonth" class="form-control form-control-sm" />
-              <button id="btnExportCSV" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-file-csv"></i> CSV</button>
+            <h2 class="h5 mb-0">Kalendarz obecności</h2>
+            <div class="d-flex gap-2 align-items-center">
+              <select id="calEmployee" class="form-select form-select-sm" style="min-width:240px"></select>
+              <input type="month" id="calMonth" class="form-control form-control-sm" />
+              <button class="btn btn-sm btn-outline-primary" id="btnNewLeaveCal"><i class="fa-solid fa-plus"></i> Wniosek</button>
             </div>
           </div>
-          <div class="table-responsive"><table class="table align-middle" id="tsTable"><thead><tr><th>Data</th><th>Początek</th><th>Koniec</th><th>Przerwa</th><th>Godziny</th><th>Projekt</th><th>Notatka</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
-          <div class="mt-3 d-flex justify-content-end"><button class="btn btn-primary" id="btnAddRow"><i class="fa-solid fa-plus"></i> Dodaj wpis</button></div>
+          <div class="cal-legend mb-3">
+            <span class="badge bg-success-subtle text-success border">Obecny</span>
+            <span class="badge bg-warning-subtle text-warning border">Oczekuje (submitted)</span>
+            <span class="badge bg-warning text-dark border">Po akceptacji Kierownika</span>
+            <span class="badge bg-danger-subtle text-danger border">Zatwierdzony urlop</span>
+          </div>
+          <div id="calGrid" class="cal-grid"></div>
         </div></div>
 
+        <!-- Wnioski -->
         <div id="view-leaves" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Urlopy i nieobecności</h2><div><button class="btn btn-primary btn-sm" id="btnNewLeave"><i class="fa-solid fa-plane-departure"></i> Nowy wniosek</button></div></div>
+          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Wnioski urlopowe</h2><div><button class="btn btn-primary btn-sm" id="btnNewLeave"><i class="fa-solid fa-plane-departure"></i> Nowy wniosek</button></div></div>
           <div class="table-responsive"><table class="table align-middle" id="leaveTable"><thead><tr><th>Pracownik</th><th>Rodzaj</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
         </div></div>
 
+        <!-- Pracownicy -->
         <div id="view-employees" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Pracownicy</h2><div class="d-flex gap-2"><button class="btn btn-primary btn-sm" id="btnNewEmp"><i class="fa-solid fa-user-plus"></i> Dodaj</button></div></div>
-          <div class="table-responsive"><table class="table align-middle" id="empTable"><thead><tr><th>Imię i nazwisko</th><th>E-mail</th><th>Rola</th><th>Kierownik</th><th>Kontrakt</th><th>Start</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Pracownicy</h2><div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm" id="btnNewEmp"><i class="fa-solid fa-user-plus"></i> Dodaj</button>
+          </div></div>
+          <div class="table-responsive"><table class="table align-middle" id="empTable"><thead><tr><th>Imię i nazwisko</th><th>E-mail</th><th>Rola</th><th>Kierownik</th><th>Kontrakt</th><th>Zatrudnienie</th><th>Start</th><th>Urlop (dni/rok)</th><th></th></tr></thead><tbody></tbody></table></div>
         </div></div>
 
+        <!-- Raporty (prosto) -->
         <div id="view-reports" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Raporty</h2></div>
+          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Raport (miesiąc)</h2></div>
           <form class="row g-3 mb-3" id="reportForm">
             <div class="col-md-4"><label class="form-label">Pracownik</label><select class="form-select" id="repEmployee"></select></div>
             <div class="col-md-4"><label class="form-label">Miesiąc</label><input type="month" class="form-control" id="repMonth"></div>
@@ -107,42 +129,18 @@
           </form>
           <div id="repOut"></div>
         </div></div>
-
-        <div id="view-settings" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
-          <h2 class="h5 mb-3">Ustawienia</h2>
-          <form id="settingsForm" class="row g-3">
-            <div class="col-md-6"><label class="form-label">Nazwa firmy</label><input class="form-control" id="setCompany"></div>
-            <div class="col-md-6"><label class="form-label">Logo (PNG/JPG)</label><input type="file" class="form-control" id="setLogo" accept="image/*"></div>
-            <div class="col-md-4"><label class="form-label">Godziny / dzień</label><input type="number" class="form-control" id="setHoursPerDay" min="1" max="12" step="0.5" value="8"></div>
-            <div class="col-12"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-save"></i> Zapisz</button></div>
-          </form>
-        </div></div>
       </div>
     </div>
   </section>
 </main>
 
 <!-- Modale -->
-<div class="modal fade" id="tsEditModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Wpis czasu</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-  <form id="tsEditForm" class="modal-body row g-3">
-    <input type="hidden" id="tsId">
-    <div class="col-md-6"><label class="form-label required">Data</label><input type="date" class="form-control" id="tsDate" required></div>
-    <div class="col-md-3"><label class="form-label">Start</label><input type="time" class="form-control" id="tsStart"></div>
-    <div class="col-md-3"><label class="form-label">Koniec</label><input type="time" class="form-control" id="tsEnd"></div>
-    <div class="col-md-4"><label class="form-label">Przerwa (min)</label><input type="number" class="form-control" id="tsBreak" min="0" step="5" value="0"></div>
-    <div class="col-md-8"><label class="form-label">Projekt</label><input class="form-control" id="tsProject"></div>
-    <div class="col-12"><label class="form-label">Notatka</label><input class="form-control" id="tsNote"></div>
-    <div class="col-12 d-flex justify-content-end gap-2"><button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Anuluj</button><button class="btn btn-primary" type="submit">Zapisz</button></div>
-  </form>
-</div></div></div>
-
 <div class="modal fade" id="leaveModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><div class="modal-content">
   <div class="modal-header"><h5 class="modal-title">Wniosek urlopowy</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
   <form id="leaveForm" class="modal-body row g-3">
     <input type="hidden" id="leaveId">
     <div class="col-md-6"><label class="form-label">Pracownik</label><select class="form-select" id="leaveUser"></select></div>
-    <div class="col-md-6"><label class="form-label">Rodzaj</label><select class="form-select" id="leaveType"><option value="wypoczynkowy">Wypoczynkowy</option><option value="chorobowe">Chorobowe</option><option value="bezpłatny">Bezpłatny</option><option value="zdalnie">Praca zdalna</option><option value="służbowy">Delegacja służbowa</option></select></div>
+    <div class="col-md-6"><label class="form-label">Rodzaj</label><select class="form-select" id="leaveType"></select></div>
     <div class="col-md-6"><label class="form-label required">Od</label><input type="date" class="form-control" id="leaveFrom" required></div>
     <div class="col-md-6"><label class="form-label required">Do</label><input type="date" class="form-control" id="leaveTo" required></div>
     <div class="col-12"><label class="form-label">Komentarz</label><input class="form-control" id="leaveComment"></div>
@@ -156,13 +154,22 @@
     <input type="hidden" id="empId">
     <div class="col-md-6"><label class="form-label required">Imię i nazwisko</label><input class="form-control" id="empName" required></div>
     <div class="col-md-6"><label class="form-label required">E-mail (login)</label><input type="email" class="form-control" id="empEmail" required></div>
-    <div class="col-md-4"><label class="form-label required">Rola</label><select class="form-select" id="empRole" required><option value="employee">Pracownik</option><option value="manager">Kierownik</option><option value="hr">Kadry (HR)</option><option value="admin">Administrator</option></select></div>
+    <div class="col-md-4"><label class="form-label required">Rola</label>
+      <select class="form-select" id="empRole" required>
+        <option value="employee">Pracownik</option>
+        <option value="manager">Kierownik</option>
+        <option value="admin">Administrator</option>
+      </select>
+    </div>
     <div class="col-md-4"><label class="form-label">Kierownik</label><select class="form-select" id="empManager"></select></div>
-    <div class="col-md-4"><label class="form-label">Hasło (ustaw / reset)</label><input class="form-control" id="empPass" placeholder="pozostaw puste bez zmian"></div>
-    <div class="col-md-4"><label class="form-label">Kontrakt</label><select class="form-select" id="empContract"><option value="1.0">Pełny etat (1.0)</option><option value="0.75">3/4 etatu (0.75)</option><option value="0.5">1/2 etatu (0.5)</option><option value="custom">Niestandardowy</option></select></div>
-    <div class="col-md-4"><label class="form-label">Godz./mies. (niestandardowe)</label><input type="number" class="form-control" id="empHoursMonthly" min="1" step="1" placeholder="np. 120"></div>
+    <div class="col-md-4"><label class="form-label">Zatrudnienie</label>
+      <select class="form-select" id="empEmployment">
+        <option value="UOP">UOP</option>
+        <option value="JDG">JDG</option>
+      </select>
+    </div>
     <div class="col-md-4"><label class="form-label">Start zatrudnienia</label><input type="date" class="form-control" id="empStartDate"></div>
-    <div class="col-md-4"><label class="form-label">Urlop (dni/rok)</label><input type="number" class="form-control" id="empVacationDays" min="0" step="1" value="26"></div>
+    <div class="col-md-4"><label class="form-label">Urlop (dni/rok)</label><input type="number" class="form-control" id="empVacationDays" min="0" step="1" value="20"></div>
     <div class="col-12 d-flex justify-content-end gap-2"><button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Anuluj</button><button class="btn btn-primary" type="submit">Zapisz</button></div>
   </form>
 </div></div></div>
@@ -170,90 +177,193 @@
 <script>
 const API_BASE = '';
 let TOKEN = null;
-const state = { user:null, data:{ org:{name:'',logo:null,hoursPerDay:8}, users:[], times:[], leaves:[] } };
+const state = { user:null, data:{ users:[], leaves:[], org:{hoursPerDay:8} } };
 
-function fmtHM(mins){ const h=Math.floor(mins/60), m=mins%60; return h+':'+String(m).padStart(2,'0'); }
-function parseTime(t){ if(!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; }
-function workMinutes(s,e,b){ const S=parseTime(s)||0,E=parseTime(e)||0,B=Number(b)||0; return Math.max(0,E-S-B); }
-function monthKey(d){ d=new Date(d); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+// ====== narzędzia
 function api(path,opts={}){ opts.headers=Object.assign({'Content-Type':'application/json'},opts.headers||{}); if(TOKEN) opts.headers.Authorization='Bearer '+TOKEN; return fetch(API_BASE+path,opts).then(async r=>{ if(!r.ok) throw new Error(await r.text()); return r.json(); }); }
-
-// ====== urlop helpers ======
-function isWeekend(d){ const day=d.getDay(); return day===0 || day===6; }
 function toDate(x){ const d=new Date(x); d.setHours(0,0,0,0); return d; }
+function isWeekend(d){ const day=d.getDay(); return day===0 || day===6; }
+function monthKey(d){ d=new Date(d); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function businessDaysBetween(from,to){ let d1=toDate(from), d2=toDate(to); if(d2<d1) return 0; let c=0,d=new Date(d1); while(d<=d2){ if(!isWeekend(d)) c++; d.setDate(d.getDate()+1);} return c; }
-function employmentFractionThisYear(user,year){ const start=user.startDate? new Date(user.startDate):null; const yStart=new Date(year,0,1), yEnd=new Date(year,11,31); if(!start||start<yStart) return 1; if(start>yEnd) return 0; const months=(12-(start.getMonth()+1))+1; return Math.min(1,Math.max(0,months/12)); }
-function vacationUsedDays(userId,year){ const list=state.data.leaves.filter(l=> l.userId===userId && l.status==='approved' && l.type==='wypoczynkowy' && new Date(l.to).getFullYear()>=year && new Date(l.from).getFullYear()<=year ); let sum=0; for(const l of list){ const f=new Date(Math.max(new Date(`${year}-01-01`).getTime(), toDate(l.from).getTime())); const t=new Date(Math.min(new Date(`${year}-12-31`).getTime(), toDate(l.to).getTime())); sum += businessDaysBetween(f,t);} return sum; }
-function vacationBalance(user,year){ const total=Number(user.vacationDays??26)||26; const entitled=Math.ceil(total*employmentFractionThisYear(user,year)); const used=vacationUsedDays(user.id,year); const left=Math.max(0,entitled-used); return { total, entitled, used, left }; }
 
-// ====== auth & sync ======
+// ====== liczniki urlopu
+function employmentFractionThisYear(user,year){ const start=user.startDate? new Date(user.startDate):null; const yStart=new Date(year,0,1), yEnd=new Date(year,11,31); if(!start||start<yStart) return 1; if(start>yEnd) return 0; const months=(12-(start.getMonth()+1))+1; return Math.min(1,Math.max(0,months/12)); }
+function vacationUsedDays(userId,year){
+  const list=state.data.leaves.filter(l=> l.userId===userId && l.status==='approved' && (l.type==='wypoczynkowy' || l.type==='na_zadanie') && new Date(l.to).getFullYear()>=year && new Date(l.from).getFullYear()<=year );
+  let sum=0; for(const l of list){ const f=new Date(Math.max(new Date(`${year}-01-01`).getTime(), toDate(l.from).getTime())); const t=new Date(Math.min(new Date(`${year}-12-31`).getTime(), toDate(l.to).getTime())); sum += businessDaysBetween(f,t); }
+  return sum;
+}
+function vacationBalance(user,year){ const total=Number(user.vacationDays??20)||20; const entitled=Math.ceil(total*employmentFractionThisYear(user,year)); const used=vacationUsedDays(user.id,year); const left=Math.max(0,entitled-used); return { total, entitled, used, left }; }
+
+// ====== auth & sync
 async function login(email,pass){ try{ const r=await api('/auth/login',{method:'POST', body: JSON.stringify({email, pass})}); TOKEN=r.token; state.user=r.user; await sync(); renderAfterLogin(); return true; }catch{ return false; } }
-async function sync(){ const org=await api('/org'); const users=await api('/users'); const mk=monthKey(new Date()); const times=await api('/times?month='+mk); const leaves=await api('/leaves'); state.data={ org, users, times, leaves }; }
+async function sync(){ const users=await api('/users'); const leaves=await api('/leaves'); state.data={ users, leaves, org:{hoursPerDay:8} }; }
 
 function renderAfterLogin(){
   document.getElementById('authSection').style.display='none';
   document.getElementById('appSection').style.display='block';
   document.getElementById('btnLogout').style.display='inline-flex';
   document.getElementById('loggedAs').textContent = `${state.user.name} (${state.user.email})`;
-  const org=state.data.org; document.getElementById('companyName').textContent = org.name||'Calamari-lite';
-  const l=document.getElementById('companyLogo'); if(org.logo){ l.src=org.logo; l.classList.remove('d-none'); } else { l.classList.add('d-none'); }
   document.getElementById('dashDate').textContent = new Date().toLocaleString('pl-PL',{dateStyle:'full'});
-  const now=new Date(); document.getElementById('tsMonth').value = monthKey(now); document.getElementById('repMonth').value = monthKey(now);
-  if(!window._poll) window._poll=setInterval(refresh,8000); // auto-sync co 8s
-  renderTables(); showView('dashboard');
+
+  const now=new Date(); document.getElementById('calMonth').value = monthKey(now); document.getElementById('repMonth').value = monthKey(now);
+  if(!window._poll) window._poll=setInterval(refresh,8000);
+
+  renderAll();
+  showView('dashboard');
 }
 function showView(name){
-  ['dashboard','timesheet','leaves','employees','reports','settings'].forEach(v=>{
+  ['dashboard','calendar','leaves','employees','reports'].forEach(v=>{
     document.getElementById('view-'+v).style.display=(v===name)?'block':'none';
     document.querySelectorAll('#mainNav [data-target]').forEach(btn=> btn.classList.toggle('active',btn.dataset.target===name));
   });
 }
-function userContractInfo(u){ const base=state.data.org.hoursPerDay||8; let m=20*base; if(u.contract==='0.75')m*=0.75; else if(u.contract==='0.5')m*=0.5; else if(u.contract==='custom'&&u.hoursMonthly)m=u.hoursMonthly; return Math.round(m); }
-function renderDashboard(){
-  const u=state.user; const mk=monthKey(new Date());
-  const my=state.data.times.filter(t=>t.userId===u.id && t.date.startsWith(mk));
-  const today=new Date().toISOString().slice(0,10);
-  const todayMin=my.filter(t=>t.date===today).reduce((a,t)=>a+workMinutes(t.start,t.end,t.break),0);
-  const monthMin=my.reduce((a,t)=>a+workMinutes(t.start,t.end,t.break),0);
-  document.getElementById('todayHours').textContent=fmtHM(todayMin);
-  document.getElementById('monthHours').textContent=fmtHM(monthMin);
-  document.getElementById('contractInfo').textContent=`${userContractInfo(u)} h / mies.`;
-  const year=new Date().getFullYear(); const bal=vacationBalance(u,year);
-  document.getElementById('vacationInfo').textContent=`${bal.left} / ${bal.entitled} dni`;
-}
 
+function renderAll(){ renderDashboard(); renderCalendar(); renderLeaves(); renderEmployees(); renderRepEmployees(); renderBadges(); }
+
+// ====== UI helpers
 function statusBadge(s){
-  const map={draft:'secondary',submitted:'info',approved:'success',rejected:'danger'};
-  const txt={draft:'Szkic',submitted:'Wysłany',approved:'Zatwierdzony',rejected:'Odrzucony'};
-  return `<span class="badge text-bg-${map[s||'draft']}">${txt[s||'draft']}</span>`;
+  const map={submitted:'warning', manager_approved:'warning', approved:'danger', rejected_manager:'secondary', rejected_admin:'secondary'};
+  const txt={submitted:'Wysłany', manager_approved:'Po akceptacji kierownika', approved:'Zatwierdzony', rejected_manager:'Odrzucony (kierownik)', rejected_admin:'Odrzucony (admin)'};
+  return `<span class="badge text-bg-${map[s]||'light'}">${txt[s]||s}</span>`;
+}
+function userById(id){ return state.data.users.find(u=>u.id===id); }
+function subordinatesOf(managerId){ return state.data.users.filter(u=>u.managerId===managerId); }
+function canManagerActOn(leave){ const me=state.user; return me.role==='manager' && subordinatesOf(me.id).some(u=>u.id===leave.userId) && leave.status==='submitted'; }
+function canAdminActOn(leave){ const me=state.user; if(me.role!=='admin') return false; const applicant=userById(leave.userId); return (leave.status==='manager_approved') || (applicant?.role==='manager' && leave.status==='submitted'); }
+
+// ====== dashboard
+function renderDashboard(){
+  const me = userById(state.user.id);
+  const year=new Date().getFullYear(); const bal=vacationBalance(me,year);
+  document.getElementById('vacationInfo').textContent=`${bal.left} / ${bal.entitled} dni`;
+
+  const today= new Date().toISOString().slice(0,10);
+  const todays = state.data.leaves.filter(l=> l.userId===me.id && l.status==='approved' && toDate(l.from) <= toDate(today) && toDate(l.to) >= toDate(today));
+  document.getElementById('todayStatus').textContent = todays.length? 'Nieobecny (urlop/absencja)' : 'Obecny';
+
+  // Pending count for my role
+  let n=0;
+  if(state.user.role==='manager'){
+    n = state.data.leaves.filter(l=> canManagerActOn(l)).length;
+  } else if(state.user.role==='admin'){
+    n = state.data.leaves.filter(l=> canAdminActOn(l)).length;
+  }
+  document.getElementById('pendingInfo').textContent = String(n);
 }
 
-function renderTimes(){
-  const tbody=document.querySelector('#tsTable tbody'); tbody.innerHTML='';
-  const mk=document.getElementById('tsMonth').value;
-  const list=state.data.times.filter(t=>t.userId===state.user.id && t.date.startsWith(mk)).sort((a,b)=>a.date.localeCompare(b.date));
-  for(const t of list){
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${t.date}</td>
-      <td>${t.start||''}</td>
-      <td>${t.end||''}</td>
-      <td>${t.break||0}</td>
-      <td>${fmtHM(workMinutes(t.start,t.end,t.break))}</td>
-      <td>${t.project||''}</td>
-      <td>${t.note||''}</td>
-      <td>${statusBadge(t.status)}</td>
-      <td class='text-end'>
-        <button class='btn btn-sm btn-outline-secondary me-1' data-act='edit' data-id='${t.id}'><i class='fa-regular fa-pen-to-square'></i></button>
-        <button class='btn btn-sm btn-outline-danger' data-act='del' data-id='${t.id}'><i class='fa-regular fa-trash-can'></i></button>
-      </td>`;
-    tbody.appendChild(tr);
+// ====== powiadomienia (badges)
+function renderBadges(){
+  let n=0;
+  if(state.user.role==='manager') n = state.data.leaves.filter(l=> canManagerActOn(l)).length;
+  else if(state.user.role==='admin') n = state.data.leaves.filter(l=> canAdminActOn(l)).length;
+  const b1=document.getElementById('badgeLeaves');
+  const b2=document.getElementById('badgeLeavesNav');
+  [b1,b2].forEach(b=>{ if(!b) return; if(n>0){ b.textContent=n; b.classList.remove('d-none'); } else { b.classList.add('d-none'); }});
+}
+
+// ====== kalendarz
+function fillEmployeeSelect(sel){
+  sel.innerHTML='';
+  let list=[];
+  if(state.user.role==='admin'){ list = [...state.data.users]; }
+  else if(state.user.role==='manager'){ list = [ userById(state.user.id), ...subordinatesOf(state.user.id) ]; }
+  else { list = [ userById(state.user.id) ]; }
+  // sort: najpierw kierownikami, w grupie po nazwisku
+  list.sort((a,b)=>{
+    const ma=userById(a.managerId||'')?.name||'', mb=userById(b.managerId||'')?.name||'';
+    if(ma!==mb) return ma.localeCompare(mb,'pl');
+    return (a.name||'').localeCompare(b.name||'','pl');
+  });
+  for(const u of list){ sel.insertAdjacentHTML('beforeend', `<option value="${u.id}">${u.name} ${u.id===state.user.id?'(ja)':''}</option>`); }
+  if(!sel.value) sel.value = state.user.id;
+}
+function getMonthDays(year,month){ // month: 1-12
+  const days = new Date(year, month, 0).getDate();
+  return Array.from({length:days}, (_,i)=> i+1);
+}
+function mondayIndex(jsDay){ // JS: Sun=0..Sat=6; my: Mon=0..Sun=6
+  return (jsDay+6)%7;
+}
+function dayHasLeave(userId, y, m, d){
+  const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const leaves=state.data.leaves.filter(l=> l.userId===userId && toDate(l.from)<=toDate(iso) && toDate(l.to)>=toDate(iso));
+  if(leaves.length===0) return { state: isWeekend(new Date(iso))?'weekend':'present', leaves:[] };
+  // priorytety: approved > manager_approved > submitted
+  let prio='submitted';
+  for(const l of leaves){
+    if(l.status==='approved'){ prio='approved'; break; }
+    if(l.status==='manager_approved'){ prio='manager_approved'; }
+  }
+  return { state: prio, leaves };
+}
+function renderCalendar(){
+  const sel=document.getElementById('calEmployee'); fillEmployeeSelect(sel);
+  const mk=document.getElementById('calMonth').value || monthKey(new Date());
+  const [Y,M]=mk.split('-').map(Number);
+  const days=getMonthDays(Y,M);
+  const grid=document.getElementById('calGrid'); grid.innerHTML='';
+
+  // nagłówki dni Pn..Nd
+  const head=['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+  for(const h of head){ const div=document.createElement('div'); div.className='text-center small text-muted'; div.textContent=h; grid.appendChild(div); }
+
+  // puste pola przed 1. dniem (pon-0)
+  const first=new Date(Y, M-1, 1);
+  const pad=mondayIndex(first.getDay());
+  for(let i=0;i<pad;i++){ const d=document.createElement('div'); d.className='cal-day weekend'; grid.appendChild(d); }
+
+  // dni
+  for(const d of days){
+    const info = dayHasLeave(sel.value, Y, M, d);
+    const div=document.createElement('div');
+    div.className=`cal-day ${info.state}`;
+    div.innerHTML=`<div class="d">${d}</div>`;
+    if(info.leaves.length){
+      const l=info.leaves[0];
+      const u=userById(l.userId);
+      const tMap={
+        choroba:'Choroba',
+        wypoczynkowy:'Urlop wypoczynkowy',
+        odbior_swieto:'Odbiór za święto',
+        opieka_dziecko:'Opieka nad dzieckiem',
+        odbior_nadgodzin:'Odbiór nadgodzin',
+        bezplatny:'Urlop bezpłatny',
+        macierzynski:'Urlop macierzyński',
+        na_zadanie:'Urlop na żądanie',
+        ojcowski:'Urlop ojcowski'
+      };
+      div.insertAdjacentHTML('beforeend', `<div class="small">${tMap[l.type]||l.type}</div><div class="small">${(l.comment||'')}</div>`);
+      // akcje (kierownik/admin)
+      if(canManagerActOn(l) || canAdminActOn(l)){
+        div.insertAdjacentHTML('beforeend', `<div class="mt-1 d-flex gap-1 flex-wrap">
+          ${canManagerActOn(l)?`<button class="btn btn-sm btn-success btn-icon" data-act="approve-mgr" data-id="${l.id}" title="Zatwierdź (kierownik)"><i class="fa-solid fa-check"></i></button>
+          <button class="btn btn-sm btn-danger btn-icon" data-act="reject-mgr" data-id="${l.id}" title="Odrzuć (kierownik)"><i class="fa-solid fa-xmark"></i></button>`:''}
+          ${canAdminActOn(l)?`<button class="btn btn-sm btn-success btn-icon" data-act="approve-adm" data-id="${l.id}" title="Zatwierdź (admin)"><i class="fa-solid fa-check-double"></i></button>
+          <button class="btn btn-sm btn-danger btn-icon" data-act="reject-adm" data-id="${l.id}" title="Odrzuć (admin)"><i class="fa-solid fa-ban"></i></button>`:''}
+        </div>`);
+      }
+    } else {
+      // brak wniosku – skrót do utworzenia
+      if(!isWeekend(new Date(`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`))){
+        div.insertAdjacentHTML('beforeend', `<div class="mt-2"><button class="btn btn-sm btn-outline-primary" data-act="new-leave-day" data-date="${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}"><i class="fa-solid fa-plus"></i> Wniosek</button></div>`);
+      }
+    }
+    grid.appendChild(div);
   }
 }
+
+// ====== wnioski (lista)
 function renderLeaves(){
   const tbody=document.querySelector('#leaveTable tbody'); tbody.innerHTML='';
-  for(const l of [...state.data.leaves].sort((a,b)=>a.from.localeCompare(b.from))){
-    const u=state.data.users.find(x=>x.id===l.userId);
+  const rows=[...state.data.leaves].sort((a,b)=>{
+    // priorytet: submitted -> manager_approved -> approved -> rejected*
+    const prio = s=> ({submitted:1, manager_approved:2, approved:9, rejected_manager:10, rejected_admin:10}[s]||5);
+    const p=prio(a.status)-prio(b.status); if(p!==0) return p;
+    return (a.from||'').localeCompare(b.from||'');
+  });
+  for(const l of rows){
+    const u= userById(l.userId);
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td>${u?.name||'—'}</td>
@@ -263,68 +373,103 @@ function renderLeaves(){
       <td>${businessDaysBetween(l.from,l.to)}</td>
       <td>${statusBadge(l.status)}</td>
       <td class='text-end'>
-        <button class='btn btn-sm btn-success me-1' data-act='approve' data-id='${l.id}'><i class='fa-solid fa-check'></i></button>
-        <button class='btn btn-sm btn-danger me-1' data-act='reject' data-id='${l.id}'><i class='fa-solid fa-xmark'></i></button>
-        <button class='btn btn-sm btn-outline-secondary' data-act='editLeave' data-id='${l.id}'><i class='fa-regular fa-pen-to-square'></i></button>
+        ${ (state.user.id===l.userId && l.status==='submitted') ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editLeave' data-id='${l.id}'><i class='fa-regular fa-pen-to-square'></i></button><button class='btn btn-sm btn-outline-danger' data-act='delLeave' data-id='${l.id}'><i class='fa-regular fa-trash-can'></i></button>` : '' }
+        ${ canManagerActOn(l) ? `<button class='btn btn-sm btn-success me-1' data-act='approve-mgr' data-id='${l.id}'><i class='fa-solid fa-check'></i></button><button class='btn btn-sm btn-danger' data-act='reject-mgr' data-id='${l.id}'><i class='fa-solid fa-xmark'></i></button>` : '' }
+        ${ canAdminActOn(l) ? `<button class='btn btn-sm btn-success me-1' data-act='approve-adm' data-id='${l.id}'><i class='fa-solid fa-check-double'></i></button><button class='btn btn-sm btn-danger' data-act='reject-adm' data-id='${l.id}'><i class='fa-solid fa-ban'></i></button>` : '' }
       </td>`;
     tbody.appendChild(tr);
   }
 }
+
+// ====== pracownicy (grupowanie po kierowniku + sort A→Z)
 function renderEmployees(){
   const tbody=document.querySelector('#empTable tbody'); tbody.innerHTML='';
-  for(const u of state.data.users){
-    const mgr=state.data.users.find(x=>x.id===u.managerId);
-    const contractText=(u.contract==='1.0')?'1.0':(u.contract==='0.75')?'0.75':(u.contract==='0.5')?'0.5':`${u.hoursMonthly||'—'} h/mies.`;
+  // admin widzi wszystkich; manager: siebie + podopiecznych; employee: tylko siebie
+  let list=[];
+  if(state.user.role==='admin') list=[...state.data.users];
+  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
+  else list=[ userById(state.user.id) ];
+
+  // sort po kierowniku, potem po nazwisku
+  list.sort((a,b)=>{
+    const ma=userById(a.managerId||'')?.name||'', mb=userById(b.managerId||'')?.name||'';
+    if(ma!==mb) return ma.localeCompare(mb,'pl');
+    return (a.name||'').localeCompare(b.name||'','pl');
+  });
+
+  for(const u of list){
+    const mgr=userById(u.managerId||'');
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td>${u.name}</td><td>${u.email}</td>
-      <td><span class='badge text-bg-${u.role==='admin'?'dark':u.role==='manager'?'info':u.role==='hr'?'primary':'secondary'}'>${u.role}</span></td>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><span class='badge text-bg-${u.role==='admin'?'dark':u.role==='manager'?'info':'secondary'}'>${u.role}</span></td>
       <td>${mgr?mgr.name:'—'}</td>
-      <td>${contractText}</td>
+      <td>${u.contract||'1.0'}</td>
+      <td>${u.employment||'UOP'}</td>
       <td>${u.startDate||'—'}</td>
+      <td>${u.vacationDays??20}</td>
       <td class='text-end'>
-        <button class='btn btn-sm btn-outline-secondary me-1' data-act='editEmp' data-id='${u.id}'><i class='fa-regular fa-pen-to-square'></i></button>
-        <button class='btn btn-sm btn-outline-danger' data-act='delEmp' data-id='${u.id}'><i class='fa-regular fa-trash-can'></i></button>
+        ${state.user.role==='admin'
+          ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editEmp' data-id='${u.id}'><i class='fa-regular fa-pen-to-square'></i></button>
+             <button class='btn btn-sm btn-outline-danger' data-act='delEmp' data-id='${u.id}'><i class='fa-regular fa-trash-can'></i></button>`
+          : '' }
       </td>`;
     tbody.appendChild(tr);
   }
 }
 function renderRepEmployees(){
   const sel=document.getElementById('repEmployee'); sel.innerHTML='';
-  for(const u of state.data.users){ sel.insertAdjacentHTML('beforeend',`<option value='${u.id}'>${u.name}</option>`); }
+  let list=[];
+  if(state.user.role==='admin') list=[...state.data.users];
+  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
+  else list=[ userById(state.user.id) ];
+  list.sort((a,b)=> (a.name||'').localeCompare(b.name||'','pl'));
+  for(const u of list){ sel.insertAdjacentHTML('beforeend',`<option value='${u.id}'>${u.name}</option>`); }
 }
-function renderTables(){ renderDashboard(); renderTimes(); renderLeaves(); renderEmployees(); renderRepEmployees(); }
 
-function openTsModal(id){
-  const m=new bootstrap.Modal('#tsEditModal');
-  const isNew=!id;
-  const row=isNew? {id:cryptoRand(), userId:state.user.id, date:new Date().toISOString().slice(0,10), start:'08:00', end:'16:00', break:30, project:'', note:'', status:'submitted'} : state.data.times.find(x=>x.id===id);
-  document.getElementById('tsId').value=row.id;
-  document.getElementById('tsDate').value=row.date;
-  document.getElementById('tsStart').value=row.start||'';
-  document.getElementById('tsEnd').value=row.end||'';
-  document.getElementById('tsBreak').value=row.break||0;
-  document.getElementById('tsProject').value=row.project||'';
-  document.getElementById('tsNote').value=row.note||'';
-  m.show();
+// ====== modale — wnioski
+function leaveTypesForUser(uid){
+  const u=userById(uid);
+  if((u?.employment||'UOP')==='JDG'){
+    return [
+      ['wypoczynkowy','Urlop wypoczynkowy'],
+      ['odbior_swieto','Odbiór za święto']
+    ];
+  }
+  return [
+    ['wypoczynkowy','Urlop wypoczynkowy'],
+    ['na_zadanie','Urlop na żądanie'],
+    ['choroba','Choroba'],
+    ['opieka_dziecko','Opieka nad dzieckiem'],
+    ['odbior_swieto','Odbiór za święto'],
+    ['odbior_nadgodzin','Odbiór nadgodzin'],
+    ['bezplatny','Urlop bezpłatny'],
+    ['macierzynski','Urlop macierzyński'],
+    ['ojcowski','Urlop ojcowski']
+  ];
 }
-async function saveTsFromModal(ev){
-  ev.preventDefault();
-  const row={ id:document.getElementById('tsId').value, userId:state.user.id, date:document.getElementById('tsDate').value, start:document.getElementById('tsStart').value, end:document.getElementById('tsEnd').value, break:Number(document.getElementById('tsBreak').value)||0, project:document.getElementById('tsProject').value, note:document.getElementById('tsNote').value, status:'submitted'};
-  const exists=state.data.times.find(x=>x.id===row.id);
-  await api('/times'+(exists?('/'+row.id):''),{ method: exists?'PUT':'POST', body: JSON.stringify(row)});
-  await refresh();
-  bootstrap.Modal.getInstance(document.getElementById('tsEditModal')).hide();
+function fillLeaveUserSelect(selectEl){
+  selectEl.innerHTML='';
+  let list=[];
+  if(state.user.role==='admin') list=[...state.data.users];
+  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
+  else list=[ userById(state.user.id) ];
+  list.sort((a,b)=> (a.name||'').localeCompare(b.name||'','pl'));
+  for(const u of list){ selectEl.insertAdjacentHTML('beforeend', `<option value="${u.id}">${u.name}${u.id===state.user.id?' (ja)':''}</option>`); }
 }
-async function deleteTime(id){ await api('/times/'+id,{method:'DELETE'}); await refresh(); }
-
-function openLeaveModal(id){
+function fillLeaveTypes(selectEl, uid){
+  selectEl.innerHTML='';
+  for(const [val,label] of leaveTypesForUser(uid)){ selectEl.insertAdjacentHTML('beforeend', `<option value="${val}">${label}</option>`); }
+}
+function openLeaveModal(id, presetDate=null){
   const m=new bootstrap.Modal('#leaveModal');
-  const sel=document.getElementById('leaveUser'); sel.innerHTML='';
-  for(const u of state.data.users){ sel.insertAdjacentHTML('beforeend',`<option value='${u.id}'>${u.name}</option>`);}
-  const row=id? state.data.leaves.find(x=>x.id===id) : {id:cryptoRand(), userId:state.user.id, type:'wypoczynkowy', from:new Date().toISOString().slice(0,10), to:new Date().toISOString().slice(0,10), comment:'', status:'submitted'};
+  const selUser=document.getElementById('leaveUser');
+  fillLeaveUserSelect(selUser);
+  const row=id? state.data.leaves.find(x=>x.id===id) : {id:cryptoRand(), userId:state.user.id, type:'wypoczynkowy', from:presetDate||new Date().toISOString().slice(0,10), to:presetDate||new Date().toISOString().slice(0,10), comment:''};
   document.getElementById('leaveId').value=row.id;
-  document.getElementById('leaveUser').value=row.userId;
+  selUser.value=row.userId;
+  fillLeaveTypes(document.getElementById('leaveType'), row.userId);
   document.getElementById('leaveType').value=row.type;
   document.getElementById('leaveFrom').value=row.from;
   document.getElementById('leaveTo').value=row.to;
@@ -333,94 +478,100 @@ function openLeaveModal(id){
 }
 async function saveLeaveFromModal(ev){
   ev.preventDefault();
-  const row={ id:document.getElementById('leaveId').value, userId:document.getElementById('leaveUser').value, type:document.getElementById('leaveType').value, from:document.getElementById('leaveFrom').value, to:document.getElementById('leaveTo').value, comment:document.getElementById('leaveComment').value, status:'submitted'};
+  const row={ id:document.getElementById('leaveId').value, userId:document.getElementById('leaveUser').value, type:document.getElementById('leaveType').value, from:document.getElementById('leaveFrom').value, to:document.getElementById('leaveTo').value, comment:document.getElementById('leaveComment').value };
   const exists=state.data.leaves.find(x=>x.id===row.id);
   await api('/leaves'+(exists?('/'+row.id):''),{ method: exists?'PUT':'POST', body: JSON.stringify(row)});
   await refresh();
   bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide();
 }
-async function approveLeave(id, ok){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status: ok?'approved':'rejected' })}); await refresh(); }
+async function approveLeave(id, who){ // who: 'mgr' | 'adm'
+  if(who==='mgr'){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status:'manager_approved' })}); }
+  else if(who==='adm'){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status:'approved' })}); }
+  await refresh();
+}
+async function rejectLeave(id, who){
+  if(who==='mgr'){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status:'rejected_manager' })}); }
+  else if(who==='adm'){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status:'rejected_admin' })}); }
+  await refresh();
+}
+async function deleteLeave(id){ await api('/leaves/'+id,{method:'DELETE'}); await refresh(); }
 
+// ====== modale — pracownicy (admin only edycja)
 function openEmpModal(id){
+  if(state.user.role!=='admin'){ alert('Tylko administrator może edytować pracowników.'); return; }
   const m=new bootstrap.Modal('#empModal');
   const sel=document.getElementById('empManager'); sel.innerHTML='<option value="">—</option>';
   state.data.users.filter(u=>u.role!=='employee').forEach(u=> sel.insertAdjacentHTML('beforeend',`<option value='${u.id}'>${u.name}</option>`));
-  const row=id? state.data.users.find(u=>u.id===id) : {id:cryptoRand(), name:'', email:'', role:'employee', managerId:'', contract:'1.0', hoursMonthly:null, startDate:'', pass:'1', vacationDays:26};
+  const row=id? state.data.users.find(u=>u.id===id) : {id:cryptoRand(), name:'', email:'', role:'employee', managerId:'', employment:'UOP', startDate:'', pass:'1', vacationDays:20};
   document.getElementById('empId').value=row.id;
   document.getElementById('empName').value=row.name||'';
   document.getElementById('empEmail').value=row.email||'';
   document.getElementById('empRole').value=row.role||'employee';
   document.getElementById('empManager').value=row.managerId||'';
-  document.getElementById('empContract').value=row.contract||'1.0';
-  document.getElementById('empHoursMonthly').value=row.hoursMonthly||'';
+  document.getElementById('empEmployment').value=row.employment||'UOP';
   document.getElementById('empStartDate').value=row.startDate||'';
-  document.getElementById('empPass').value='';
-  document.getElementById('empVacationDays').value=row.vacationDays??26;
+  document.getElementById('empVacationDays').value=row.vacationDays??20;
   m.show();
 }
 async function saveEmpFromModal(ev){
   ev.preventDefault();
-  const row={ id:document.getElementById('empId').value, name:document.getElementById('empName').value, email:document.getElementById('empEmail').value, role:document.getElementById('empRole').value, managerId:document.getElementById('empManager').value||null, contract:document.getElementById('empContract').value, hoursMonthly:Number(document.getElementById('empHoursMonthly').value)||null, startDate:document.getElementById('empStartDate').value||null, pass:(document.getElementById('empPass').value||undefined), vacationDays:Number(document.getElementById('empVacationDays').value)||26 };
+  if(state.user.role!=='admin'){ alert('Tylko administrator może edytować pracowników.'); return; }
+  const row={ id:document.getElementById('empId').value, name:document.getElementById('empName').value, email:document.getElementById('empEmail').value, role:document.getElementById('empRole').value, managerId:document.getElementById('empManager').value||null, employment:document.getElementById('empEmployment').value||'UOP', startDate:document.getElementById('empStartDate').value||null, pass:(undefined), vacationDays:Number(document.getElementById('empVacationDays').value)||20 };
   const exists=state.data.users.find(u=>u.id===row.id);
   await api('/users'+(exists?('/'+row.id):''),{ method: exists?'PUT':'POST', body: JSON.stringify(row)});
   await refresh();
   bootstrap.Modal.getInstance(document.getElementById('empModal')).hide();
 }
-async function deleteEmp(id){ await api('/users/'+id,{method:'DELETE'}); await refresh(); }
+async function deleteEmp(id){ if(state.user.role!=='admin'){ alert('Tylko administrator może usuwać.'); return; } await api('/users/'+id,{method:'DELETE'}); await refresh(); }
 
-async function refresh(){ await sync(); renderTables(); }
+// ====== refresh & events
+async function refresh(){ await sync(); renderAll(); }
 function cryptoRand(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 
-// ====== export CSV (bieżący miesiąc/pracownik) ======
-function exportCSV(){
-  const mk=document.getElementById('tsMonth').value;
-  const list=state.data.times.filter(t=>t.userId===state.user.id && t.date.startsWith(mk)).sort((a,b)=>a.date.localeCompare(b.date));
-  const rows=[['Data','Start','Koniec','Przerwa(min)','Godziny','Projekt','Notatka','Status']];
-  for(const t of list){ rows.push([t.date,t.start||'',t.end||'',t.break||0,fmtHM(workMinutes(t.start,t.end,t.break)),t.project||'',t.note||'',t.status]); }
-  const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`times_${state.user.email}_${mk}.csv`; a.click(); URL.revokeObjectURL(a.href);
-}
-
-// ====== ustawienia / init ======
+// ====== init
 document.addEventListener('DOMContentLoaded', ()=>{
-  document.getElementById('loginForm').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const ok=await login(document.getElementById('loginEmail').value, document.getElementById('loginPass').value);
-    if(!ok) alert('Nieprawidłowe dane logowania.');
-  });
+  document.getElementById('loginForm').addEventListener('submit', async (e)=>{ e.preventDefault(); const ok=await login(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); if(!ok) alert('Nieprawidłowe dane logowania.'); });
   document.getElementById('btnLogout').addEventListener('click', ()=>{ clearInterval(window._poll); window._poll=null; location.reload(); });
   document.querySelectorAll('#mainNav [data-target]').forEach(btn=> btn.addEventListener('click', ()=> showView(btn.dataset.target)));
-  document.getElementById('btnAddRow').addEventListener('click', ()=> openTsModal());
-  document.getElementById('tsEditForm').addEventListener('submit', saveTsFromModal);
-  document.getElementById('tsMonth').addEventListener('change', renderTimes);
-  document.getElementById('tsTable').addEventListener('click', (e)=>{ const b=e.target.closest('button'); if(!b) return; const id=b.dataset.id; const act=b.dataset.act; if(act==='edit') openTsModal(id); if(act==='del') deleteTime(id); });
-  document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
-
+  document.getElementById('calMonth').addEventListener('change', renderCalendar);
+  document.getElementById('calEmployee').addEventListener('change', renderCalendar);
+  document.getElementById('btnNewLeaveCal').addEventListener('click', ()=> openLeaveModal(null, (document.getElementById('calMonth').value||new Date().toISOString().slice(0,7))+'-01'));
   document.getElementById('btnNewLeave').addEventListener('click', ()=> openLeaveModal());
   document.getElementById('leaveForm').addEventListener('submit', saveLeaveFromModal);
-  document.getElementById('leaveTable').addEventListener('click', (e)=>{ const b=e.target.closest('button'); if(!b) return; const id=b.dataset.id; const act=b.dataset.act; if(act==='approve') approveLeave(id,true); if(act==='reject') approveLeave(id,false); if(act==='editLeave') openLeaveModal(id); });
+  document.getElementById('leaveUser').addEventListener('change', ()=> fillLeaveTypes(document.getElementById('leaveType'), document.getElementById('leaveUser').value));
 
-  document.getElementById('btnNewEmp').addEventListener('click', ()=> openEmpModal());
-  document.getElementById('empForm').addEventListener('submit', saveEmpFromModal);
-  document.getElementById('empTable').addEventListener('click', (e)=>{ const b=e.target.closest('button'); if(!b) return; const id=b.dataset.id; const act=b.dataset.act; if(act==='editEmp') openEmpModal(id); if(act==='delEmp') deleteEmp(id); });
+  // Delegacja klików (kalendarz/wnioski)
+  document.body.addEventListener('click', (e)=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const act=b.dataset.act, id=b.dataset.id;
+    if(act==='approve-mgr') approveLeave(id,'mgr');
+    if(act==='reject-mgr') rejectLeave(id,'mgr');
+    if(act==='approve-adm') approveLeave(id,'adm');
+    if(act==='reject-adm') rejectLeave(id,'adm');
+    if(act==='editLeave') openLeaveModal(id);
+    if(act==='delLeave') deleteLeave(id);
+    if(act==='new-leave-day') openLeaveModal(null, b.dataset.date);
+  });
 
+  // raport (prosto)
   document.getElementById('reportForm').addEventListener('submit', (e)=>{
     e.preventDefault();
     const uid=document.getElementById('repEmployee').value;
-    const month=document.getElementById('repMonth').value;
-    const list=state.data.times.filter(t=>t.userId===uid && t.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date));
-    const total=list.reduce((a,t)=>a+workMinutes(t.start,t.end,t.break),0);
-    const u=state.data.users.find(x=>x.id===uid); const plan=userContractInfo(u);
+    const mk=document.getElementById('repMonth').value;
+    const [Y,M]=mk.split('-').map(Number);
+    const days=getMonthDays(Y,M);
+    const present=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='present' && !isWeekend(new Date(`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`))).length;
+    const submitted=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='submitted').length;
+    const mgr=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='manager_approved').length;
+    const approved=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='approved').length;
     const out=document.getElementById('repOut');
     out.innerHTML=`<div class='border rounded-4 p-3'>
-      <div class='d-flex justify-content-between align-items-center'>
-        <div><div class='fw-semibold'>${u.name}</div><div class='small text-muted'>${u.email}</div></div>
-        <div class='text-end'><div class='small text-muted'>Suma godzin</div><div class='fs-4'>${fmtHM(total)} <span class='small text-muted'>(plan: ${plan} h)</span></div></div>
+      <div class='row text-center'>
+        <div class='col'><div class='small text-muted'>Obecny</div><div class='fs-4'>${present}</div></div>
+        <div class='col'><div class='small text-muted'>Wysłane</div><div class='fs-4'>${submitted}</div></div>
+        <div class='col'><div class='small text-muted'>Po akcept. kier.</div><div class='fs-4'>${mgr}</div></div>
+        <div class='col'><div class='small text-muted'>Zatwierdzone</div><div class='fs-4'>${approved}</div></div>
       </div>
-      <hr>
-      <div class='table-responsive'><table class='table table-sm'><thead><tr><th>Data</th><th>Od</th><th>Do</th><th>Przerwa</th><th>Godz.</th><th>Projekt</th><th>Notatka</th></tr></thead>
-      <tbody>${list.map(t=>`<tr><td>${t.date}</td><td>${t.start||''}</td><td>${t.end||''}</td><td>${t.break||0}</td><td>${fmtHM(workMinutes(t.start,t.end,t.break))}</td><td>${t.project||''}</td><td>${t.note||''}</td></tr>`).join('')}</tbody></table></div>
     </div>`;
   });
 });
