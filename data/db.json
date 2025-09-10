@@ -1,1 +1,4 @@
+git rm --cached data/db.json
+git commit -m "Remove broken data/db.json (let server seed it)"
+git push
 
