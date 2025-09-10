@@ -1,5 +1,4 @@
-// server.js — Calamari-lite (serwer + front, JSON DB + opcjonalny Persistent Disk)
-// Start lokalnie:  npm i  ->  npm start
+// server.js — Emerlog Urlopy alfa 0.1
 // ENV: PORT (3000), JWT_SECRET, DATA_DIR (np. "/data" na Render Persistent Disk)
 
 const express = require('express');
@@ -24,29 +23,28 @@ function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toStrin
 
 function makeSeed() {
   return {
-    org: { name: 'Calamari-lite (demo)', logo: null, hoursPerDay: 8 },
+    org: { name: 'Emerlog Urlopy alfa 0.1', logo: null, hoursPerDay: 8 },
     users: [
-      { id: 'u1', name: 'Admin Demo',    email: 'admin@demo.local',   role: 'admin',   managerId: null, contract: '1.0', hoursMonthly: null, startDate: '2025-09-01', pass: '1', vacationDays: 26 },
-      { id: 'u2', name: 'Kierownik Demo',email: 'manager@demo.local', role: 'manager', managerId: 'u1',  contract: '1.0', hoursMonthly: null, startDate: '2025-09-01', pass: '1', vacationDays: 26 },
-      { id: 'u3', name: 'Pracownik Demo',email: 'worker@demo.local',  role: 'employee',managerId: 'u2',  contract: '0.75',hoursMonthly: null, startDate: '2025-09-11', pass: '1', vacationDays: 26 }
+      // employment: 'UOP' | 'JDG'
+      { id: 'u1', name: 'Admin Demo',    email: 'admin@demo.local',   role: 'admin',   employment: 'UOP', managerId: null, contract: '1.0', hoursMonthly: null, startDate: '2025-09-01', pass: '1', vacationDays: 20 },
+      { id: 'u2', name: 'Kierownik Demo',email: 'manager@demo.local', role: 'manager', employment: 'UOP', managerId: 'u1',  contract: '1.0', hoursMonthly: null, startDate: '2025-09-01', pass: '1', vacationDays: 20 },
+      { id: 'u3', name: 'Pracownik Demo',email: 'worker@demo.local',  role: 'employee',employment: 'UOP', managerId: 'u2',  contract: '1.0', hoursMonthly: null, startDate: '2025-09-11', pass: '1', vacationDays: 20 }
     ],
-    times: [
-      { id: uid(), userId: 'u3', date: '2025-09-02', start: '08:00', end: '16:00', break: 30, project: 'U2 – instalacje', note: '', status: 'approved' },
-      { id: uid(), userId: 'u3', date: '2025-09-03', start: '09:00', end: '17:00', break: 30, project: 'Serwis',          note: '', status: 'approved' }
-    ],
-    leaves: []
+    times: [], // (nieużywane w tej wersji, zostawiamy kompatybilność API)
+    leaves: [
+      // przykładowy wniosek do podglądu w kalendarzu
+      // { id: uid(), userId:'u3', type:'wypoczynkowy', from:'2025-09-15', to:'2025-09-17', comment:'test', status:'manager_approved', decidedByManager:'u2', decidedAtManager: Date.now() }
+    ]
   };
 }
 
 // SAMOLECZENIE: jeśli plik nie istnieje / pusty / uszkodzony -> zrób backup i stwórz seed
 function loadDB() {
-  // brak pliku lub pusty
   if (!fs.existsSync(DB_FILE) || !fs.statSync(DB_FILE).size) {
     const seed = makeSeed();
     fs.writeFileSync(DB_FILE, JSON.stringify(seed, null, 2));
     return seed;
   }
-  // istnieje — spróbuj wczytać
   try {
     const txt = fs.readFileSync(DB_FILE, 'utf8').trim();
     if (!txt) throw new Error('empty');
@@ -54,7 +52,6 @@ function loadDB() {
     if (!parsed.org || !parsed.users) throw new Error('invalid shape');
     return parsed;
   } catch (e) {
-    // backup uszkodzonego pliku i seed
     try { fs.renameSync(DB_FILE, DB_FILE + '.bak-' + Date.now()); } catch {}
     const seed = makeSeed();
     fs.writeFileSync(DB_FILE, JSON.stringify(seed, null, 2));
@@ -84,10 +81,7 @@ function allow(...roles){
 function getUser(id){ return db.users.find(u=>u.id===id); }
 function stripPass(u){ const {pass, ...rest}=u; return rest; }
 function cleanUndefined(obj){ const out={}; Object.keys(obj).forEach(k=>{ if(obj[k]!==undefined) out[k]=obj[k]; }); return out; }
-function isManagerOf(managerId, userId){
-  const u = getUser(userId); if(!u) return false;
-  return u.managerId === managerId; // prosty 1 poziom
-}
+function isManagerOf(managerId, userId){ const u=getUser(userId); return !!u && u.managerId===managerId; }
 
 // ====== AUTH ======
 app.post('/auth/login',(req,res)=>{
@@ -102,16 +96,8 @@ app.get('/me', auth, (req,res)=>{
   res.json({ id:u.id, name:u.name, email:u.email, role:u.role });
 });
 
-// ====== ORG ======
+// ====== ORG (pozostawione dla zgodności; UI nie używa) ======
 app.get('/org', auth, (req,res)=> res.json(db.org));
-app.put('/org', auth, allow('manager'), (req,res)=>{
-  const {name, logo, hoursPerDay} = req.body || {};
-  if(name!==undefined) db.org.name = name;
-  if(logo!==undefined) db.org.logo = logo;
-  if(hoursPerDay!==undefined) db.org.hoursPerDay = hoursPerDay;
-  saveDB(db);
-  res.json(db.org);
-});
 
 // ====== USERS ======
 app.get('/users', auth, (req,res)=>{
@@ -127,6 +113,7 @@ app.get('/users', auth, (req,res)=>{
   res.json(rows);
 });
 app.post('/users', auth, allow('manager'), (req,res)=>{
+  // tylko admin/hr może dodawać/edytować
   const me = getUser(req.user.id);
   if(!['admin','hr'].includes(me.role)) return res.status(403).json({error:'forbidden'});
   const u = req.body||{};
@@ -137,12 +124,13 @@ app.post('/users', auth, allow('manager'), (req,res)=>{
     name:u.name,
     email:u.email,
     role:u.role,
+    employment:u.employment || 'UOP',
     managerId:u.managerId||null,
     contract:u.contract||'1.0',
     hoursMonthly:u.hoursMonthly||null,
     startDate:u.startDate||null,
     pass:u.pass||'1',
-    vacationDays: u.vacationDays ?? 26
+    vacationDays: u.vacationDays ?? 20
   });
   saveDB(db);
   res.json({id});
@@ -154,6 +142,7 @@ app.put('/users/:id', auth, allow('manager'), (req,res)=>{
   if(!u) return res.status(404).json({error:'not_found'});
   Object.assign(u, cleanUndefined({
     name:req.body.name, email:req.body.email, role:req.body.role, managerId:req.body.managerId,
+    employment:req.body.employment,
     contract:req.body.contract, hoursMonthly:req.body.hoursMonthly, startDate:req.body.startDate, pass:req.body.pass,
     vacationDays:req.body.vacationDays
   }));
@@ -171,57 +160,8 @@ app.delete('/users/:id', auth, allow('manager'), (req,res)=>{
   res.json({ok:true});
 });
 
-// ====== TIMES ======
-app.get('/times', auth, (req,res)=>{
-  const me = getUser(req.user.id);
-  const month = req.query.month;
-  const like = (d)=> month? String(d||'').startsWith(month) : true;
-  let rows=[];
-  if(['admin','hr'].includes(me.role)){
-    rows = month? db.times.filter(t=>like(t.date)) : db.times;
-  } else if(me.role==='manager'){
-    rows = db.times.filter(t=> like(t.date) && (t.userId===me.id || isManagerOf(me.id,t.userId)) );
-  } else {
-    rows = db.times.filter(t=> t.userId===me.id && like(t.date));
-  }
-  res.json(rows);
-});
-app.post('/times', auth, (req,res)=>{
-  const me = getUser(req.user.id);
-  const t=req.body||{};
-  if(!t.userId || !t.date) return res.status(400).json({error:'missing_fields'});
-  const can = ['admin','hr'].includes(me.role) || t.userId===me.id || (me.role==='manager' && isManagerOf(me.id,t.userId));
-  if(!can) return res.status(403).json({error:'forbidden'});
-  const id = t.id || uid();
-  db.times.push({ id, userId:t.userId, date:t.date, start:t.start||null, end:t.end||null, break:t.break||0, project:t.project||null, note:t.note||null, status:t.status||'submitted' });
-  saveDB(db);
-  res.json({id});
-});
-app.put('/times/:id', auth, (req,res)=>{
-  const me = getUser(req.user.id); const id=req.params.id;
-  const row = db.times.find(x=>x.id===id);
-  if(!row) return res.status(404).json({error:'not_found'});
-  const can = ['admin','hr'].includes(me.role) || row.userId===me.id || (me.role==='manager' && isManagerOf(me.id,row.userId));
-  if(!can) return res.status(403).json({error:'forbidden'});
-  Object.assign(row, cleanUndefined({
-    date:req.body.date, start:req.body.start, end:req.body.end, break:req.body.break,
-    project:req.body.project, note:req.body.note, status:req.body.status
-  }));
-  saveDB(db);
-  res.json({ok:true});
-});
-app.delete('/times/:id', auth, (req,res)=>{
-  const me = getUser(req.user.id); const id=req.params.id;
-  const row = db.times.find(x=>x.id===id);
-  if(!row) return res.status(404).json({error:'not_found'});
-  const can = ['admin','hr'].includes(me.role) || row.userId===me.id || (me.role==='manager' && isManagerOf(me.id,row.userId));
-  if(!can) return res.status(403).json({error:'forbidden'});
-  db.times = db.times.filter(x=>x.id!==id);
-  saveDB(db);
-  res.json({ok:true});
-});
-
-// ====== LEAVES ======
+// ====== LEAVES (wnioski urlopowe) ======
+// Statusy: submitted -> manager_approved -> approved ; odrzucenia: rejected_manager / rejected_admin
 app.get('/leaves', auth, (req,res)=>{
   const me = getUser(req.user.id);
   let rows=[];
@@ -240,8 +180,18 @@ app.post('/leaves', auth, (req,res)=>{
   if(!l.userId || !l.from || !l.to || !l.type) return res.status(400).json({error:'missing_fields'});
   const can = ['admin','hr'].includes(me.role) || l.userId===me.id || (me.role==='manager' && isManagerOf(me.id,l.userId));
   if(!can) return res.status(403).json({error:'forbidden'});
-  const id = l.id || uid();
-  db.leaves.push({ id, userId:l.userId, type:l.type, from:l.from, to:l.to, comment:l.comment||null, status:l.status||'submitted' });
+  const id=l.id||uid();
+  db.leaves.push({
+    id,
+    userId:l.userId,
+    type:l.type, // 'wypoczynkowy' | 'na_zadanie' | ...
+    from:l.from,
+    to:l.to,
+    comment:l.comment||null,
+    status:'submitted',
+    decidedByManager:null, decidedAtManager:null,
+    decidedByAdmin:null, decidedAtAdmin:null
+  });
   saveDB(db);
   res.json({id});
 });
@@ -249,13 +199,63 @@ app.put('/leaves/:id', auth, (req,res)=>{
   const me = getUser(req.user.id); const id=req.params.id;
   const row = db.leaves.find(x=>x.id===id);
   if(!row) return res.status(404).json({error:'not_found'});
-  const can = ['admin','hr'].includes(me.role) || (me.role==='manager' && isManagerOf(me.id,row.userId)) || row.userId===me.id;
-  if(!can) return res.status(403).json({error:'forbidden'});
-  Object.assign(row, cleanUndefined({
-    type:req.body.type, from:req.body.from, to:req.body.to, comment:req.body.comment, status:req.body.status
-  }));
-  saveDB(db);
-  res.json({ok:true});
+
+  const applicant = getUser(row.userId);
+  const isSelf = row.userId === me.id;
+  const isMgr = (me.role==='manager');
+  const isAdm = (me.role==='admin' || me.role==='hr');
+  const isMgrOf = isMgr && isManagerOf(me.id,row.userId);
+
+  // Edycja pól wniosku (bez statusu)
+  const wantsStatus = Object.prototype.hasOwnProperty.call(req.body,'status');
+  if(!wantsStatus){
+    // Właściciel może edytować dopóki submitted; Admin może zawsze
+    if(isSelf && row.status!=='submitted' && !isAdm) return res.status(403).json({error:'cannot_edit_after_review'});
+    Object.assign(row, cleanUndefined({
+      type:req.body.type, from:req.body.from, to:req.body.to, comment:req.body.comment
+    }));
+    saveDB(db); return res.json({ok:true});
+  }
+
+  // Zmiana statusu — zasady:
+  const next = req.body.status;
+  // Blokada samoakceptacji (nikt nie zmienia statusu swojego wniosku)
+  if(isSelf) return res.status(403).json({error:'self_approval_forbidden'});
+
+  if(isMgrOf){
+    // Manager może tylko z 'submitted' -> manager_approved / rejected_manager
+    if(row.status!=='submitted') return res.status(400).json({error:'invalid_state'});
+    if(next==='manager_approved'){
+      row.status='manager_approved';
+      row.decidedByManager=me.id; row.decidedAtManager=Date.now();
+    } else if(next==='rejected_manager'){
+      row.status='rejected_manager';
+      row.decidedByManager=me.id; row.decidedAtManager=Date.now();
+    } else {
+      return res.status(400).json({error:'invalid_transition'});
+    }
+    saveDB(db); return res.json({ok:true});
+  }
+
+  if(isAdm){
+    // Admin finalnie: z 'manager_approved' -> approved/rejected_admin
+    // Specjalny przypadek: gdy wnioskodawcą jest manager, może z 'submitted' -> approved/rejected_admin
+    const isApplicantManager = applicant?.role==='manager';
+    const canFinalize = (row.status==='manager_approved') || (isApplicantManager && row.status==='submitted');
+    if(!canFinalize) return res.status(400).json({error:'awaiting_manager'});
+    if(next==='approved'){
+      row.status='approved';
+      row.decidedByAdmin=me.id; row.decidedAtAdmin=Date.now();
+    } else if(next==='rejected_admin'){
+      row.status='rejected_admin';
+      row.decidedByAdmin=me.id; row.decidedAtAdmin=Date.now();
+    } else {
+      return res.status(400).json({error:'invalid_transition'});
+    }
+    saveDB(db); return res.json({ok:true});
+  }
+
+  return res.status(403).json({error:'forbidden'});
 });
 app.delete('/leaves/:id', auth, (req,res)=>{
   const me = getUser(req.user.id); const id=req.params.id;
@@ -263,6 +263,8 @@ app.delete('/leaves/:id', auth, (req,res)=>{
   if(!row) return res.status(404).json({error:'not_found'});
   const can = ['admin','hr'].includes(me.role) || row.userId===me.id || (me.role==='manager' && isManagerOf(me.id,row.userId));
   if(!can) return res.status(403).json({error:'forbidden'});
+  // Właściciel może usunąć tylko dopóki submitted
+  if(row.userId===me.id && row.status!=='submitted' && !['admin','hr'].includes(me.role)) return res.status(403).json({error:'cannot_delete_after_review'});
   db.leaves = db.leaves.filter(x=>x.id!==id);
   saveDB(db);
   res.json({ok:true});
@@ -275,4 +277,4 @@ app.get('/health', (req,res)=> res.json({ok:true}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req,res)=> res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, ()=> console.log(`Calamari-lite running on :${PORT}`));
+app.listen(PORT, ()=> console.log(`Emerlog Urlopy running on :${PORT}`));
