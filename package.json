@@ -1,19 +1,11 @@
 {
-  "name": "calamari-lite-onecompiler",
-  "version": "0.0.3",
-  "private": true,
-  "description": "Calamari-lite: Node/Express backend + static frontend (public/)",
+  "name": "emerlog-urlopy",
+  "version": "0.1.0",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2"
-  },
-  "engines": {
-    "node": "20.x"
-  },
-  "license": "MIT"
+  }
 }
