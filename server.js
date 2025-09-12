@@ -1,5 +1,4 @@
-// server.js — Emerlog Urlopy alfa 0.1
-// ENV: PORT (3000), JWT_SECRET, DATA_DIR (np. "/data" na Render Persistent Disk)
+// server.js — Emerlog Urlopy alfa 0.1.1 (UI/UX upgrade, no API-breaking changes)
 
 const express = require('express');
 const cors = require('cors');
@@ -14,7 +13,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
-// ====== plikowa "baza" ======
+// ====== File "DB" with optional persistent disk ======
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_FILE = path.join(DATA_DIR, 'db.json');
@@ -25,20 +24,15 @@ function makeSeed() {
   return {
     org: { name: 'Emerlog Urlopy alfa 0.1', logo: null, hoursPerDay: 8 },
     users: [
-      // employment: 'UOP' | 'JDG'
       { id: 'u1', name: 'Admin Demo',    email: 'admin@demo.local',   role: 'admin',   employment: 'UOP', managerId: null, contract: '1.0', hoursMonthly: null, startDate: '2025-09-01', pass: '1', vacationDays: 20 },
       { id: 'u2', name: 'Kierownik Demo',email: 'manager@demo.local', role: 'manager', employment: 'UOP', managerId: 'u1',  contract: '1.0', hoursMonthly: null, startDate: '2025-09-01', pass: '1', vacationDays: 20 },
       { id: 'u3', name: 'Pracownik Demo',email: 'worker@demo.local',  role: 'employee',employment: 'UOP', managerId: 'u2',  contract: '1.0', hoursMonthly: null, startDate: '2025-09-11', pass: '1', vacationDays: 20 }
     ],
-    times: [], // (nieużywane w tej wersji, zostawiamy kompatybilność API)
-    leaves: [
-      // przykładowy wniosek do podglądu w kalendarzu
-      // { id: uid(), userId:'u3', type:'wypoczynkowy', from:'2025-09-15', to:'2025-09-17', comment:'test', status:'manager_approved', decidedByManager:'u2', decidedAtManager: Date.now() }
-    ]
+    times: [],
+    leaves: []
   };
 }
 
-// SAMOLECZENIE: jeśli plik nie istnieje / pusty / uszkodzony -> zrób backup i stwórz seed
 function loadDB() {
   if (!fs.existsSync(DB_FILE) || !fs.statSync(DB_FILE).size) {
     const seed = makeSeed();
@@ -47,7 +41,6 @@ function loadDB() {
   }
   try {
     const txt = fs.readFileSync(DB_FILE, 'utf8').trim();
-    if (!txt) throw new Error('empty');
     const parsed = JSON.parse(txt);
     if (!parsed.org || !parsed.users) throw new Error('invalid shape');
     return parsed;
@@ -96,9 +89,6 @@ app.get('/me', auth, (req,res)=>{
   res.json({ id:u.id, name:u.name, email:u.email, role:u.role });
 });
 
-// ====== ORG (pozostawione dla zgodności; UI nie używa) ======
-app.get('/org', auth, (req,res)=> res.json(db.org));
-
 // ====== USERS ======
 app.get('/users', auth, (req,res)=>{
   const me = getUser(req.user.id);
@@ -113,7 +103,6 @@ app.get('/users', auth, (req,res)=>{
   res.json(rows);
 });
 app.post('/users', auth, allow('manager'), (req,res)=>{
-  // tylko admin/hr może dodawać/edytować
   const me = getUser(req.user.id);
   if(!['admin','hr'].includes(me.role)) return res.status(403).json({error:'forbidden'});
   const u = req.body||{};
@@ -142,9 +131,8 @@ app.put('/users/:id', auth, allow('manager'), (req,res)=>{
   if(!u) return res.status(404).json({error:'not_found'});
   Object.assign(u, cleanUndefined({
     name:req.body.name, email:req.body.email, role:req.body.role, managerId:req.body.managerId,
-    employment:req.body.employment,
-    contract:req.body.contract, hoursMonthly:req.body.hoursMonthly, startDate:req.body.startDate, pass:req.body.pass,
-    vacationDays:req.body.vacationDays
+    employment:req.body.employment, contract:req.body.contract, hoursMonthly:req.body.hoursMonthly,
+    startDate:req.body.startDate, pass:req.body.pass, vacationDays:req.body.vacationDays
   }));
   saveDB(db);
   res.json({ok:true});
@@ -160,8 +148,7 @@ app.delete('/users/:id', auth, allow('manager'), (req,res)=>{
   res.json({ok:true});
 });
 
-// ====== LEAVES (wnioski urlopowe) ======
-// Statusy: submitted -> manager_approved -> approved ; odrzucenia: rejected_manager / rejected_admin
+// ====== LEAVES ======
 app.get('/leaves', auth, (req,res)=>{
   const me = getUser(req.user.id);
   let rows=[];
@@ -184,7 +171,7 @@ app.post('/leaves', auth, (req,res)=>{
   db.leaves.push({
     id,
     userId:l.userId,
-    type:l.type, // 'wypoczynkowy' | 'na_zadanie' | ...
+    type:l.type,
     from:l.from,
     to:l.to,
     comment:l.comment||null,
@@ -206,24 +193,17 @@ app.put('/leaves/:id', auth, (req,res)=>{
   const isAdm = (me.role==='admin' || me.role==='hr');
   const isMgrOf = isMgr && isManagerOf(me.id,row.userId);
 
-  // Edycja pól wniosku (bez statusu)
   const wantsStatus = Object.prototype.hasOwnProperty.call(req.body,'status');
   if(!wantsStatus){
-    // Właściciel może edytować dopóki submitted; Admin może zawsze
     if(isSelf && row.status!=='submitted' && !isAdm) return res.status(403).json({error:'cannot_edit_after_review'});
-    Object.assign(row, cleanUndefined({
-      type:req.body.type, from:req.body.from, to:req.body.to, comment:req.body.comment
-    }));
+    Object.assign(row, cleanUndefined({ type:req.body.type, from:req.body.from, to:req.body.to, comment:req.body.comment }));
     saveDB(db); return res.json({ok:true});
   }
 
-  // Zmiana statusu — zasady:
   const next = req.body.status;
-  // Blokada samoakceptacji (nikt nie zmienia statusu swojego wniosku)
   if(isSelf) return res.status(403).json({error:'self_approval_forbidden'});
 
   if(isMgrOf){
-    // Manager może tylko z 'submitted' -> manager_approved / rejected_manager
     if(row.status!=='submitted') return res.status(400).json({error:'invalid_state'});
     if(next==='manager_approved'){
       row.status='manager_approved';
@@ -238,8 +218,6 @@ app.put('/leaves/:id', auth, (req,res)=>{
   }
 
   if(isAdm){
-    // Admin finalnie: z 'manager_approved' -> approved/rejected_admin
-    // Specjalny przypadek: gdy wnioskodawcą jest manager, może z 'submitted' -> approved/rejected_admin
     const isApplicantManager = applicant?.role==='manager';
     const canFinalize = (row.status==='manager_approved') || (isApplicantManager && row.status==='submitted');
     if(!canFinalize) return res.status(400).json({error:'awaiting_manager'});
@@ -263,17 +241,14 @@ app.delete('/leaves/:id', auth, (req,res)=>{
   if(!row) return res.status(404).json({error:'not_found'});
   const can = ['admin','hr'].includes(me.role) || row.userId===me.id || (me.role==='manager' && isManagerOf(me.id,row.userId));
   if(!can) return res.status(403).json({error:'forbidden'});
-  // Właściciel może usunąć tylko dopóki submitted
   if(row.userId===me.id && row.status!=='submitted' && !['admin','hr'].includes(me.role)) return res.status(403).json({error:'cannot_delete_after_review'});
   db.leaves = db.leaves.filter(x=>x.id!==id);
   saveDB(db);
   res.json({ok:true});
 });
 
-// ====== health ======
+// health + static
 app.get('/health', (req,res)=> res.json({ok:true}));
-
-// ====== front statyczny ======
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req,res)=> res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
