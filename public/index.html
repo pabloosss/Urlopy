@@ -7,14 +7,20 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
   <style>
-    :root{ --primary:#0d6efd; --bg:#f6f9ff; --present:#e8ffe8; --submitted:#fff4e5; --mgr:#fffbe5; --approved:#ffe5e5; --weekend:#f0f0f0; }
-    body{background:var(--bg)} .brand-bar{background:linear-gradient(90deg,var(--primary),#37a0ff);color:#fff}
-    .brand-logo{height:42px} .shadow-soft{box-shadow:0 8px 20px rgba(13,110,253,.12)}
+    :root{
+      --primary:#0d6efd; --bg:#f6f9ff;
+      --present:#e8ffe8; --submitted:#fff4e5; --mgr:#fffbe5; --approved:#ffe5e5; --weekend:#f0f0f0; --todayOutline:#0d6efd;
+    }
+    body{background:var(--bg)}
+    .brand-bar{background:linear-gradient(90deg,var(--primary),#37a0ff);color:#fff}
+    .shadow-soft{box-shadow:0 8px 20px rgba(13,110,253,.12)}
     .card{border:0;border-radius:1rem} .btn{border-radius:.8rem}
-    .nav-pills .nav-link.active{background:var(--primary)} .table thead th{background:#eef5ff}
+    .nav-pills .nav-link.active{background:var(--primary)}
+    .table thead th{background:#eef5ff}
     .required::after{content:" *"; color:#dc3545}
     /* Kalendarz */
     .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:.5rem;}
+    .cal-grid > .head{font-size:.8rem; color:#6c757d; text-align:center}
     .cal-day{border-radius:.8rem; padding:.5rem; min-height:84px; border:1px solid #e9ecef; position:relative;}
     .cal-day .d{position:absolute; top:.35rem; right:.5rem; font-size:.8rem; color:#6c757d;}
     .cal-day.present{background:var(--present)}
@@ -22,9 +28,9 @@
     .cal-day.manager_approved{background:var(--mgr)}
     .cal-day.approved{background:var(--approved)}
     .cal-day.weekend{background:var(--weekend)}
-    .cal-legend .badge{margin-right:.5rem}
-    .badge-dot{display:inline-block; width:.75rem; height:.75rem; border-radius:50%; margin-right:.25rem}
-    .btn-icon{padding:.35rem .6rem}
+    .cal-day.today{ outline:2px solid var(--todayOutline); outline-offset:-2px }
+    .badge-dot{display:inline-block; width:.6rem; height:.6rem; border-radius:50%; margin-right:.35rem}
+    .pill-filter .btn{border-radius:999px}
   </style>
 </head>
 <body>
@@ -51,9 +57,8 @@
         <form id="loginForm" class="needs-validation" novalidate>
           <div class="mb-3"><label class="form-label required">E-mail</label><input type="email" class="form-control" id="loginEmail" required value="admin@demo.local"></div>
           <div class="mb-3"><label class="form-label required">Hasło</label><input type="password" class="form-control" id="loginPass" required value="1"></div>
-          <div class="d-grid gap-2"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Zaloguj</button></div>
-        </form>
-      </div></div>
+          <div class="d-grid gap-2"><button class="btn btn-light btn-outline-dark" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Zaloguj</button></div>
+      </form></div></div>
     </div>
   </section>
 
@@ -76,13 +81,30 @@
         <!-- Dashboard -->
         <div id="view-dashboard" class="card shadow-soft"><div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3">
-            <h2 class="h5 mb-0">Pulpit</h2>
-            <div class="text-muted" id="dashDate"></div>
+            <div>
+              <div class="h5 mb-1" id="dashHello">Witaj</div>
+              <div class="text-muted small" id="dashDate"></div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnQuickLeave"><i class="fa-solid fa-plus"></i> Nowy wniosek</button>
           </div>
           <div class="row g-3">
-            <div class="col-md-4"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-regular fa-sun fa-lg text-primary"></i><div><div class="small text-muted">Urlop – zostało (rok)</div><div class="fs-4" id="vacationInfo">—</div></div></div></div></div>
-            <div class="col-md-4"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-solid fa-users-viewfinder fa-lg text-primary"></i><div><div class="small text-muted">Wnioski do decyzji</div><div class="fs-4" id="pendingInfo">0</div></div></div></div></div>
-            <div class="col-md-4"><div class="border rounded-4 p-3 h-100"><div class="d-flex align-items-center gap-2"><i class="fa-regular fa-calendar-check fa-lg text-primary"></i><div><div class="small text-muted">Dzisiejszy status</div><div class="fs-6" id="todayStatus">—</div></div></div></div></div>
+            <div class="col-md-4"><div class="border rounded-4 p-3 h-100">
+              <div class="d-flex align-items-center gap-2"><i class="fa-regular fa-sun fa-lg text-primary"></i>
+                <div><div class="small text-muted">Urlop – zostało (rok)</div><div class="fs-4" id="vacationInfo">—</div>
+                  <div class="small text-muted" id="subBalances"></div>
+                </div>
+              </div>
+            </div></div>
+            <div class="col-md-4"><div class="border rounded-4 p-3 h-100">
+              <div class="d-flex align-items-center gap-2"><i class="fa-solid fa-inbox fa-lg text-primary"></i>
+                <div><div class="small text-muted">Wnioski do decyzji</div><div class="fs-4" id="pendingInfo">0</div></div>
+              </div>
+            </div></div>
+            <div class="col-md-4"><div class="border rounded-4 p-3 h-100">
+              <div class="d-flex align-items-center gap-2"><i class="fa-regular fa-calendar-check fa-lg text-primary"></i>
+                <div><div class="small text-muted">Dzisiejszy status</div><div class="fs-6" id="todayStatus">—</div></div>
+              </div>
+            </div></div>
           </div>
         </div></div>
 
@@ -96,30 +118,63 @@
               <button class="btn btn-sm btn-outline-primary" id="btnNewLeaveCal"><i class="fa-solid fa-plus"></i> Wniosek</button>
             </div>
           </div>
-          <div class="cal-legend mb-3">
-            <span class="badge bg-success-subtle text-success border">Obecny</span>
-            <span class="badge bg-warning-subtle text-warning border">Oczekuje (submitted)</span>
-            <span class="badge bg-warning text-dark border">Po akceptacji Kierownika</span>
-            <span class="badge bg-danger-subtle text-danger border">Zatwierdzony urlop</span>
+          <div class="mb-2 small">
+            <span class="badge bg-success-subtle text-success border me-1"><span class="badge-dot" style="background:#198754"></span>Obecny</span>
+            <span class="badge bg-warning-subtle text-warning border me-1"><span class="badge-dot" style="background:#ffc107"></span>Oczekuje</span>
+            <span class="badge bg-warning text-dark border me-1"><span class="badge-dot" style="background:#ffca2c"></span>Po akceptacji kier.</span>
+            <span class="badge bg-danger-subtle text-danger border me-1"><span class="badge-dot" style="background:#dc3545"></span>Zatwierdzony</span>
           </div>
           <div id="calGrid" class="cal-grid"></div>
         </div></div>
 
         <!-- Wnioski -->
         <div id="view-leaves" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Wnioski urlopowe</h2><div><button class="btn btn-primary btn-sm" id="btnNewLeave"><i class="fa-solid fa-plane-departure"></i> Nowy wniosek</button></div></div>
-          <div class="table-responsive"><table class="table align-middle" id="leaveTable"><thead><tr><th>Pracownik</th><th>Rodzaj</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="h5 mb-0">Wnioski urlopowe</h2>
+            <div><button class="btn btn-primary btn-sm" id="btnNewLeave"><i class="fa-solid fa-plane-departure"></i> Nowy wniosek</button></div>
+          </div>
+
+          <!-- Filtry statusu -->
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <div class="btn-group pill-filter btn-group-sm" role="group" id="leaveFilters">
+              <button type="button" class="btn btn-outline-primary active" data-filter="pending">Oczekujące</button>
+              <button type="button" class="btn btn-outline-primary" data-filter="approved">Zaakceptowane</button>
+              <button type="button" class="btn btn-outline-primary" data-filter="rejected">Odrzucone</button>
+              <button type="button" class="btn btn-outline-secondary" data-filter="all">Wszystkie</button>
+            </div>
+            <input type="month" class="form-control form-control-sm ms-auto" id="leaveMonth" />
+            <select class="form-select form-select-sm" id="leaveEmployeeFilter" style="min-width:220px"></select>
+            <div class="d-none d-md-inline small text-muted">Filtry zapamiętują się automatycznie</div>
+          </div>
+
+          <!-- Akcje zbiorcze (HR) -->
+          <div class="mb-2 d-flex gap-2" id="bulkActions" style="display:none">
+            <button class="btn btn-success btn-sm" id="btnBulkApprove"><i class="fa-solid fa-check-double"></i> Zatwierdź zaznaczone</button>
+            <button class="btn btn-danger btn-sm" id="btnBulkReject"><i class="fa-solid fa-ban"></i> Odrzuć zaznaczone</button>
+          </div>
+
+          <div class="table-responsive"><table class="table align-middle" id="leaveTable">
+            <thead><tr>
+              <th style="width:36px"><input type="checkbox" id="chkAll"></th>
+              <th>Pracownik</th><th>Rodzaj</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th></th>
+            </tr></thead><tbody></tbody></table></div>
+          <div id="leaveEmpty" class="text-center text-muted py-4 d-none">Brak wniosków w tej kategorii.</div>
         </div></div>
 
         <!-- Pracownicy -->
         <div id="view-employees" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
-          <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Pracownicy</h2><div class="d-flex gap-2">
-            <button class="btn btn-primary btn-sm" id="btnNewEmp"><i class="fa-solid fa-user-plus"></i> Dodaj</button>
-          </div></div>
-          <div class="table-responsive"><table class="table align-middle" id="empTable"><thead><tr><th>Imię i nazwisko</th><th>E-mail</th><th>Rola</th><th>Kierownik</th><th>Kontrakt</th><th>Zatrudnienie</th><th>Start</th><th>Urlop (dni/rok)</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="h5 mb-0">Pracownicy</h2>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary btn-sm" id="btnNewEmp"><i class="fa-solid fa-user-plus"></i> Dodaj</button>
+            </div>
+          </div>
+          <div class="table-responsive"><table class="table align-middle" id="empTable"><thead><tr>
+            <th>Imię i nazwisko</th><th>E-mail</th><th>Rola</th><th>Kierownik</th><th>Zatrudnienie</th><th>Start</th><th>Urlop (dni/rok)</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
         </div></div>
 
-        <!-- Raporty (prosto) -->
+        <!-- Raporty -->
         <div id="view-reports" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Raport (miesiąc)</h2></div>
           <form class="row g-3 mb-3" id="reportForm">
@@ -179,14 +234,14 @@ const API_BASE = '';
 let TOKEN = null;
 const state = { user:null, data:{ users:[], leaves:[], org:{hoursPerDay:8} } };
 
-// ====== narzędzia
+// ====== tools
 function api(path,opts={}){ opts.headers=Object.assign({'Content-Type':'application/json'},opts.headers||{}); if(TOKEN) opts.headers.Authorization='Bearer '+TOKEN; return fetch(API_BASE+path,opts).then(async r=>{ if(!r.ok) throw new Error(await r.text()); return r.json(); }); }
 function toDate(x){ const d=new Date(x); d.setHours(0,0,0,0); return d; }
 function isWeekend(d){ const day=d.getDay(); return day===0 || day===6; }
 function monthKey(d){ d=new Date(d); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function businessDaysBetween(from,to){ let d1=toDate(from), d2=toDate(to); if(d2<d1) return 0; let c=0,d=new Date(d1); while(d<=d2){ if(!isWeekend(d)) c++; d.setDate(d.getDate()+1);} return c; }
 
-// ====== liczniki urlopu
+// ====== balances
 function employmentFractionThisYear(user,year){ const start=user.startDate? new Date(user.startDate):null; const yStart=new Date(year,0,1), yEnd=new Date(year,11,31); if(!start||start<yStart) return 1; if(start>yEnd) return 0; const months=(12-(start.getMonth()+1))+1; return Math.min(1,Math.max(0,months/12)); }
 function vacationUsedDays(userId,year){
   const list=state.data.leaves.filter(l=> l.userId===userId && l.status==='approved' && (l.type==='wypoczynkowy' || l.type==='na_zadanie') && new Date(l.to).getFullYear()>=year && new Date(l.from).getFullYear()<=year );
@@ -195,7 +250,7 @@ function vacationUsedDays(userId,year){
 }
 function vacationBalance(user,year){ const total=Number(user.vacationDays??20)||20; const entitled=Math.ceil(total*employmentFractionThisYear(user,year)); const used=vacationUsedDays(user.id,year); const left=Math.max(0,entitled-used); return { total, entitled, used, left }; }
 
-// ====== auth & sync
+// ====== auth/sync
 async function login(email,pass){ try{ const r=await api('/auth/login',{method:'POST', body: JSON.stringify({email, pass})}); TOKEN=r.token; state.user=r.user; await sync(); renderAfterLogin(); return true; }catch{ return false; } }
 async function sync(){ const users=await api('/users'); const leaves=await api('/leaves'); state.data={ users, leaves, org:{hoursPerDay:8} }; }
 
@@ -204,14 +259,20 @@ function renderAfterLogin(){
   document.getElementById('appSection').style.display='block';
   document.getElementById('btnLogout').style.display='inline-flex';
   document.getElementById('loggedAs').textContent = `${state.user.name} (${state.user.email})`;
-  document.getElementById('dashDate').textContent = new Date().toLocaleString('pl-PL',{dateStyle:'full'});
+  const now=new Date();
+  document.getElementById('dashDate').textContent = now.toLocaleString('pl-PL',{dateStyle:'full'});
+  document.getElementById('dashHello').textContent = `${state.user.name} · ${state.user.role==='admin'?'Admin':state.user.role==='manager'?'Kierownik':'Pracownik'}`;
 
-  const now=new Date(); document.getElementById('calMonth').value = monthKey(now); document.getElementById('repMonth').value = monthKey(now);
+  document.getElementById('calMonth').value = monthKey(now);
+  document.getElementById('repMonth').value = monthKey(now);
+  document.getElementById('leaveMonth').value = monthKey(now);
+
   if(!window._poll) window._poll=setInterval(refresh,8000);
 
   renderAll();
   showView('dashboard');
 }
+
 function showView(name){
   ['dashboard','calendar','leaves','employees','reports'].forEach(v=>{
     document.getElementById('view-'+v).style.display=(v===name)?'block':'none';
@@ -219,234 +280,144 @@ function showView(name){
   });
 }
 
-function renderAll(){ renderDashboard(); renderCalendar(); renderLeaves(); renderEmployees(); renderRepEmployees(); renderBadges(); }
-
-// ====== UI helpers
-function statusBadge(s){
-  const map={submitted:'warning', manager_approved:'warning', approved:'danger', rejected_manager:'secondary', rejected_admin:'secondary'};
-  const txt={submitted:'Wysłany', manager_approved:'Po akceptacji kierownika', approved:'Zatwierdzony', rejected_manager:'Odrzucony (kierownik)', rejected_admin:'Odrzucony (admin)'};
-  return `<span class="badge text-bg-${map[s]||'light'}">${txt[s]||s}</span>`;
-}
+// ====== common helpers
 function userById(id){ return state.data.users.find(u=>u.id===id); }
 function subordinatesOf(managerId){ return state.data.users.filter(u=>u.managerId===managerId); }
 function canManagerActOn(leave){ const me=state.user; return me.role==='manager' && subordinatesOf(me.id).some(u=>u.id===leave.userId) && leave.status==='submitted'; }
 function canAdminActOn(leave){ const me=state.user; if(me.role!=='admin') return false; const applicant=userById(leave.userId); return (leave.status==='manager_approved') || (applicant?.role==='manager' && leave.status==='submitted'); }
+function tLabel(type){
+  return ({
+    choroba:'Choroba', wypoczynkowy:'Urlop wypoczynkowy', odbior_swieto:'Odbiór za święto',
+    opieka_dziecko:'Opieka nad dzieckiem', odbior_nadgodzin:'Odbiór nadgodzin', bezplatny:'Urlop bezpłatny',
+    macierzynski:'Urlop macierzyński', na_zadanie:'Urlop na żądanie', ojcowski:'Urlop ojcowski'
+  })[type] || type;
+}
+function statusBadge(s){
+  const map={submitted:'warning', manager_approved:'warning', approved:'danger', rejected_manager:'secondary', rejected_admin:'secondary'};
+  const txt={submitted:'Wysłany', manager_approved:'Po akceptacji kierownika', approved:'Zatwierdzony', rejected_manager:'Odrzucony (kier.)', rejected_admin:'Odrzucony (admin)'};
+  return `<span class="badge text-bg-${map[s]||'light'}">${txt[s]||s}</span>`;
+}
 
-// ====== dashboard
-function renderDashboard(){
-  const me = userById(state.user.id);
-  const year=new Date().getFullYear(); const bal=vacationBalance(me,year);
-  document.getElementById('vacationInfo').textContent=`${bal.left} / ${bal.entitled} dni`;
-
-  const today= new Date().toISOString().slice(0,10);
-  const todays = state.data.leaves.filter(l=> l.userId===me.id && l.status==='approved' && toDate(l.from) <= toDate(today) && toDate(l.to) >= toDate(today));
-  document.getElementById('todayStatus').textContent = todays.length? 'Nieobecny (urlop/absencja)' : 'Obecny';
-
-  // Pending count for my role
+// ====== badges & dashboard
+function renderBadges(){
   let n=0;
   if(state.user.role==='manager'){
     n = state.data.leaves.filter(l=> canManagerActOn(l)).length;
   } else if(state.user.role==='admin'){
-    n = state.data.leaves.filter(l=> canAdminActOn(l)).length;
+    const submittedAll = state.data.leaves.filter(l=> l.status==='submitted').length;
+    const managerApproved = state.data.leaves.filter(l=> l.status==='manager_approved').length;
+    n = submittedAll + managerApproved; // Admin widzi zawsze nowe + do finalnej
   }
-  document.getElementById('pendingInfo').textContent = String(n);
-}
-
-// ====== powiadomienia (badges)
-function renderBadges(){
-  let n=0;
-  if(state.user.role==='manager') n = state.data.leaves.filter(l=> canManagerActOn(l)).length;
-  else if(state.user.role==='admin') n = state.data.leaves.filter(l=> canAdminActOn(l)).length;
   const b1=document.getElementById('badgeLeaves');
   const b2=document.getElementById('badgeLeavesNav');
   [b1,b2].forEach(b=>{ if(!b) return; if(n>0){ b.textContent=n; b.classList.remove('d-none'); } else { b.classList.add('d-none'); }});
 }
 
-// ====== kalendarz
-function fillEmployeeSelect(sel){
+function renderDashboard(){
+  const me = userById(state.user.id);
+  const year=new Date().getFullYear(); const bal=vacationBalance(me,year);
+  document.getElementById('vacationInfo').textContent=`${bal.left} / ${bal.entitled} dni`;
+  document.getElementById('subBalances').textContent = `Na żądanie: —/4 · Opieka: —/2`;
+
+  const today= new Date().toISOString().slice(0,10);
+  const todays = state.data.leaves.filter(l=> l.userId===me.id && l.status==='approved' && toDate(l.from) <= toDate(today) && toDate(l.to) >= toDate(today));
+  document.getElementById('todayStatus').textContent = todays.length? 'Nieobecny (urlop/absencja)' : 'Obecny';
+
+  let n=0;
+  if(state.user.role==='manager'){
+    n = state.data.leaves.filter(l=> canManagerActOn(l)).length;
+  } else if(state.user.role==='admin'){
+    const submittedAll = state.data.leaves.filter(l=> l.status==='submitted').length;
+    const managerApproved = state.data.leaves.filter(l=> l.status==='manager_approved').length;
+    n = submittedAll + managerApproved;
+  }
+  document.getElementById('pendingInfo').textContent = String(n);
+}
+
+// ====== calendar
+function getMonthDays(year,month){ const days = new Date(year, month, 0).getDate(); return Array.from({length:days}, (_,i)=> i+1); }
+function mondayIndex(jsDay){ return (jsDay+6)%7; }
+
+function dayState(userId, y, m, d){
+  const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const leaves=state.data.leaves.filter(l=> l.userId===userId && toDate(l.from)<=toDate(iso) && toDate(l.to)>=toDate(iso));
+  if(leaves.length===0) return { state: isWeekend(new Date(iso))?'weekend':'present', leaves:[] };
+  let prio='submitted';
+  for(const l of leaves){ if(l.status==='approved'){ prio='approved'; break; } if(l.status==='manager_approved'){ prio='manager_approved'; } }
+  return { state: prio, leaves };
+}
+
+function fillEmployeeSelect(sel, keepId=null){
   sel.innerHTML='';
   let list=[];
   if(state.user.role==='admin'){ list = [...state.data.users]; }
   else if(state.user.role==='manager'){ list = [ userById(state.user.id), ...subordinatesOf(state.user.id) ]; }
   else { list = [ userById(state.user.id) ]; }
-  // sort: najpierw kierownikami, w grupie po nazwisku
+
   list.sort((a,b)=>{
     const ma=userById(a.managerId||'')?.name||'', mb=userById(b.managerId||'')?.name||'';
     if(ma!==mb) return ma.localeCompare(mb,'pl');
     return (a.name||'').localeCompare(b.name||'','pl');
   });
+
   for(const u of list){ sel.insertAdjacentHTML('beforeend', `<option value="${u.id}">${u.name} ${u.id===state.user.id?'(ja)':''}</option>`); }
-  if(!sel.value) sel.value = state.user.id;
+  if(keepId && list.some(u=>u.id===keepId)){ sel.value = keepId; } else if(!sel.value){ sel.value = state.user.id; }
 }
-function getMonthDays(year,month){ // month: 1-12
-  const days = new Date(year, month, 0).getDate();
-  return Array.from({length:days}, (_,i)=> i+1);
-}
-function mondayIndex(jsDay){ // JS: Sun=0..Sat=6; my: Mon=0..Sun=6
-  return (jsDay+6)%7;
-}
-function dayHasLeave(userId, y, m, d){
-  const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-  const leaves=state.data.leaves.filter(l=> l.userId===userId && toDate(l.from)<=toDate(iso) && toDate(l.to)>=toDate(iso));
-  if(leaves.length===0) return { state: isWeekend(new Date(iso))?'weekend':'present', leaves:[] };
-  // priorytety: approved > manager_approved > submitted
-  let prio='submitted';
-  for(const l of leaves){
-    if(l.status==='approved'){ prio='approved'; break; }
-    if(l.status==='manager_approved'){ prio='manager_approved'; }
-  }
-  return { state: prio, leaves };
-}
+
 function renderCalendar(){
-  const sel=document.getElementById('calEmployee'); fillEmployeeSelect(sel);
+  const sel=document.getElementById('calEmployee');
+  const keep = sel.value || state.user.id;
+  fillEmployeeSelect(sel, keep);
+
   const mk=document.getElementById('calMonth').value || monthKey(new Date());
   const [Y,M]=mk.split('-').map(Number);
   const days=getMonthDays(Y,M);
   const grid=document.getElementById('calGrid'); grid.innerHTML='';
 
-  // nagłówki dni Pn..Nd
+  // headers
   const head=['Pn','Wt','Śr','Cz','Pt','So','Nd'];
-  for(const h of head){ const div=document.createElement('div'); div.className='text-center small text-muted'; div.textContent=h; grid.appendChild(div); }
+  for(const h of head){ const div=document.createElement('div'); div.className='head'; div.textContent=h; grid.appendChild(div); }
 
-  // puste pola przed 1. dniem (pon-0)
   const first=new Date(Y, M-1, 1);
   const pad=mondayIndex(first.getDay());
   for(let i=0;i<pad;i++){ const d=document.createElement('div'); d.className='cal-day weekend'; grid.appendChild(d); }
 
-  // dni
   for(const d of days){
-    const info = dayHasLeave(sel.value, Y, M, d);
-    const div=document.createElement('div');
-    div.className=`cal-day ${info.state}`;
-    div.innerHTML=`<div class="d">${d}</div>`;
+    const isoDay = `${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const info = dayState(sel.value, Y, M, d);
+    const div=document.createElement('div'); div.className=`cal-day ${info.state}`; div.innerHTML=`<div class="d">${d}</div>`;
+    if(isoDay === new Date().toISOString().slice(0,10)) div.classList.add('today');
+
     if(info.leaves.length){
       const l=info.leaves[0];
-      const u=userById(l.userId);
-      const tMap={
-        choroba:'Choroba',
-        wypoczynkowy:'Urlop wypoczynkowy',
-        odbior_swieto:'Odbiór za święto',
-        opieka_dziecko:'Opieka nad dzieckiem',
-        odbior_nadgodzin:'Odbiór nadgodzin',
-        bezplatny:'Urlop bezpłatny',
-        macierzynski:'Urlop macierzyński',
-        na_zadanie:'Urlop na żądanie',
-        ojcowski:'Urlop ojcowski'
-      };
-      div.insertAdjacentHTML('beforeend', `<div class="small">${tMap[l.type]||l.type}</div><div class="small">${(l.comment||'')}</div>`);
-      // akcje (kierownik/admin)
+      div.insertAdjacentHTML('beforeend', `<div class="small">${tLabel(l.type)}</div><div class="small">${(l.comment||'')}</div>`);
       if(canManagerActOn(l) || canAdminActOn(l)){
         div.insertAdjacentHTML('beforeend', `<div class="mt-1 d-flex gap-1 flex-wrap">
-          ${canManagerActOn(l)?`<button class="btn btn-sm btn-success btn-icon" data-act="approve-mgr" data-id="${l.id}" title="Zatwierdź (kierownik)"><i class="fa-solid fa-check"></i></button>
-          <button class="btn btn-sm btn-danger btn-icon" data-act="reject-mgr" data-id="${l.id}" title="Odrzuć (kierownik)"><i class="fa-solid fa-xmark"></i></button>`:''}
-          ${canAdminActOn(l)?`<button class="btn btn-sm btn-success btn-icon" data-act="approve-adm" data-id="${l.id}" title="Zatwierdź (admin)"><i class="fa-solid fa-check-double"></i></button>
-          <button class="btn btn-sm btn-danger btn-icon" data-act="reject-adm" data-id="${l.id}" title="Odrzuć (admin)"><i class="fa-solid fa-ban"></i></button>`:''}
+          ${canManagerActOn(l)?`<button class="btn btn-sm btn-success" data-act="approve-mgr" data-id="${l.id}" title="Zatwierdź (kierownik)"><i class="fa-solid fa-check"></i></button>
+          <button class="btn btn-sm btn-danger" data-act="reject-mgr" data-id="${l.id}" title="Odrzuć (kierownik)"><i class="fa-solid fa-xmark"></i></button>`:''}
+          ${canAdminActOn(l)?`<button class="btn btn-sm btn-success" data-act="approve-adm" data-id="${l.id}" title="Zatwierdź (admin)"><i class="fa-solid fa-check-double"></i></button>
+          <button class="btn btn-sm btn-danger" data-act="reject-adm" data-id="${l.id}" title="Odrzuć (admin)"><i class="fa-solid fa-ban"></i></button>`:''}
         </div>`);
       }
     } else {
-      // brak wniosku – skrót do utworzenia
-      if(!isWeekend(new Date(`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`))){
-        div.insertAdjacentHTML('beforeend', `<div class="mt-2"><button class="btn btn-sm btn-outline-primary" data-act="new-leave-day" data-date="${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}"><i class="fa-solid fa-plus"></i> Wniosek</button></div>`);
+      if(!isWeekend(new Date(isoDay))){
+        div.insertAdjacentHTML('beforeend', `<div class="mt-2"><button class="btn btn-sm btn-outline-primary" data-act="new-leave-day" data-date="${isoDay}"><i class="fa-solid fa-plus"></i> Wniosek</button></div>`);
       }
     }
     grid.appendChild(div);
   }
 }
 
-// ====== wnioski (lista)
-function renderLeaves(){
-  const tbody=document.querySelector('#leaveTable tbody'); tbody.innerHTML='';
-  const rows=[...state.data.leaves].sort((a,b)=>{
-    // priorytet: submitted -> manager_approved -> approved -> rejected*
-    const prio = s=> ({submitted:1, manager_approved:2, approved:9, rejected_manager:10, rejected_admin:10}[s]||5);
-    const p=prio(a.status)-prio(b.status); if(p!==0) return p;
-    return (a.from||'').localeCompare(b.from||'');
-  });
-  for(const l of rows){
-    const u= userById(l.userId);
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${u?.name||'—'}</td>
-      <td>${l.type}</td>
-      <td>${l.from}</td>
-      <td>${l.to}</td>
-      <td>${businessDaysBetween(l.from,l.to)}</td>
-      <td>${statusBadge(l.status)}</td>
-      <td class='text-end'>
-        ${ (state.user.id===l.userId && l.status==='submitted') ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editLeave' data-id='${l.id}'><i class='fa-regular fa-pen-to-square'></i></button><button class='btn btn-sm btn-outline-danger' data-act='delLeave' data-id='${l.id}'><i class='fa-regular fa-trash-can'></i></button>` : '' }
-        ${ canManagerActOn(l) ? `<button class='btn btn-sm btn-success me-1' data-act='approve-mgr' data-id='${l.id}'><i class='fa-solid fa-check'></i></button><button class='btn btn-sm btn-danger' data-act='reject-mgr' data-id='${l.id}'><i class='fa-solid fa-xmark'></i></button>` : '' }
-        ${ canAdminActOn(l) ? `<button class='btn btn-sm btn-success me-1' data-act='approve-adm' data-id='${l.id}'><i class='fa-solid fa-check-double'></i></button><button class='btn btn-sm btn-danger' data-act='reject-adm' data-id='${l.id}'><i class='fa-solid fa-ban'></i></button>` : '' }
-      </td>`;
-    tbody.appendChild(tr);
-  }
-}
-
-// ====== pracownicy (grupowanie po kierowniku + sort A→Z)
-function renderEmployees(){
-  const tbody=document.querySelector('#empTable tbody'); tbody.innerHTML='';
-  // admin widzi wszystkich; manager: siebie + podopiecznych; employee: tylko siebie
-  let list=[];
-  if(state.user.role==='admin') list=[...state.data.users];
-  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
-  else list=[ userById(state.user.id) ];
-
-  // sort po kierowniku, potem po nazwisku
-  list.sort((a,b)=>{
-    const ma=userById(a.managerId||'')?.name||'', mb=userById(b.managerId||'')?.name||'';
-    if(ma!==mb) return ma.localeCompare(mb,'pl');
-    return (a.name||'').localeCompare(b.name||'','pl');
-  });
-
-  for(const u of list){
-    const mgr=userById(u.managerId||'');
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${u.name}</td>
-      <td>${u.email}</td>
-      <td><span class='badge text-bg-${u.role==='admin'?'dark':u.role==='manager'?'info':'secondary'}'>${u.role}</span></td>
-      <td>${mgr?mgr.name:'—'}</td>
-      <td>${u.contract||'1.0'}</td>
-      <td>${u.employment||'UOP'}</td>
-      <td>${u.startDate||'—'}</td>
-      <td>${u.vacationDays??20}</td>
-      <td class='text-end'>
-        ${state.user.role==='admin'
-          ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editEmp' data-id='${u.id}'><i class='fa-regular fa-pen-to-square'></i></button>
-             <button class='btn btn-sm btn-outline-danger' data-act='delEmp' data-id='${u.id}'><i class='fa-regular fa-trash-can'></i></button>`
-          : '' }
-      </td>`;
-    tbody.appendChild(tr);
-  }
-}
-function renderRepEmployees(){
-  const sel=document.getElementById('repEmployee'); sel.innerHTML='';
-  let list=[];
-  if(state.user.role==='admin') list=[...state.data.users];
-  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
-  else list=[ userById(state.user.id) ];
-  list.sort((a,b)=> (a.name||'').localeCompare(b.name||'','pl'));
-  for(const u of list){ sel.insertAdjacentHTML('beforeend',`<option value='${u.id}'>${u.name}</option>`); }
-}
-
-// ====== modale — wnioski
+// ====== leave types / forms
 function leaveTypesForUser(uid){
   const u=userById(uid);
   if((u?.employment||'UOP')==='JDG'){
-    return [
-      ['wypoczynkowy','Urlop wypoczynkowy'],
-      ['odbior_swieto','Odbiór za święto']
-    ];
+    return [['wypoczynkowy','Urlop wypoczynkowy'],['odbior_swieto','Odbiór za święto']];
   }
   return [
-    ['wypoczynkowy','Urlop wypoczynkowy'],
-    ['na_zadanie','Urlop na żądanie'],
-    ['choroba','Choroba'],
-    ['opieka_dziecko','Opieka nad dzieckiem'],
-    ['odbior_swieto','Odbiór za święto'],
-    ['odbior_nadgodzin','Odbiór nadgodzin'],
-    ['bezplatny','Urlop bezpłatny'],
-    ['macierzynski','Urlop macierzyński'],
-    ['ojcowski','Urlop ojcowski']
+    ['wypoczynkowy','Urlop wypoczynkowy'],['na_zadanie','Urlop na żądanie'],['choroba','Choroba'],
+    ['opieka_dziecko','Opieka nad dzieckiem'],['odbior_swieto','Odbiór za święto'],['odbior_nadgodzin','Odbiór nadgodzin'],
+    ['bezplatny','Urlop bezpłatny'],['macierzynski','Urlop macierzyński'],['ojcowski','Urlop ojcowski']
   ];
 }
 function fillLeaveUserSelect(selectEl){
@@ -484,7 +455,7 @@ async function saveLeaveFromModal(ev){
   await refresh();
   bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide();
 }
-async function approveLeave(id, who){ // who: 'mgr' | 'adm'
+async function approveLeave(id, who){
   if(who==='mgr'){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status:'manager_approved' })}); }
   else if(who==='adm'){ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({ status:'approved' })}); }
   await refresh();
@@ -496,7 +467,139 @@ async function rejectLeave(id, who){
 }
 async function deleteLeave(id){ await api('/leaves/'+id,{method:'DELETE'}); await refresh(); }
 
-// ====== modale — pracownicy (admin only edycja)
+// ====== leaves list with filters + bulk actions
+function fillLeavesEmployeeFilter(){
+  const sel=document.getElementById('leaveEmployeeFilter');
+  sel.innerHTML='';
+  let list=[];
+  if(state.user.role==='admin') list=[...state.data.users];
+  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
+  else list=[ userById(state.user.id) ];
+  sel.insertAdjacentHTML('beforeend', `<option value="">Wszyscy</option>`);
+  list.sort((a,b)=> (a.name||'').localeCompare(b.name||'','pl'));
+  for(const u of list){ sel.insertAdjacentHTML('beforeend', `<option value="${u.id}">${u.name}${u.id===state.user.id?' (ja)':''}</option>`); }
+  // hide filter for employee
+  sel.parentElement.style.display = (state.user.role==='employee') ? 'none' : '';
+}
+
+function currentLeaveFilter(){
+  return localStorage.getItem('leaveFilter') || 'pending';
+}
+function setLeaveFilter(v){
+  localStorage.setItem('leaveFilter', v);
+  document.querySelectorAll('#leaveFilters .btn').forEach(b=> b.classList.toggle('active', b.dataset.filter===v));
+}
+
+function filterByStatus(rows, filter){
+  if(filter==='approved') return rows.filter(l=> l.status==='approved');
+  if(filter==='rejected') return rows.filter(l=> l.status==='rejected_manager' || l.status==='rejected_admin');
+  if(filter==='pending') return rows.filter(l=> l.status==='submitted' || l.status==='manager_approved');
+  return rows;
+}
+function filterByMonth(rows, mk){
+  if(!mk) return rows;
+  const [Y,M]=mk.split('-').map(Number);
+  const first = new Date(Y, M-1, 1);
+  const last = new Date(Y, M, 0);
+  return rows.filter(l=> toDate(l.from) <= last && toDate(l.to) >= first);
+}
+function filterByEmployee(rows, uid){
+  if(!uid) return rows;
+  return rows.filter(l=> l.userId===uid);
+}
+
+function renderLeaves(){
+  const tbody=document.querySelector('#leaveTable tbody'); tbody.innerHTML='';
+  const empty=document.getElementById('leaveEmpty');
+  const filter = currentLeaveFilter();
+  const mk = document.getElementById('leaveMonth').value;
+  const uid = document.getElementById('leaveEmployeeFilter').value;
+
+  let rows=[...state.data.leaves];
+  rows = filterByStatus(rows, filter);
+  rows = filterByMonth(rows, mk);
+  rows = filterByEmployee(rows, uid);
+
+  rows.sort((a,b)=>{
+    const prio = s=> ({submitted:1, manager_approved:2, approved:9, rejected_manager:10, rejected_admin:10}[s]||5);
+    const p=prio(a.status)-prio(b.status); if(p!==0) return p;
+    return (a.from||'').localeCompare(b.from||'');
+  });
+
+  const me=state.user;
+  const showBulk = (me.role==='admin'); // tylko HR/Admin
+  document.getElementById('bulkActions').style.display = showBulk ? '' : 'none';
+
+  for(const l of rows){
+    const u= userById(l.userId);
+    const canActMgr = canManagerActOn(l);
+    const canActAdm = canAdminActOn(l);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${showBulk?`<input type="checkbox" class="chkRow" data-id="${l.id}">`:''}</td>
+      <td>${u?.name||'—'}</td>
+      <td>${tLabel(l.type)}</td>
+      <td>${l.from}</td>
+      <td>${l.to}</td>
+      <td>${businessDaysBetween(l.from,l.to)}</td>
+      <td>${statusBadge(l.status)}</td>
+      <td class='text-end'>
+        ${ (state.user.id===l.userId && l.status==='submitted') ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editLeave' data-id='${l.id}' title="Edytuj"><i class='fa-regular fa-pen-to-square'></i></button><button class='btn btn-sm btn-outline-danger' data-act='delLeave' data-id='${l.id}' title="Usuń"><i class='fa-regular fa-trash-can'></i></button>` : '' }
+        ${ canActMgr ? `<button class='btn btn-sm btn-success me-1' data-act='approve-mgr' data-id='${l.id}' title="Zatwierdź (kierownik)"><i class='fa-solid fa-check'></i></button><button class='btn btn-sm btn-danger' data-act='reject-mgr' data-id='${l.id}' title="Odrzuć (kierownik)"><i class='fa-solid fa-xmark'></i></button>` : '' }
+        ${ canActAdm ? `<button class='btn btn-sm btn-success me-1' data-act='approve-adm' data-id='${l.id}' title="Zatwierdź (admin)"><i class='fa-solid fa-check-double'></i></button><button class='btn btn-sm btn-danger' data-act='reject-adm' data-id='${l.id}' title="Odrzuć (admin)"><i class='fa-solid fa-ban'></i></button>` : '' }
+      </td>`;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('chkAll').checked = false;
+  empty.classList.toggle('d-none', rows.length>0);
+}
+
+// ====== employees (admin edit)
+function renderEmployees(){
+  const tbody=document.querySelector('#empTable tbody'); tbody.innerHTML='';
+  let list=[];
+  if(state.user.role==='admin') list=[...state.data.users];
+  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
+  else list=[ userById(state.user.id) ];
+
+  list.sort((a,b)=>{
+    const ma=userById(a.managerId||'')?.name||'', mb=userById(b.managerId||'')?.name||'';
+    if(ma!==mb) return ma.localeCompare(mb,'pl');
+    return (a.name||'').localeCompare(b.name||'','pl');
+  });
+
+  for(const u of list){
+    const mgr=userById(u.managerId||'');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><span class='badge text-bg-${u.role==='admin'?'dark':u.role==='manager'?'info':'secondary'}'>${u.role}</span></td>
+      <td>${mgr?mgr.name:'—'}</td>
+      <td>${u.employment||'UOP'}</td>
+      <td>${u.startDate||'—'}</td>
+      <td>${u.vacationDays??20}</td>
+      <td class='text-end'>
+        ${state.user.role==='admin'
+          ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editEmp' data-id='${u.id}' title="Edytuj"><i class='fa-regular fa-pen-to-square'></i></button>
+             <button class='btn btn-sm btn-outline-danger' data-act='delEmp' data-id='${u.id}' title="Usuń"><i class='fa-regular fa-trash-can'></i></button>`
+          : '' }
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
+function renderRepEmployees(){
+  const sel=document.getElementById('repEmployee'); sel.innerHTML='';
+  let list=[];
+  if(state.user.role==='admin') list=[...state.data.users];
+  else if(state.user.role==='manager') list=[ userById(state.user.id), ...subordinatesOf(state.user.id) ];
+  else list=[ userById(state.user.id) ];
+  list.sort((a,b)=> (a.name||'').localeCompare(b.name||'','pl'));
+  for(const u of list){ sel.insertAdjacentHTML('beforeend',`<option value='${u.id}'>${u.name}</option>`); }
+}
+
+// ====== employee modal
 function openEmpModal(id){
   if(state.user.role!=='admin'){ alert('Tylko administrator może edytować pracowników.'); return; }
   const m=new bootstrap.Modal('#empModal');
@@ -524,26 +627,80 @@ async function saveEmpFromModal(ev){
 }
 async function deleteEmp(id){ if(state.user.role!=='admin'){ alert('Tylko administrator może usuwać.'); return; } await api('/users/'+id,{method:'DELETE'}); await refresh(); }
 
+// ====== reports (simple)
+document.getElementById('reportForm')?.addEventListener?.('submit', (e)=>{
+  e.preventDefault();
+  const uid=document.getElementById('repEmployee').value;
+  const mk=document.getElementById('repMonth').value;
+  const [Y,M]=mk.split('-').map(Number);
+  const days = new Date(Y, M, 0).getDate();
+  let present=0, submitted=0, mgr=0, approved=0;
+  for(let d=1; d<=days; d++){
+    const s = dayState(uid,Y,M,d).state;
+    if(s==='present' && !isWeekend(new Date(`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`))) present++;
+    if(s==='submitted') submitted++; if(s==='manager_approved') mgr++; if(s==='approved') approved++;
+  }
+  document.getElementById('repOut').innerHTML=`<div class='border rounded-4 p-3'>
+    <div class='row text-center'>
+      <div class='col'><div class='small text-muted'>Obecny</div><div class='fs-4'>${present}</div></div>
+      <div class='col'><div class='small text-muted'>Wysłane</div><div class='fs-4'>${submitted}</div></div>
+      <div class='col'><div class='small text-muted'>Po akcept. kier.</div><div class='fs-4'>${mgr}</div></div>
+      <div class='col'><div class='small text-muted'>Zatwierdzone</div><div class='fs-4'>${approved}</div></div>
+    </div>
+  </div>`;
+});
+
+// ====== render all
+function renderAll(){ renderDashboard(); renderCalendar(); fillLeavesEmployeeFilter(); renderLeaves(); renderEmployees(); renderRepEmployees(); renderBadges(); }
+
 // ====== refresh & events
 async function refresh(){ await sync(); renderAll(); }
 function cryptoRand(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
 
-// ====== init
+// ====== events
 document.addEventListener('DOMContentLoaded', ()=>{
+  // auth
   document.getElementById('loginForm').addEventListener('submit', async (e)=>{ e.preventDefault(); const ok=await login(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); if(!ok) alert('Nieprawidłowe dane logowania.'); });
   document.getElementById('btnLogout').addEventListener('click', ()=>{ clearInterval(window._poll); window._poll=null; location.reload(); });
+  // nav
   document.querySelectorAll('#mainNav [data-target]').forEach(btn=> btn.addEventListener('click', ()=> showView(btn.dataset.target)));
+  // dashboard quick
+  document.getElementById('btnQuickLeave').addEventListener('click', ()=> openLeaveModal());
+  // calendar
   document.getElementById('calMonth').addEventListener('change', renderCalendar);
   document.getElementById('calEmployee').addEventListener('change', renderCalendar);
   document.getElementById('btnNewLeaveCal').addEventListener('click', ()=> openLeaveModal(null, (document.getElementById('calMonth').value||new Date().toISOString().slice(0,7))+'-01'));
+
+  // leave modal
   document.getElementById('btnNewLeave').addEventListener('click', ()=> openLeaveModal());
   document.getElementById('leaveForm').addEventListener('submit', saveLeaveFromModal);
   document.getElementById('leaveUser').addEventListener('change', ()=> fillLeaveTypes(document.getElementById('leaveType'), document.getElementById('leaveUser').value));
 
-  // Delegacja klików (kalendarz/wnioski)
+  // leaves filters
+  document.querySelectorAll('#leaveFilters .btn').forEach(b=> b.addEventListener('click', ()=>{ setLeaveFilter(b.dataset.filter); renderLeaves(); }));
+  setLeaveFilter(currentLeaveFilter());
+  document.getElementById('leaveMonth').addEventListener('change', renderLeaves);
+  document.getElementById('leaveEmployeeFilter').addEventListener('change', renderLeaves);
+
+  // bulk actions (admin)
+  document.getElementById('chkAll').addEventListener('change', (e)=>{
+    document.querySelectorAll('.chkRow').forEach(ch=> ch.checked = e.target.checked);
+  });
+  document.getElementById('btnBulkApprove').addEventListener('click', async ()=>{
+    const ids=[...document.querySelectorAll('.chkRow:checked')].map(x=>x.dataset.id);
+    for(const id of ids){ try{ await approveLeave(id,'adm'); }catch{} }
+    await refresh();
+  });
+  document.getElementById('btnBulkReject').addEventListener('click', async ()=>{
+    const ids=[...document.querySelectorAll('.chkRow:checked')].map(x=>x.dataset.id);
+    for(const id of ids){ try{ await rejectLeave(id,'adm'); }catch{} }
+    await refresh();
+  });
+
+  // table actions (delegation)
   document.body.addEventListener('click', (e)=>{
     const b=e.target.closest('button'); if(!b) return;
-    const act=b.dataset.act, id=b.dataset.id;
+    const id=b.dataset.id; const act=b.dataset.act;
     if(act==='approve-mgr') approveLeave(id,'mgr');
     if(act==='reject-mgr') rejectLeave(id,'mgr');
     if(act==='approve-adm') approveLeave(id,'adm');
@@ -551,29 +708,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(act==='editLeave') openLeaveModal(id);
     if(act==='delLeave') deleteLeave(id);
     if(act==='new-leave-day') openLeaveModal(null, b.dataset.date);
+
+    if(act==='editEmp') openEmpModal(id);
+    if(act==='delEmp')  deleteEmp(id);
   });
 
-  // raport (prosto)
-  document.getElementById('reportForm').addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const uid=document.getElementById('repEmployee').value;
-    const mk=document.getElementById('repMonth').value;
-    const [Y,M]=mk.split('-').map(Number);
-    const days=getMonthDays(Y,M);
-    const present=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='present' && !isWeekend(new Date(`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`))).length;
-    const submitted=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='submitted').length;
-    const mgr=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='manager_approved').length;
-    const approved=days.filter(d=> dayHasLeave(uid,Y,M,d).state==='approved').length;
-    const out=document.getElementById('repOut');
-    out.innerHTML=`<div class='border rounded-4 p-3'>
-      <div class='row text-center'>
-        <div class='col'><div class='small text-muted'>Obecny</div><div class='fs-4'>${present}</div></div>
-        <div class='col'><div class='small text-muted'>Wysłane</div><div class='fs-4'>${submitted}</div></div>
-        <div class='col'><div class='small text-muted'>Po akcept. kier.</div><div class='fs-4'>${mgr}</div></div>
-        <div class='col'><div class='small text-muted'>Zatwierdzone</div><div class='fs-4'>${approved}</div></div>
-      </div>
-    </div>`;
-  });
+  // employees
+  document.getElementById('btnNewEmp').addEventListener('click', ()=> openEmpModal());
+  document.getElementById('empForm').addEventListener('submit', saveEmpFromModal);
 });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
