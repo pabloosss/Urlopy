@@ -9,7 +9,12 @@
   <style>
     :root{
       --primary:#0d6efd; --bg:#f6f9ff;
-      --present:#e8ffe8; --submitted:#fff4e5; --mgr:#fffbe5; --approved:#ffe5e5; --weekend:#f0f0f0; --todayOutline:#0d6efd;
+      --present:#e8ffe8;            /* obecny */
+      --submitted:#fff4e5;          /* pomarańcz (oczekuje) */
+      --mgr:#e7f1ff;                /* niebieski (po akcept. kier.) */
+      --approved:#d1e7dd;           /* zielony (zatwierdzony) */
+      --rejected:#fde2e2;           /* czerwony (odrzucony) */
+      --weekend:#f0f0f0; --todayOutline:#0d6efd;
     }
     body{background:var(--bg)}
     .brand-bar{background:linear-gradient(90deg,var(--primary),#37a0ff);color:#fff}
@@ -18,6 +23,7 @@
     .nav-pills .nav-link.active{background:var(--primary)}
     .table thead th{background:#eef5ff}
     .required::after{content:" *"; color:#dc3545}
+
     /* Kalendarz */
     .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:.5rem;}
     .cal-grid > .head{font-size:.8rem; color:#6c757d; text-align:center}
@@ -27,18 +33,48 @@
     .cal-day.submitted{background:var(--submitted)}
     .cal-day.manager_approved{background:var(--mgr)}
     .cal-day.approved{background:var(--approved)}
+    .cal-day.rejected{background:var(--rejected)}
     .cal-day.weekend{background:var(--weekend)}
     .cal-day.today{ outline:2px solid var(--todayOutline); outline-offset:-2px }
     .badge-dot{display:inline-block; width:.6rem; height:.6rem; border-radius:50%; margin-right:.35rem}
     .pill-filter .btn{border-radius:999px}
+
+    /* Notyfikacje (dropdown dzwonka) */
+    .notif-item{display:flex; gap:.75rem; padding:.5rem .75rem; border-bottom:1px solid #f1f3f5}
+    .notif-item:last-child{border-bottom:0}
+    .notif-icon{width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px}
+    .notif-icon.submitted{background:#fff4e5; color:#b35c00}
+    .notif-icon.manager_approved{background:#e7f1ff; color:#0b72b9}
+    .notif-icon.approved{background:#d1e7dd; color:#0f5132}
+    .notif-icon.rejected{background:#fde2e2; color:#842029}
+    .notif-actions .btn{padding:.15rem .4rem}
+    .dropdown-menu-notif{width:380px; max-width:90vw}
+    .notif-empty{padding:1rem; text-align:center; color:#6c757d}
   </style>
 </head>
 <body>
 <header class="brand-bar py-2 shadow-soft">
   <div class="container d-flex align-items-center gap-3">
     <h1 class="h6 mb-0 fw-bold">Emerlog Urlopy alfa 0.1</h1>
-    <div class="ms-auto d-flex align-items-center gap-3">
-      <span id="badgeLeavesNav" class="badge text-bg-light d-none"></span>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <!-- DZWONEK POWIADOMIEŃ -->
+      <div class="dropdown">
+        <button class="btn btn-light btn-sm position-relative" id="btnBell" data-bs-toggle="dropdown" aria-expanded="false" title="Powiadomienia">
+          <i class="fa-regular fa-bell"></i>
+          <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-0 dropdown-menu-notif" id="notifMenu">
+          <div class="p-2 d-flex align-items-center justify-content-between border-bottom">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Filtr powiadomień">
+              <button class="btn btn-outline-primary active" id="nfTabUnread">Nieprzeczytane</button>
+              <button class="btn btn-outline-secondary" id="nfTabAll">Wszystkie</button>
+            </div>
+            <button class="btn btn-link btn-sm text-decoration-none" id="nfMarkAll">Oznacz wszystkie</button>
+          </div>
+          <div id="notifList"></div>
+        </div>
+      </div>
+
       <span id="loggedAs" class="small"></span>
       <button class="btn btn-light btn-sm" id="btnLogout" style="display:none"><i class="fa-solid fa-right-from-bracket"></i> Wyloguj</button>
     </div>
@@ -106,6 +142,14 @@
               </div>
             </div></div>
           </div>
+
+          <!-- Najbliższe 7 dni (mini-heatmapa) -->
+          <div class="mt-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="h6 mb-0">Najbliższe 7 dni – obłożenie</div>
+            </div>
+            <div id="next7" class="d-flex gap-2 flex-wrap"></div>
+          </div>
         </div></div>
 
         <!-- Kalendarz -->
@@ -121,8 +165,9 @@
           <div class="mb-2 small">
             <span class="badge bg-success-subtle text-success border me-1"><span class="badge-dot" style="background:#198754"></span>Obecny</span>
             <span class="badge bg-warning-subtle text-warning border me-1"><span class="badge-dot" style="background:#ffc107"></span>Oczekuje</span>
-            <span class="badge bg-warning text-dark border me-1"><span class="badge-dot" style="background:#ffca2c"></span>Po akceptacji kier.</span>
-            <span class="badge bg-danger-subtle text-danger border me-1"><span class="badge-dot" style="background:#dc3545"></span>Zatwierdzony</span>
+            <span class="badge bg-info-subtle text-info border me-1"><span class="badge-dot" style="background:#0dcaf0"></span>Po akceptacji kier.</span>
+            <span class="badge bg-success-subtle text-success border me-1"><span class="badge-dot" style="background:#198754"></span>Zatwierdzony</span>
+            <span class="badge bg-danger-subtle text-danger border me-1"><span class="badge-dot" style="background:#dc3545"></span>Odrzucony</span>
           </div>
           <div id="calGrid" class="cal-grid"></div>
         </div></div>
@@ -174,7 +219,7 @@
           </tr></thead><tbody></tbody></table></div>
         </div></div>
 
-        <!-- Raporty -->
+        <!-- Raporty (placeholder – logikę rozbudujemy) -->
         <div id="view-reports" class="card shadow-soft mt-3" style="display:none"><div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3"><h2 class="h5 mb-0">Raport (miesiąc)</h2></div>
           <form class="row g-3 mb-3" id="reportForm">
@@ -240,6 +285,7 @@ function toDate(x){ const d=new Date(x); d.setHours(0,0,0,0); return d; }
 function isWeekend(d){ const day=d.getDay(); return day===0 || day===6; }
 function monthKey(d){ d=new Date(d); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function businessDaysBetween(from,to){ let d1=toDate(from), d2=toDate(to); if(d2<d1) return 0; let c=0,d=new Date(d1); while(d<=d2){ if(!isWeekend(d)) c++; d.setDate(d.getDate()+1);} return c; }
+function timeAgo(ts){ if(!ts) return ''; const sec=Math.max(1,Math.floor((Date.now()-ts)/1000)); const units=[['d',86400],['h',3600],['m',60],['s',1]]; for(const [u,v] of units){ if(sec>=v) return Math.floor(sec/v)+' '+(u==='d'?'dni':u==='h'?'h':u==='m'?'min':'s')+' temu'; } return 'przed chwilą'; }
 
 // ====== balances
 function employmentFractionThisYear(user,year){ const start=user.startDate? new Date(user.startDate):null; const yStart=new Date(year,0,1), yEnd=new Date(year,11,31); if(!start||start<yStart) return 1; if(start>yEnd) return 0; const months=(12-(start.getMonth()+1))+1; return Math.min(1,Math.max(0,months/12)); }
@@ -284,7 +330,8 @@ function showView(name){
 function userById(id){ return state.data.users.find(u=>u.id===id); }
 function subordinatesOf(managerId){ return state.data.users.filter(u=>u.managerId===managerId); }
 function canManagerActOn(leave){ const me=state.user; return me.role==='manager' && subordinatesOf(me.id).some(u=>u.id===leave.userId) && leave.status==='submitted'; }
-function canAdminActOn(leave){ const me=state.user; if(me.role!=='admin') return false; const applicant=userById(leave.userId); return (leave.status==='manager_approved') || (applicant?.role==='manager' && leave.status==='submitted'); }
+function canAdminApprove(leave){ return state.user.role==='admin' && leave.status==='manager_approved'; }
+function canAdminReject(leave){ return state.user.role==='admin' && (leave.status==='submitted' || leave.status==='manager_approved'); }
 function tLabel(type){
   return ({
     choroba:'Choroba', wypoczynkowy:'Urlop wypoczynkowy', odbior_swieto:'Odbiór za święto',
@@ -293,7 +340,7 @@ function tLabel(type){
   })[type] || type;
 }
 function statusBadge(s){
-  const map={submitted:'warning', manager_approved:'warning', approved:'danger', rejected_manager:'secondary', rejected_admin:'secondary'};
+  const map={submitted:'warning', manager_approved:'info', approved:'success', rejected_manager:'danger', rejected_admin:'danger'};
   const txt={submitted:'Wysłany', manager_approved:'Po akceptacji kierownika', approved:'Zatwierdzony', rejected_manager:'Odrzucony (kier.)', rejected_admin:'Odrzucony (admin)'};
   return `<span class="badge text-bg-${map[s]||'light'}">${txt[s]||s}</span>`;
 }
@@ -306,13 +353,13 @@ function renderBadges(){
   } else if(state.user.role==='admin'){
     const submittedAll = state.data.leaves.filter(l=> l.status==='submitted').length;
     const managerApproved = state.data.leaves.filter(l=> l.status==='manager_approved').length;
-    n = submittedAll + managerApproved; // Admin widzi zawsze nowe + do finalnej
+    n = submittedAll + managerApproved; // Admin: widzi nowe + do finalnej
   }
   const b1=document.getElementById('badgeLeaves');
-  const b2=document.getElementById('badgeLeavesNav');
-  [b1,b2].forEach(b=>{ if(!b) return; if(n>0){ b.textContent=n; b.classList.remove('d-none'); } else { b.classList.add('d-none'); }});
+  [b1].forEach(b=>{ if(!b) return; if(n>0){ b.textContent=n; b.classList.remove('d-none'); } else { b.classList.add('d-none'); }});
 }
 
+// Dashboard top tiles
 function renderDashboard(){
   const me = userById(state.user.id);
   const year=new Date().getFullYear(); const bal=vacationBalance(me,year);
@@ -332,6 +379,20 @@ function renderDashboard(){
     n = submittedAll + managerApproved;
   }
   document.getElementById('pendingInfo').textContent = String(n);
+
+  // Najbliższe 7 dni – mini-heatmapa
+  const box=document.getElementById('next7'); box.innerHTML='';
+  const base=new Date(); base.setHours(0,0,0,0);
+  for(let i=0;i<7;i++){
+    const d=new Date(base); d.setDate(base.getDate()+i);
+    const iso=d.toISOString().slice(0,10);
+    const absent=state.data.leaves.filter(l=> l.status==='approved' && toDate(l.from)<=toDate(iso) && toDate(l.to)>=toDate(iso));
+    const badge=absent.length>=3?'danger':absent.length>=1?'warning':'success';
+    const el=document.createElement('div');
+    el.className='border rounded-3 px-2 py-1 d-flex align-items-center gap-2 bg-white';
+    el.innerHTML=`<strong>${d.toLocaleDateString('pl-PL',{weekday:'short'})}</strong> <span class="badge text-bg-${badge}">${absent.length}</span>`;
+    box.appendChild(el);
+  }
 }
 
 // ====== calendar
@@ -342,9 +403,15 @@ function dayState(userId, y, m, d){
   const iso = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
   const leaves=state.data.leaves.filter(l=> l.userId===userId && toDate(l.from)<=toDate(iso) && toDate(l.to)>=toDate(iso));
   if(leaves.length===0) return { state: isWeekend(new Date(iso))?'weekend':'present', leaves:[] };
-  let prio='submitted';
-  for(const l of leaves){ if(l.status==='approved'){ prio='approved'; break; } if(l.status==='manager_approved'){ prio='manager_approved'; } }
-  return { state: prio, leaves };
+  // priorytet: approved > manager_approved > submitted > rejected
+  let prio=null;
+  for(const l of leaves){
+    if(l.status==='approved'){ prio='approved'; break; }
+    if(!prio && l.status==='manager_approved') prio='manager_approved';
+    if(!prio && l.status==='submitted') prio='submitted';
+    if(!prio && (l.status==='rejected_manager' || l.status==='rejected_admin')) prio='rejected';
+  }
+  return { state: prio||'present', leaves };
 }
 
 function fillEmployeeSelect(sel, keepId=null){
@@ -391,13 +458,19 @@ function renderCalendar(){
     if(info.leaves.length){
       const l=info.leaves[0];
       div.insertAdjacentHTML('beforeend', `<div class="small">${tLabel(l.type)}</div><div class="small">${(l.comment||'')}</div>`);
-      if(canManagerActOn(l) || canAdminActOn(l)){
-        div.insertAdjacentHTML('beforeend', `<div class="mt-1 d-flex gap-1 flex-wrap">
-          ${canManagerActOn(l)?`<button class="btn btn-sm btn-success" data-act="approve-mgr" data-id="${l.id}" title="Zatwierdź (kierownik)"><i class="fa-solid fa-check"></i></button>
-          <button class="btn btn-sm btn-danger" data-act="reject-mgr" data-id="${l.id}" title="Odrzuć (kierownik)"><i class="fa-solid fa-xmark"></i></button>`:''}
-          ${canAdminActOn(l)?`<button class="btn btn-sm btn-success" data-act="approve-adm" data-id="${l.id}" title="Zatwierdź (admin)"><i class="fa-solid fa-check-double"></i></button>
-          <button class="btn btn-sm btn-danger" data-act="reject-adm" data-id="${l.id}" title="Odrzuć (admin)"><i class="fa-solid fa-ban"></i></button>`:''}
-        </div>`);
+      const buttons=[];
+      if(canManagerActOn(l)){
+        buttons.push(`<button class="btn btn-sm btn-success" data-act="approve-mgr" data-id="${l.id}" title="Zatwierdź (kierownik)"><i class="fa-solid fa-check"></i></button>`);
+        buttons.push(`<button class="btn btn-sm btn-danger" data-act="reject-mgr" data-id="${l.id}" title="Odrzuć (kierownik)"><i class="fa-solid fa-xmark"></i></button>`);
+      }
+      if(canAdminApprove(l)){
+        buttons.push(`<button class="btn btn-sm btn-success" data-act="approve-adm" data-id="${l.id}" title="Zatwierdź (admin)"><i class="fa-solid fa-check-double"></i></button>`);
+      }
+      if(canAdminReject(l)){
+        buttons.push(`<button class="btn btn-sm btn-danger" data-act="reject-adm" data-id="${l.id}" title="Odrzuć (admin)"><i class="fa-solid fa-ban"></i></button>`);
+      }
+      if(buttons.length){
+        div.insertAdjacentHTML('beforeend', `<div class="mt-1 d-flex gap-1 flex-wrap">${buttons.join('')}</div>`);
       }
     } else {
       if(!isWeekend(new Date(isoDay))){
@@ -482,12 +555,10 @@ function fillLeavesEmployeeFilter(){
   sel.parentElement.style.display = (state.user.role==='employee') ? 'none' : '';
 }
 
-function currentLeaveFilter(){
-  return localStorage.getItem('leaveFilter') || 'pending';
-}
+function currentLeaveFilter(){ return localStorage.getItem('leaveFilter') || 'pending'; }
 function setLeaveFilter(v){
   localStorage.setItem('leaveFilter', v);
-  document.querySelectorAll('#leaveFilters .btn').forEach(b=> b.classList.toggle('active', b.dataset.filter===v));
+  document.querySelectorAll('#leaveFilters .btn').forEach(b=> b.classList.toggle('active',b.dataset.filter===v));
 }
 
 function filterByStatus(rows, filter){
@@ -533,7 +604,8 @@ function renderLeaves(){
   for(const l of rows){
     const u= userById(l.userId);
     const canActMgr = canManagerActOn(l);
-    const canActAdm = canAdminActOn(l);
+    const canApprAdm = canAdminApprove(l);
+    const canRejAdm  = canAdminReject(l);
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td>${showBulk?`<input type="checkbox" class="chkRow" data-id="${l.id}">`:''}</td>
@@ -546,7 +618,8 @@ function renderLeaves(){
       <td class='text-end'>
         ${ (state.user.id===l.userId && l.status==='submitted') ? `<button class='btn btn-sm btn-outline-secondary me-1' data-act='editLeave' data-id='${l.id}' title="Edytuj"><i class='fa-regular fa-pen-to-square'></i></button><button class='btn btn-sm btn-outline-danger' data-act='delLeave' data-id='${l.id}' title="Usuń"><i class='fa-regular fa-trash-can'></i></button>` : '' }
         ${ canActMgr ? `<button class='btn btn-sm btn-success me-1' data-act='approve-mgr' data-id='${l.id}' title="Zatwierdź (kierownik)"><i class='fa-solid fa-check'></i></button><button class='btn btn-sm btn-danger' data-act='reject-mgr' data-id='${l.id}' title="Odrzuć (kierownik)"><i class='fa-solid fa-xmark'></i></button>` : '' }
-        ${ canActAdm ? `<button class='btn btn-sm btn-success me-1' data-act='approve-adm' data-id='${l.id}' title="Zatwierdź (admin)"><i class='fa-solid fa-check-double'></i></button><button class='btn btn-sm btn-danger' data-act='reject-adm' data-id='${l.id}' title="Odrzuć (admin)"><i class='fa-solid fa-ban'></i></button>` : '' }
+        ${ canApprAdm ? `<button class='btn btn-sm btn-success me-1' data-act='approve-adm' data-id='${l.id}' title="Zatwierdź (admin)"><i class='fa-solid fa-check-double'></i></button>` : '' }
+        ${ canRejAdm ? `<button class='btn btn-sm btn-danger' data-act='reject-adm' data-id='${l.id}' title="Odrzuć (admin)"><i class='fa-solid fa-ban'></i></button>` : '' }
       </td>`;
     tbody.appendChild(tr);
   }
@@ -627,18 +700,18 @@ async function saveEmpFromModal(ev){
 }
 async function deleteEmp(id){ if(state.user.role!=='admin'){ alert('Tylko administrator może usuwać.'); return; } await api('/users/'+id,{method:'DELETE'}); await refresh(); }
 
-// ====== reports (simple)
+// ====== Raport placeholder
 document.getElementById('reportForm')?.addEventListener?.('submit', (e)=>{
   e.preventDefault();
   const uid=document.getElementById('repEmployee').value;
   const mk=document.getElementById('repMonth').value;
   const [Y,M]=mk.split('-').map(Number);
   const days = new Date(Y, M, 0).getDate();
-  let present=0, submitted=0, mgr=0, approved=0;
+  let present=0, submitted=0, mgr=0, approved=0, rejected=0;
   for(let d=1; d<=days; d++){
     const s = dayState(uid,Y,M,d).state;
     if(s==='present' && !isWeekend(new Date(`${Y}-${String(M).padStart(2,'0')}-${String(d).padStart(2,'0')}`))) present++;
-    if(s==='submitted') submitted++; if(s==='manager_approved') mgr++; if(s==='approved') approved++;
+    if(s==='submitted') submitted++; if(s==='manager_approved') mgr++; if(s==='approved') approved++; if(s==='rejected') rejected++;
   }
   document.getElementById('repOut').innerHTML=`<div class='border rounded-4 p-3'>
     <div class='row text-center'>
@@ -646,12 +719,116 @@ document.getElementById('reportForm')?.addEventListener?.('submit', (e)=>{
       <div class='col'><div class='small text-muted'>Wysłane</div><div class='fs-4'>${submitted}</div></div>
       <div class='col'><div class='small text-muted'>Po akcept. kier.</div><div class='fs-4'>${mgr}</div></div>
       <div class='col'><div class='small text-muted'>Zatwierdzone</div><div class='fs-4'>${approved}</div></div>
+      <div class='col'><div class='small text-muted'>Odrzucone</div><div class='fs-4'>${rejected}</div></div>
     </div>
   </div>`;
 });
 
+// ====== POWIADOMIENIA (frontend-only, bez backendu)
+const notif = {
+  show:'unread',                 // 'unread' | 'all'
+  seen: new Set(),               // klucze: `${leafId}:${stage}`
+  submittedSeenAt: {},           // 'pierwsze zobaczenie' submitted (dla "kiedy")
+};
+function loadNotifState(){
+  try{
+    const s=JSON.parse(localStorage.getItem('seenNotifsV1')||'[]'); notif.seen=new Set(s);
+    notif.submittedSeenAt=JSON.parse(localStorage.getItem('submittedSeenAtV1')||'{}');
+  }catch{}
+}
+function saveNotifState(){
+  localStorage.setItem('seenNotifsV1', JSON.stringify([...notif.seen]));
+  localStorage.setItem('submittedSeenAtV1', JSON.stringify(notif.submittedSeenAt||{}));
+}
+function notifKey(leaf, stage){ return `${leaf.id}:${stage}`; }
+function buildNotifications(){
+  const items=[];
+  const me=state.user;
+  for(const l of state.data.leaves){
+    const u=userById(l.userId);
+    // Manager: widzi submitted podopiecznych
+    if(me.role==='manager' && subordinatesOf(me.id).some(x=>x.id===l.userId) && l.status==='submitted'){
+      if(!notif.submittedSeenAt[l.id]) notif.submittedSeenAt[l.id]=Date.now();
+      items.push({
+        key: notifKey(l,'submitted_mgr'), icon:'submitted', text:`Nowy wniosek: ${u?.name||'—'} • ${tLabel(l.type)} • ${l.from}–${l.to}`,
+        when: notif.submittedSeenAt[l.id], actions:['approve-mgr','reject-mgr'], leaf:l
+      });
+    }
+    // Admin: submitted (info) + manager_approved (decyzja)
+    if(me.role==='admin'){
+      if(l.status==='submitted'){
+        if(!notif.submittedSeenAt[l.id]) notif.submittedSeenAt[l.id]=Date.now();
+        items.push({
+          key: notifKey(l,'submitted_adm'), icon:'submitted', text:`Wniosek oczekuje na kierownika: ${u?.name||'—'} • ${tLabel(l.type)}`,
+          when: notif.submittedSeenAt[l.id], actions:['reject-adm'], leaf:l
+        });
+      }
+      if(l.status==='manager_approved'){
+        const ts = l.decidedAtManager || Date.now();
+        items.push({
+          key: notifKey(l,'manager_approved'), icon:'manager_approved', text:`Po akceptacji kierownika: ${u?.name||'—'} • ${tLabel(l.type)} • ${l.from}–${l.to}`,
+          when: ts, actions:['approve-adm','reject-adm'], leaf:l
+        });
+      }
+    }
+    // Pracownik: finalna decyzja (approved/rejected)
+    if(me.id===l.userId){
+      if(l.status==='approved'){
+        const ts = l.decidedAtAdmin || Date.now();
+        items.push({ key:notifKey(l,'approved'), icon:'approved', text:`Zatwierdzono wniosek • ${tLabel(l.type)} • ${l.from}–${l.to}`, when:ts, actions:[], leaf:l });
+      }
+      if(l.status==='rejected_manager' || l.status==='rejected_admin'){
+        const ts = (l.decidedAtAdmin||l.decidedAtManager||Date.now());
+        items.push({ key:notifKey(l,'rejected'), icon:'rejected', text:`Odrzucono wniosek • ${tLabel(l.type)} • ${l.from}–${l.to}`, when:ts, actions:[], leaf:l });
+      }
+    }
+  }
+  saveNotifState();
+  return items.sort((a,b)=> (b.when||0)-(a.when||0)).slice(0,50);
+}
+function renderNotifBell(){
+  loadNotifState();
+  const list=buildNotifications();
+  // badge
+  const unread=list.filter(i=> !notif.seen.has(i.key)).length;
+  const badge=document.getElementById('notifBadge');
+  if(unread>0){ badge.textContent=unread; badge.classList.remove('d-none'); } else { badge.classList.add('d-none'); }
+
+  // dropdown list
+  const showUnread = (notif.show==='unread');
+  const view = showUnread ? list.filter(i=> !notif.seen.has(i.key)) : list;
+  const box=document.getElementById('notifList'); box.innerHTML='';
+  if(view.length===0){
+    box.innerHTML = `<div class="notif-empty"><i class="fa-regular fa-bell mb-1"></i><div>${showUnread?'Brak nowych powiadomień':'Brak powiadomień'}</div></div>`;
+    return;
+  }
+  for(const n of view){
+    const row=document.createElement('div'); row.className='notif-item';
+    row.innerHTML = `
+      <div class="notif-icon ${n.icon}"><i class="${n.icon==='submitted'?'fa-regular fa-envelope':n.icon==='manager_approved'?'fa-regular fa-user':n.icon==='approved'?'fa-solid fa-check': 'fa-solid fa-ban'}"></i></div>
+      <div class="flex-grow-1">
+        <div class="small">${n.text}</div>
+        <div class="text-muted small">${timeAgo(n.when)}</div>
+      </div>
+      <div class="notif-actions d-flex gap-1">
+        ${ n.actions.includes('approve-mgr') ? `<button class="btn btn-success btn-sm" data-act="approve-mgr" data-id="${n.leaf.id}" title="Zatwierdź (kierownik)"><i class="fa-solid fa-check"></i></button>` : '' }
+        ${ n.actions.includes('reject-mgr') ? `<button class="btn btn-danger btn-sm" data-act="reject-mgr" data-id="${n.leaf.id}" title="Odrzuć (kierownik)"><i class="fa-solid fa-xmark"></i></button>` : '' }
+        ${ n.actions.includes('approve-adm') ? `<button class="btn btn-success btn-sm" data-act="approve-adm" data-id="${n.leaf.id}" title="Zatwierdź (admin)"><i class="fa-solid fa-check-double"></i></button>` : '' }
+        ${ n.actions.includes('reject-adm') ? `<button class="btn btn-danger btn-sm" data-act="reject-adm" data-id="${n.leaf.id}" title="Odrzuć (admin)"><i class="fa-solid fa-ban"></i></button>` : '' }
+      </div>
+    `;
+    box.appendChild(row);
+  }
+}
+function notifMarkAllRead(){
+  const list=buildNotifications();
+  list.forEach(n=> notif.seen.add(n.key));
+  saveNotifState();
+  renderNotifBell();
+}
+
 // ====== render all
-function renderAll(){ renderDashboard(); renderCalendar(); fillLeavesEmployeeFilter(); renderLeaves(); renderEmployees(); renderRepEmployees(); renderBadges(); }
+function renderAll(){ renderDashboard(); renderCalendar(); fillLeavesEmployeeFilter(); renderLeaves(); renderEmployees(); renderRepEmployees(); renderBadges(); renderNotifBell(); }
 
 // ====== refresh & events
 async function refresh(){ await sync(); renderAll(); }
@@ -662,10 +839,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // auth
   document.getElementById('loginForm').addEventListener('submit', async (e)=>{ e.preventDefault(); const ok=await login(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); if(!ok) alert('Nieprawidłowe dane logowania.'); });
   document.getElementById('btnLogout').addEventListener('click', ()=>{ clearInterval(window._poll); window._poll=null; location.reload(); });
+
   // nav
   document.querySelectorAll('#mainNav [data-target]').forEach(btn=> btn.addEventListener('click', ()=> showView(btn.dataset.target)));
+
   // dashboard quick
   document.getElementById('btnQuickLeave').addEventListener('click', ()=> openLeaveModal());
+
   // calendar
   document.getElementById('calMonth').addEventListener('change', renderCalendar);
   document.getElementById('calEmployee').addEventListener('change', renderCalendar);
@@ -697,7 +877,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     await refresh();
   });
 
-  // table actions (delegation)
+  // global delegation (table + calendar + notifs)
   document.body.addEventListener('click', (e)=>{
     const b=e.target.closest('button'); if(!b) return;
     const id=b.dataset.id; const act=b.dataset.act;
@@ -708,14 +888,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(act==='editLeave') openLeaveModal(id);
     if(act==='delLeave') deleteLeave(id);
     if(act==='new-leave-day') openLeaveModal(null, b.dataset.date);
-
-    if(act==='editEmp') openEmpModal(id);
-    if(act==='delEmp')  deleteEmp(id);
+    if(b.id==='nfMarkAll'){ notifMarkAllRead(); }
   });
 
-  // employees
-  document.getElementById('btnNewEmp').addEventListener('click', ()=> openEmpModal());
-  document.getElementById('empForm').addEventListener('submit', saveEmpFromModal);
+  // dzwonek tabs
+  document.getElementById('nfTabUnread').addEventListener('click', ()=>{ notif.show='unread'; document.getElementById('nfTabUnread').classList.add('btn-outline-primary'); document.getElementById('nfTabUnread').classList.add('active'); document.getElementById('nfTabAll').classList.remove('active'); renderNotifBell(); });
+  document.getElementById('nfTabAll').addEventListener('click', ()=>{ notif.show='all'; document.getElementById('nfTabAll').classList.add('active'); document.getElementById('nfTabUnread').classList.remove('active'); renderNotifBell(); });
+
+  // dropdown show -> odśwież
+  document.getElementById('btnBell').addEventListener('click', ()=> renderNotifBell());
 });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
