@@ -1,615 +1,463 @@
-<!doctype html>
-<html lang="pl">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Emerlog Urlopy • Alfa 0.1</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <style>
-    :root { --sidebar: #0d6efd; --bg:#f5f8ff }
-    body{background:var(--bg)}
-    .app{display:grid;grid-template-columns:280px 1fr;gap:18px;padding:20px}
-    .sidebar{background:#fff;border-radius:14px;box-shadow:0 10px 25px rgba(13,110,253,.08);padding:14px}
-    .brand{font-weight:700;font-size:20px}
-    .nav-link{border-radius:10px}
-    .nav-link.active{background:#e7f1ff;color:#0d6efd}
-    .card-soft{border:0;border-radius:16px;box-shadow:0 10px 30px rgba(16,24,40,.06)}
-    .badge-dot{display:inline-flex;align-items:center;gap:.4rem}
-    .badge-dot::before{content:"";display:inline-block;width:.55rem;height:.55rem;border-radius:999px;background:currentColor}
-    .status-submitted{color:#0d6efd}
-    .status-approved{color:#198754}
-    .status-rejected{color:#dc3545}
-    .chip{background:#eef4ff;border-radius:999px;padding:.2rem .55rem;font-size:.75rem}
-    .table thead th{font-weight:600;color:#334155}
-  </style>
-</head>
-<body>
+/* =========================================================
+   Emerlog Urlopy – FRONTEND
+   Zmieniono bazę endpointów: bez prefiksu `/api`.
+   Jeśli chcesz łatwo wrócić do starego wariantu, ustaw API_BASE = '/api'.
+========================================================= */
 
-<div id="loginView" class="container py-5" style="max-width:520px;">
-  <div class="card card-soft p-4">
-    <h3 class="mb-1">Zaloguj się</h3>
-    <div class="text-muted mb-3">Demo: <code>admin@demo.local</code>/<code>1</code></div>
-    <form id="loginForm" class="vstack gap-3">
-      <div>
-        <label class="form-label">E-mail</label>
-        <input id="loginEmail" class="form-control" type="email" placeholder="you@company.com" required>
-      </div>
-      <div>
-        <label class="form-label">Hasło</label>
-        <input id="loginPass" class="form-control" type="password" placeholder="••••" required>
-      </div>
-      <button class="btn btn-primary"><i class="bi bi-box-arrow-in-right me-1"></i>Zaloguj</button>
-    </form>
-  </div>
-</div>
+const API_BASE = ''; // <— KLUCZOWA ZMIANA: było '/api', jest '' (pusty)
 
-<div id="appView" class="app d-none">
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <div class="brand">Emerlog Urlopy</div>
-      <span class="chip text-primary">Alfa 0.1</span>
-    </div>
-    <div class="list-group list-group-flush" id="mainNav">
-      <a class="list-group-item list-group-item-action nav-link active" data-target="dashboard"><i class="bi bi-speedometer2 me-2"></i>Pulpit</a>
-      <a class="list-group-item list-group-item-action nav-link" data-target="calendar"><i class="bi bi-calendar3 me-2"></i>Kalendarz</a>
-      <a class="list-group-item list-group-item-action nav-link" data-target="leaves"><i class="bi bi-inboxes me-2"></i>Wnioski</a>
-      <a class="list-group-item list-group-item-action nav-link" data-target="employees"><i class="bi bi-people me-2"></i>Pracownicy</a>
-    </div>
-    <hr>
-    <div class="small text-muted" id="meBox">—</div>
-    <button id="btnLogout" class="btn btn-light w-100 mt-2"><i class="bi bi-box-arrow-right me-1"></i>Wyloguj</button>
-  </aside>
-
-  <!-- MAIN -->
-  <main class="vstack gap-3">
-
-    <!-- TOP BAR -->
-    <div class="d-flex align-items-center justify-content-between">
-      <div>
-        <h4 class="mb-0" id="pageTitle">Pulpit</h4>
-        <div class="text-muted" id="pageSubtitle"></div>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-primary" id="btnNewLeave"><i class="bi bi-plus-lg me-1"></i>Nowy wniosek</button>
-
-        <!-- notifications -->
-        <div class="dropdown">
-          <button class="btn btn-light position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Powiadomienia">
-            <i class="bi bi-bell"></i>
-            <span id="bellBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
-          </button>
-          <div class="dropdown-menu dropdown-menu-end p-0" style="min-width:340px;max-height:400px;overflow:auto" id="bellList">
-            <div class="p-3 text-muted">Brak powiadomień</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DASHBOARD -->
-    <section id="view-dashboard" class="card card-soft p-3">
-      <div class="row g-3">
-        <div class="col-md-4">
-          <div class="border rounded-3 p-3 h-100">
-            <div class="text-muted small">Użytkownik</div>
-            <div class="fs-5 fw-semibold" id="userName">—</div>
-            <div class="text-muted" id="userRole">—</div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="border rounded-3 p-3 h-100">
-            <div class="text-muted small">Dostępny urlop (rok)</div>
-            <div class="fs-2 fw-bold" id="vacationLeft">—</div>
-            <div class="text-muted small">Limit roczny: <span id="vacationLimit">—</span> dni</div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="border rounded-3 p-3 h-100">
-            <div class="text-muted small">Wnioski do decyzji</div>
-            <div class="fs-2 fw-bold" id="pendingCount">0</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CALENDAR (prosta lista dni) -->
-    <section id="view-calendar" class="card card-soft p-3 d-none">
-      <div class="d-flex gap-2 align-items-end mb-3">
-        <div>
-          <label class="form-label">Miesiąc</label>
-          <input id="calMonth" type="month" class="form-control" />
-        </div>
-        <div id="calUserWrap" class="ms-auto d-none">
-          <label class="form-label">Pracownik</label>
-          <select id="calUser" class="form-select"></select>
-        </div>
-      </div>
-      <div id="calendarBox" class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-          <thead><tr><th>Data</th><th>Status</th><th>Typ</th><th>Uwagi</th></tr></thead>
-          <tbody id="calendarBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- LEAVES -->
-    <section id="view-leaves" class="card card-soft p-3 d-none">
-      <div class="d-flex gap-2 mb-2">
-        <select id="leaveStatus" class="form-select" style="max-width:220px">
-          <option value="">Wszystkie statusy</option>
-          <option value="submitted">Oczekujące</option>
-          <option value="approved">Zatwierdzone</option>
-          <option value="rejected">Odrzucone</option>
-        </select>
-      </div>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead>
-          <tr>
-            <th>Pracownik</th><th>Typ</th><th>Od</th><th>Do</th><th>Status</th><th class="text-end">Akcje</th>
-          </tr>
-          </thead>
-          <tbody id="leaveBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- EMPLOYEES -->
-    <section id="view-employees" class="card card-soft p-3 d-none">
-      <div class="d-flex flex-wrap gap-2 mb-3">
-        <div class="flex-grow-1">
-          <input id="empSearch" class="form-control" placeholder="Szukaj po imieniu lub e-mailu…">
-        </div>
-        <div style="min-width:240px">
-          <select id="empManagerFilter" class="form-select">
-            <option value="">Wszyscy kierownicy</option>
-          </select>
-        </div>
-        <button id="btnNewEmp" class="btn btn-primary ms-auto"><i class="bi bi-person-plus me-1"></i>Dodaj</button>
-      </div>
-
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead>
-          <tr>
-            <th>Imię i nazwisko</th><th>E-mail</th><th>Rola</th><th>Kierownik</th>
-            <th>Zatrudnienie</th><th>Start</th><th>Urlop/rok</th><th class="text-end">Akcje</th>
-          </tr>
-          </thead>
-          <tbody id="empBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-  </main>
-</div>
-
-<!-- EMPLOYEE MODAL -->
-<div class="modal fade" id="empModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog"><div class="modal-content">
-    <form id="empForm" class="modal-body vstack gap-3">
-      <h5 class="mb-0">Pracownik</h5>
-      <input type="hidden" id="empId">
-      <div class="row g-3">
-        <div class="col-md-6"><label class="form-label">Imię i nazwisko</label><input id="empName" class="form-control" required></div>
-        <div class="col-md-6"><label class="form-label">E-mail</label><input id="empEmail" type="email" class="form-control" required></div>
-        <div class="col-md-6">
-          <label class="form-label">Rola</label>
-          <select id="empRole" class="form-select">
-            <option value="employee">employee</option>
-            <option value="manager">manager</option>
-            <option value="admin">admin</option>
-          </select>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Kierownik</label>
-          <select id="empManager" class="form-select"><option value="">—</option></select>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label">Zatrudnienie</label>
-          <select id="empEmployment" class="form-select">
-            <option value="UOP">UOP</option>
-            <option value="JDG">JDG</option>
-          </select>
-        </div>
-        <div class="col-md-6"><label class="form-label">Start</label><input id="empStart" type="date" class="form-control"></div>
-        <div class="col-md-6"><label class="form-label">Urlop/rok (dni)</label><input id="empVacation" type="number" min="0" class="form-control" value="20"></div>
-        <div class="col-md-6"><label class="form-label">Hasło (nowe)</label><input id="empPass" type="text" class="form-control" placeholder="pozostaw puste aby nie zmieniać"></div>
-      </div>
-      <div class="d-flex justify-content-end gap-2 pt-2">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
-        <button class="btn btn-primary">Zapisz</button>
-      </div>
-    </form>
-  </div></div>
-</div>
-
-<!-- LEAVE MODAL -->
-<div class="modal fade" id="leaveModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog"><div class="modal-content">
-    <form id="leaveForm" class="modal-body vstack gap-3">
-      <h5 class="mb-0">Nowy wniosek</h5>
-      <input type="hidden" id="leaveId">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Typ</label>
-          <select id="leaveType" class="form-select">
-            <option>Urlop wypoczynkowy</option>
-            <option>Urlop na żądanie</option>
-            <option>Choroba</option>
-            <option>Opieka nad dzieckiem</option>
-            <option>Odbiór za święto</option>
-            <option>Odbiór nadgodzin</option>
-            <option>Urlop bezpłatny</option>
-          </select>
-        </div>
-        <div class="col-md-3"><label class="form-label">Od</label><input id="leaveFrom" type="date" class="form-control" required></div>
-        <div class="col-md-3"><label class="form-label">Do</label><input id="leaveTo" type="date" class="form-control" required></div>
-        <div class="col-12"><label class="form-label">Komentarz</label><input id="leaveComment" class="form-control" placeholder="opcjonalnie"></div>
-      </div>
-      <div class="d-flex justify-content-end gap-2 pt-2">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Anuluj</button>
-        <button class="btn btn-primary">Wyślij</button>
-      </div>
-    </form>
-  </div></div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const state = { token:null, user:null, data:{users:[], leaves:[]} };
-
-// ===== API helper (serwer ma endpointy bez /api) =====
-async function api(path, opt={}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type':'application/json', ...(state.token? {Authorization:'Bearer '+state.token}:{}) },
-    ...opt
-  });
-  if(!res.ok){
-    const t = await res.text().catch(()=> '');
-    throw new Error(t || res.statusText);
-  }
-  return res.json().catch(()=> ({}));
-}
-
-// ====== AUTH ======
-async function login(email, pass){
-  try{
-    const out = await api('/login',{method:'POST', body: JSON.stringify({email,pass})});
-    state.token = out.token;
-    state.user  = out.user;
-    document.getElementById('loginView').classList.add('d-none');
-    document.getElementById('appView').classList.remove('d-none');
-    await refresh();
-  }catch(e){
-    alert('login failed');
-  }
-}
-
-// ===== role helpers =====
-function isAdmin(){ return state.user?.role==='admin'; }
-function isManager(){ return state.user?.role==='manager'; }
-function canSeeUser(u){
-  if(isAdmin()) return true;
-  if(isManager()) return (u.id===state.user.id) || (u.manager_id===state.user.id);
-  return u.id===state.user.id;
-}
-function myActingLeaves(l){
-  // wnioski do decyzji dla kierownika lub admina
-  if(isAdmin()) return l.status==='submitted';
-  if(isManager()){
-    const owner = state.data.users.find(u=>u.id===l.user_id);
-    return l.status==='submitted' && owner?.manager_id===state.user.id;
-  }
-  return false;
-}
-
-// ===== RENDER =====
-function showView(name){
-  ['dashboard','calendar','leaves','employees'].forEach(v=>{
-    document.getElementById('view-'+v).classList.toggle('d-none', v!==name);
-    document.querySelectorAll('#mainNav [data-target]').forEach(a=> a.classList.toggle('active', a.dataset.target===name));
-  });
-  document.getElementById('pageTitle').textContent =
-    name==='dashboard'?'Pulpit': name==='calendar'?'Kalendarz': name==='leaves'?'Wnioski':'Pracownicy';
-  renderAll();
-}
-
-function renderAll(){
-  renderMe();
-  renderDashboard();
-  renderEmployees();
-  renderLeaves();
-  renderCalendar();
-  renderBell();
-}
-
-function renderMe(){
-  const u=state.user;
-  document.getElementById('meBox').innerHTML =
-    `<div class="fw-semibold">${u.name}</div><div class="text-muted small">${u.email} • ${u.role}</div>`;
-}
-
-function vacLeftFor(u){
-  // uproszczenie: licz leavy approved z tego roku jako dni kalendarzowe
-  const year = new Date().getFullYear();
-  const used = state.data.leaves
-      .filter(l=>l.user_id===u.id && l.status==='approved' && l.from?.startsWith(year))
-      .reduce((s,l)=> s + ( (new Date(l.to)-new Date(l.from))/(1000*3600*24) + 1 ), 0);
-  const limit = Number(u.vacation_days||0);
-  return { used: Math.round(used), left: Math.max(0, limit-Math.round(used)), limit };
-}
-
-function renderDashboard(){
-  const u=state.user;
-  document.getElementById('userName').textContent = `${u.name}`;
-  document.getElementById('userRole').textContent = u.role.toUpperCase();
-  const v = vacLeftFor(u);
-  document.getElementById('vacationLeft').textContent = v.left + ' dni';
-  document.getElementById('vacationLimit').textContent = v.limit;
-  document.getElementById('pendingCount').textContent =
-    state.data.leaves.filter(myActingLeaves).length;
-}
-
-function renderEmployees(){
-  // manager filter select
-  const mgrSel = document.getElementById('empManagerFilter');
-  mgrSel.innerHTML = `<option value="">Wszyscy kierownicy</option>` +
-    state.data.users.filter(u=>u.role!=='employee')
-      .map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
-  // list
-  const q = document.getElementById('empSearch').value?.toLowerCase()||'';
-  const mgr = mgrSel.value||'';
-  const rows = state.data.users
-    .filter(canSeeUser)
-    .filter(u=> !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-    .filter(u=> !mgr || (u.manager_id||'')===mgr)
-    .sort((a,b)=>{
-      const ma = state.data.users.find(x=>x.id===a.manager_id)?.name||'';
-      const mb = state.data.users.find(x=>x.id===b.manager_id)?.name||'';
-      return ma.localeCompare(mb) || a.name.localeCompare(b.name);
+const api = {
+  async request(path, { method = 'GET', body, headers = {} } = {}) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
     });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        const t = await res.text();
+        msg = t || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('application/json') ? res.json() : res.text();
+  },
 
-  const tbody = document.getElementById('empBody');
-  tbody.innerHTML='';
-  for(const u of rows){
-    const mgrName = state.data.users.find(x=>x.id===u.manager_id)?.name || '—';
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${u.name}</td>
-      <td>${u.email}</td>
-      <td><span class="chip">${u.role}</span></td>
-      <td>${mgrName}</td>
-      <td>${u.employment||'—'}</td>
-      <td>${u.start_date||'—'}</td>
-      <td>${u.vacation_days ?? '—'}</td>
-      <td class="text-end">
-        ${ isAdmin() || isManager() ? `
-          <button class="btn btn-sm btn-light me-1" data-act="edit" data-id="${u.id}"><i class="bi bi-pen"></i></button>
-          ${ isAdmin() ? `<button class="btn btn-sm btn-light" data-act="del" data-id="${u.id}"><i class="bi bi-trash"></i></button>`:''}
-        `:''}
-      </td>`;
-    tbody.appendChild(tr);
-  }
+  // Auth
+  login: (email, pass) => api.request('/login', { method: 'POST', body: { email, pass } }),
+  logout: () => api.request('/logout', { method: 'POST' }),
+  me: () => api.request('/me'),
+
+  // Users
+  listUsers: () => api.request('/users'),
+  createUser: (payload) => api.request('/users', { method: 'POST', body: payload }),
+  updateUser: (id, payload) => api.request(`/users/${encodeURIComponent(id)}`, { method: 'PUT', body: payload }),
+  deleteUser: (id) => api.request(`/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // Leaves
+  listLeaves: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return api.request(`/leaves${q ? `?${q}` : ''}`);
+  },
+  createLeave: (payload) => api.request('/leaves', { method: 'POST', body: payload }),
+  updateLeave: (id, payload) => api.request(`/leaves/${encodeURIComponent(id)}`, { method: 'PUT', body: payload }),
+  approveLeave: (id, level) => api.request(`/leaves/${encodeURIComponent(id)}/approve`, { method: 'POST', body: { level } }),
+  rejectLeave: (id, level, reason) => api.request(`/leaves/${encodeURIComponent(id)}/reject`, { method: 'POST', body: { level, reason } }),
+};
+
+// ======= UI Helpers =======
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+function toast(msg, type = 'info') {
+  console.log(`[${type}]`, msg);
+  alert(msg);
 }
 
-function statusBadge(s){
-  const cls = s==='approved'?'status-approved' : s==='rejected'?'status-rejected' : 'status-submitted';
-  const text = s==='approved'?'Zatwierdzony': s==='rejected'?'Odrzucony':'Oczekujący';
-  return `<span class="badge-dot ${cls}">${text}</span>`;
+function formatDate(d) {
+  if (!d) return '—';
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  return dt.toLocaleDateString('pl-PL');
 }
 
-function renderLeaves(){
-  const tbody = document.getElementById('leaveBody');
-  const only = document.getElementById('leaveStatus').value||'';
-  const rows = state.data.leaves
-    .filter(l=>{
-      const owner = state.data.users.find(u=>u.id===l.user_id);
-      return canSeeUser(owner);
-    })
-    .filter(l=> !only || l.status===only)
-    .sort((a,b)=> (b.created_at||'').localeCompare(a.created_at||''));
-
-  tbody.innerHTML='';
-  for(const l of rows){
-    const owner = state.data.users.find(u=>u.id===l.user_id);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${owner?.name||'—'}</td>
-      <td>${l.type}</td>
-      <td>${l.from}</td>
-      <td>${l.to}</td>
-      <td>${statusBadge(l.status)}</td>
-      <td class="text-end">
-        ${ myActingLeaves(l) || isAdmin()
-          ? `<button class="btn btn-sm btn-success me-1" data-act="approve" data-id="${l.id}"><i class="bi bi-check2"></i></button>
-             <button class="btn btn-sm btn-danger me-1" data-act="reject" data-id="${l.id}"><i class="bi bi-x"></i></button>`
-          : '' }
-        ${ (owner?.id===state.user.id || isAdmin())
-          ? `<button class="btn btn-sm btn-light" data-act="editL" data-id="${l.id}"><i class="bi bi-pen"></i></button>` : '' }
-      </td>`;
-    tbody.appendChild(tr);
-  }
-}
-
-function renderCalendar(){
-  const month = document.getElementById('calMonth').value || new Date().toISOString().slice(0,7);
-  const uidSel = document.getElementById('calUser');
-  const wrap = document.getElementById('calUserWrap');
-  // kto w kalendarzu
-  let uid = state.user.id;
-  if(isAdmin() || isManager()){
-    wrap.classList.remove('d-none');
-    uidSel.innerHTML = state.data.users.filter(canSeeUser).map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
-    if(!uidSel.value) uidSel.value = state.user.id;
-    uid = uidSel.value;
-  }else{
-    wrap.classList.add('d-none');
-  }
-  const list = state.data.leaves.filter(l=> l.user_id===uid && l.from.startsWith(month));
-  const tbody = document.getElementById('calendarBody');
-  tbody.innerHTML = list.map(l=>`
-    <tr>
-      <td>${l.from} — ${l.to}</td>
-      <td>${statusBadge(l.status)}</td>
-      <td>${l.type}</td>
-      <td>${l.comment||''}</td>
-    </tr>
-  `).join('') || `<tr><td colspan="4" class="text-muted">Brak pozycji</td></tr>`;
-}
-
-function renderBell(){
-  const list = state.data.leaves.filter(myActingLeaves);
-  const badge = document.getElementById('bellBadge');
-  const box = document.getElementById('bellList');
-  if(list.length){ badge.textContent=list.length; badge.classList.remove('d-none'); }
-  else badge.classList.add('d-none');
-  box.innerHTML = list.length
-    ? list.map(l=>{
-        const u = state.data.users.find(x=>x.id===l.user_id);
-        return `<a class="dropdown-item d-flex justify-content-between align-items-center" href="#" data-open="leaves">
-                  <span><strong>${u?.name||'—'}</strong> • ${l.type} • ${l.from}–${l.to}</span>
-                  <span>${statusBadge(l.status)}</span>
-                </a>`;
-      }).join('')
-    : `<div class="p-3 text-muted">Brak powiadomień</div>`;
-}
-
-// ====== EMPLOYEE CRUD ======
-function openEmpModal(id){
-  const m = new bootstrap.Modal('#empModal');
-  const row = id ? state.data.users.find(u=>u.id===id) : {
-    id:'', name:'', email:'', role:'employee', manager_id:'', employment:'UOP',
-    start_date:'', vacation_days:20
+function statusBadge(status) {
+  const map = {
+    submitted: { text: 'Oczekuje', cls: 'bg-blue-100 text-blue-700' },
+    manager_approved: { text: 'Po kierowniku', cls: 'bg-amber-100 text-amber-700' },
+    approved: { text: 'Zatwierdzony', cls: 'bg-emerald-100 text-emerald-700' },
+    rejected: { text: 'Odrzucony', cls: 'bg-rose-100 text-rose-700' },
   };
-  document.getElementById('empId').value = row.id||'';
-  document.getElementById('empName').value = row.name||'';
-  document.getElementById('empEmail').value = row.email||'';
-  document.getElementById('empRole').value = row.role||'employee';
-  document.getElementById('empEmployment').value = row.employment||'UOP';
-  document.getElementById('empStart').value = row.start_date||'';
-  document.getElementById('empVacation').value = row.vacation_days ?? 20;
-  document.getElementById('empPass').value = '';
-  const mgrSel = document.getElementById('empManager');
-  mgrSel.innerHTML = '<option value="">—</option>' +
-    state.data.users.filter(u=>u.role!=='employee')
-      .map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
-  mgrSel.value = row.manager_id||'';
-  m.show();
+  const s = map[status] || { text: status, cls: 'bg-gray-100 text-gray-700' };
+  return `<span class="px-2 py-1 rounded-full text-xs ${s.cls}">${s.text}</span>`;
 }
-async function saveEmp(ev){
-  ev.preventDefault();
-  const row = {
-    id: document.getElementById('empId').value || undefined,
-    name: document.getElementById('empName').value,
-    email: document.getElementById('empEmail').value,
-    role: document.getElementById('empRole').value,
-    manager_id: document.getElementById('empManager').value || null,
-    employment: document.getElementById('empEmployment').value,
-    start_date: document.getElementById('empStart').value || null,
-    vacation_days: Number(document.getElementById('empVacation').value)||0,
-    pass: document.getElementById('empPass').value || undefined
-  };
-  try{
-    await api('/users', {method:'POST', body: JSON.stringify(row)});
-    bootstrap.Modal.getInstance(document.getElementById('empModal')).hide();
-    await refresh();
-  }catch(e){
-    alert('Błąd zapisu użytkownika: ' + (e.message||''));
+
+// ======= Auth flow =======
+
+async function initAuth() {
+  const loginForm = $('#loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = $('#loginEmail').value.trim();
+      const pass = $('#loginPass').value.trim();
+      try {
+        await api.login(email, pass);
+        location.href = '/';
+      } catch (err) {
+        toast('login failed', 'error');
+      }
+    });
+  } else {
+    // na stronach po zalogowaniu — wczytaj me i zasil UI
+    try {
+      const me = await api.me();
+      window.__ME = me?.user || me || {};
+      fillHeader();
+      await initDashboard();
+      initEmployees();
+      initLeaves();
+      initFilters();
+    } catch (err) {
+      // nie zalogowany -> na stronę logowania
+      location.href = '/login.html';
+    }
   }
 }
-async function deleteEmp(id){
-  if(!confirm('Usunąć pracownika?')) return;
-  try{ await api('/users/'+id,{method:'DELETE'}); await refresh(); }
-  catch(e){ alert('Błąd usuwania'); }
+
+function fillHeader() {
+  const nameEl = $('#topUserName');
+  const roleEl = $('#topUserRole');
+  if (nameEl) nameEl.textContent = window.__ME?.name || '—';
+  if (roleEl) roleEl.textContent = window.__ME?.role || '—';
+  const bell = $('#notifBellCount');
+  if (bell) updateBell();
 }
 
-// ====== LEAVES ======
-function openLeaveModal(id){
-  const m = new bootstrap.Modal('#leaveModal');
-  const row = id ? state.data.leaves.find(l=>l.id===id) : {
-    id:'', type:'Urlop wypoczynkowy',
-    from: new Date().toISOString().slice(0,10),
-    to:   new Date().toISOString().slice(0,10),
-    comment:''
-  };
-  document.getElementById('leaveId').value=row.id||'';
-  document.getElementById('leaveType').value=row.type||'Urlop wypoczynkowy';
-  document.getElementById('leaveFrom').value=row.from||'';
-  document.getElementById('leaveTo').value=row.to||'';
-  document.getElementById('leaveComment').value=row.comment||'';
-  m.show();
-}
-async function saveLeave(ev){
-  ev.preventDefault();
-  const row = {
-    id: document.getElementById('leaveId').value || undefined,
-    user_id: state.user.id, // zawsze za siebie
-    type: document.getElementById('leaveType').value,
-    from: document.getElementById('leaveFrom').value,
-    to: document.getElementById('leaveTo').value,
-    comment: document.getElementById('leaveComment').value,
-  };
-  try{
-    await api('/leaves', {method:'POST', body: JSON.stringify(row)});
-    bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide();
-    await refresh();
-  }catch(e){
-    alert('Błąd zapisu wniosku: ' + (e.message||''));
+async function updateBell() {
+  try {
+    const me = window.__ME || {};
+    if (me.role === 'admin') {
+      // dla admina liczba wniosków do akceptacji (status: submitted lub manager_approved)
+      const list = await api.listLeaves({ status_in: 'submitted,manager_approved' });
+      setBell(list?.length || 0);
+    } else if (me.role === 'manager') {
+      const list = await api.listLeaves({ status: 'submitted' });
+      setBell(list?.length || 0);
+    } else {
+      setBell(0);
+    }
+  } catch {
+    setBell(0);
   }
 }
-async function setLeaveStatus(id, ok){
-  try{ await api('/leaves/'+id,{method:'PUT', body: JSON.stringify({status: ok?'approved':'rejected'})}); await refresh(); }
-  catch(e){ alert('Błąd aktualizacji wniosku'); }
+
+function setBell(n) {
+  const badge = $('#notifBellCount');
+  if (!badge) return;
+  if (n > 0) {
+    badge.textContent = String(n);
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
 }
 
-// ====== LOAD ======
-async function refresh(){
-  const [users, leaves] = await Promise.all([
-    api('/users'),
-    api('/leaves')
-  ]);
-  state.data.users = users || [];
-  state.data.leaves = leaves || [];
-  // init calendar month
-  if(!document.getElementById('calMonth').value)
-    document.getElementById('calMonth').value = new Date().toISOString().slice(0,7);
-  renderAll();
+// ======= Dashboard =======
+
+async function initDashboard() {
+  const boxDays = $('#dashDays');
+  const boxPending = $('#dashPending');
+  const boxToday = $('#dashToday');
+  if (!boxDays && !boxPending && !boxToday) return;
+
+  try {
+    // Dzienne karty – prosto z users i leaves
+    const me = window.__ME;
+    const users = await api.listUsers(); // admin widzi wszystkich, manager swoich, employee tylko siebie
+    const my = users.find(u => u.id === me.id) || me;
+
+    const used = Number(my.used_days ?? 0);
+    const pool = Number(my.vacation_days ?? 0);
+    if (boxDays) boxDays.textContent = `${pool - used} / ${pool} dni`;
+
+    const pending = await api.listLeaves({ scope: 'mine_or_team', status: 'submitted' });
+    if (boxPending) boxPending.textContent = pending?.length ?? 0;
+
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const todays = await api.listLeaves({ scope: 'mine', on: todayStr });
+    const isOff = (todays || []).some(l => l.status === 'approved' || l.status === 'manager_approved');
+    if (boxToday) boxToday.textContent = isOff ? 'Nieobecny' : 'Obecny';
+  } catch (e) {
+    console.warn(e);
+  }
 }
 
-// ====== EVENTS ======
-document.addEventListener('DOMContentLoaded', ()=>{
-  document.getElementById('loginForm').addEventListener('submit', e=>{
-    e.preventDefault();
-    login(document.getElementById('loginEmail').value, document.getElementById('loginPass').value);
-  });
-  document.getElementById('btnLogout').addEventListener('click', ()=> location.reload());
-  document.querySelectorAll('#mainNav [data-target]').forEach(a=> a.addEventListener('click', ()=> showView(a.dataset.target)));
-  // employees
-  document.getElementById('btnNewEmp').addEventListener('click', ()=> openEmpModal());
-  document.getElementById('empForm').addEventListener('submit', saveEmp);
-  document.getElementById('empBody').addEventListener('click', e=>{
-    const b=e.target.closest('button'); if(!b) return;
-    if(b.dataset.act==='edit') openEmpModal(b.dataset.id);
-    if(b.dataset.act==='del') deleteEmp(b.dataset.id);
-  });
-  document.getElementById('empSearch').addEventListener('input', renderEmployees);
-  document.getElementById('empManagerFilter').addEventListener('change', renderEmployees);
-  // leaves
-  document.getElementById('btnNewLeave').addEventListener('click', ()=> openLeaveModal());
-  document.getElementById('leaveForm').addEventListener('submit', saveLeave);
-  document.getElementById('leaveBody').addEventListener('click', e=>{
-    const b=e.target.closest('button'); if(!b) return;
-    if(b.dataset.act==='approve') setLeaveStatus(b.dataset.id,true);
-    if(b.dataset.act==='reject') setLeaveStatus(b.dataset.id,false);
-    if(b.dataset.act==='editL') openLeaveModal(b.dataset.id);
-  });
-  document.getElementById('leaveStatus').addEventListener('change', renderLeaves);
-  // calendar
-  document.getElementById('calMonth').addEventListener('change', renderCalendar);
-  document.getElementById('calUser').addEventListener('change', renderCalendar);
+// ======= Employees =======
+
+function initEmployees() {
+  const table = $('#employeesTable');
+  if (!table) return;
+
+  refreshUsers();
+
+  $('#userAddBtn')?.addEventListener('click', () => openUserModal());
+  $('#userModalForm')?.addEventListener('submit', onSaveUser);
+}
+
+async function refreshUsers() {
+  const tbody = $('#employeesTbody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-400">Ładowanie…</td></tr>`;
+
+  try {
+    const users = await api.listUsers();
+    const q = ($('#userSearch')?.value || '').toLowerCase();
+
+    const rows = (users || [])
+      .filter(u =>
+        !q ||
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.role || '').toLowerCase().includes(q)
+      )
+      .map(u => {
+        return `
+          <tr class="border-b last:border-0">
+            <td class="py-2 px-3">${u.name ?? '—'}</td>
+            <td class="py-2 px-3">${u.email ?? '—'}</td>
+            <td class="py-2 px-3">
+              <span class="px-2 py-1 rounded-full text-xs ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'manager' ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-700'}">
+                ${u.role}
+              </span>
+            </td>
+            <td class="py-2 px-3">${u.manager_name ?? '—'}</td>
+            <td class="py-2 px-3">${(u.employment || '').toUpperCase() || '—'}</td>
+            <td class="py-2 px-3">${formatDate(u.start_date)}</td>
+            <td class="py-2 px-3 text-center">${u.vacation_days ?? '—'}</td>
+            <td class="py-2 px-3 text-right space-x-2">
+              <button class="btn xs" data-edit="${u.id}">✏️</button>
+              <button class="btn xs danger" data-del="${u.id}">🗑️</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    tbody.innerHTML = rows || `<tr><td colspan="8" class="py-6 text-center text-gray-400">Brak danych</td></tr>`;
+
+    // Akcje
+    tbody.querySelectorAll('[data-edit]').forEach(btn =>
+      btn.addEventListener('click', () => openUserModal(btn.dataset.edit))
+    );
+    tbody.querySelectorAll('[data-del]').forEach(btn =>
+      btn.addEventListener('click', () => deleteUser(btn.dataset.del))
+    );
+
+    // szukajka
+    $('#userSearch')?.addEventListener('input', () => refreshUsers());
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-rose-500">Błąd wczytywania</td></tr>`;
+  }
+}
+
+async function openUserModal(id) {
+  const form = $('#userModalForm');
+  form.reset();
+  form.dataset.id = id || '';
+
+  $('#umfTitle').textContent = id ? 'Edytuj pracownika' : 'Dodaj pracownika';
+
+  if (id) {
+    try {
+      const list = await api.listUsers();
+      const u = list.find(x => x.id === id);
+      if (u) {
+        $('#umfName').value = u.name || '';
+        $('#umfEmail').value = u.email || '';
+        $('#umfPass').value = '';
+        $('#umfRole').value = u.role || 'employee';
+        $('#umfManager').value = u.manager_id || '';
+        $('#umfEmployment').value = u.employment || 'UOP';
+        $('#umfStart').value = (u.start_date || '').slice(0, 10);
+        $('#umfDays').value = u.vacation_days ?? 20;
+      }
+    } catch (e) {
+      toast('Błąd wczytania użytkownika', 'error');
+    }
+  }
+  $('#userModal').classList.remove('hidden');
+}
+
+function closeUserModal() {
+  $('#userModal').classList.add('hidden');
+}
+
+async function onSaveUser(e) {
+  e.preventDefault();
+  const id = e.currentTarget.dataset.id || '';
+  const payload = {
+    name: $('#umfName').value.trim(),
+    email: $('#umfEmail').value.trim().toLowerCase(),
+    pass: $('#umfPass').value.trim() || undefined,
+    role: $('#umfRole').value,
+    manager_id: $('#umfManager').value || null,
+    employment: $('#umfEmployment').value || 'UOP',
+    start_date: $('#umfStart').value || null,
+    vacation_days: Number($('#umfDays').value || 20),
+  };
+
+  try {
+    if (id) {
+      await api.updateUser(id, payload);
+      toast('Zapisano zmiany', 'success');
+    } else {
+      await api.createUser(payload);
+      toast('Dodano pracownika', 'success');
+    }
+    closeUserModal();
+    refreshUsers();
+  } catch (err) {
+    toast(`Błąd zapisu użytkownika: ${err.message || err}`, 'error');
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm('Na pewno usunąć pracownika?')) return;
+  try {
+    await api.deleteUser(id);
+    refreshUsers();
+  } catch (err) {
+    toast('Błąd usuwania', 'error');
+  }
+}
+
+// ======= Leaves (Wnioski) =======
+
+function initLeaves() {
+  const table = $('#leavesTable');
+  if (!table) return;
+
+  $('#leaveForm')?.addEventListener('submit', onSubmitLeave);
+
+  // Filtry
+  $('#filterStatus')?.addEventListener('change', refreshLeaves);
+  $('#filterMine')?.addEventListener('change', refreshLeaves);
+
+  refreshLeaves();
+}
+
+async function refreshLeaves() {
+  const tbody = $('#leavesTbody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-400">Ładowanie…</td></tr>`;
+
+  const status = $('#filterStatus')?.value || '';
+  const onlyMine = $('#filterMine')?.checked;
+
+  const params = {};
+  if (status) params.status = status;
+  if (onlyMine) params.scope = 'mine';
+
+  try {
+    const list = await api.listLeaves(params);
+
+    const rows = (list || [])
+      .map(l => {
+        return `
+        <tr class="border-b last:border-0">
+          <td class="py-2 px-3">${l.user_name ?? '—'}</td>
+          <td class="py-2 px-3">${l.type ?? '—'}</td>
+          <td class="py-2 px-3">${formatDate(l.from)}</td>
+          <td class="py-2 px-3">${formatDate(l.to)}</td>
+          <td class="py-2 px-3">${l.comment ? `<span class="text-gray-500">${l.comment}</span>` : '—'}</td>
+          <td class="py-2 px-3">${statusBadge(l.status)}</td>
+          <td class="py-2 px-3 text-right space-x-2">
+            ${renderLeaveActions(l)}
+          </td>
+        </tr>`;
+      })
+      .join('');
+
+    tbody.innerHTML = rows || `<tr><td colspan="8" class="py-6 text-center text-gray-400">Brak wniosków</td></tr>`;
+
+    // podłącz akcje
+    tbody.querySelectorAll('[data-approve]').forEach(btn => {
+      btn.addEventListener('click', () => handleApprove(btn.dataset.approve, btn.dataset.level));
+    });
+    tbody.querySelectorAll('[data-reject]').forEach(btn => {
+      btn.addEventListener('click', () => handleReject(btn.dataset.reject, btn.dataset.level));
+    });
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-rose-500">Błąd wczytywania</td></tr>`;
+  }
+}
+
+function renderLeaveActions(l) {
+  const me = window.__ME || {};
+  const canManager = me.role === 'manager' && l.status === 'submitted';
+  const canAdmin = me.role === 'admin' && (l.status === 'manager_approved'); // admin dopiero po kierowniku
+  const mine = l.user_id === me.id && (l.status === 'submitted');
+
+  const actions = [];
+  if (canManager) {
+    actions.push(`<button class="btn xs success" data-approve="${l.id}" data-level="manager">✅ Kierownik</button>`);
+    actions.push(`<button class="btn xs danger" data-reject="${l.id}" data-level="manager">❌ Kierownik</button>`);
+  }
+  if (canAdmin) {
+    actions.push(`<button class="btn xs success" data-approve="${l.id}" data-level="admin">✅ Admin</button>`);
+    actions.push(`<button class="btn xs danger" data-reject="${l.id}" data-level="admin">❌ Admin</button>`);
+  }
+  if (mine) {
+    actions.push(`<span class="text-gray-400 text-xs">edytuj/wycofaj – wkrótce</span>`);
+  }
+  return actions.join(' ');
+}
+
+async function handleApprove(id, level) {
+  try {
+    await api.approveLeave(id, level);
+    toast('Zatwierdzono', 'success');
+    await updateBell();
+    refreshLeaves();
+  } catch (e) {
+    toast('Błąd akceptacji', 'error');
+  }
+}
+
+async function handleReject(id, level) {
+  const reason = prompt('Powód odrzucenia (opcjonalnie):') || '';
+  try {
+    await api.rejectLeave(id, level, reason);
+    toast('Odrzucono', 'success');
+    await updateBell();
+    refreshLeaves();
+  } catch (e) {
+    toast('Błąd odrzucenia', 'error');
+  }
+}
+
+async function onSubmitLeave(e) {
+  e.preventDefault();
+  const type = $('#lfType').value;
+  const from = $('#lfFrom').value;
+  const to = $('#lfTo').value;
+  const comment = $('#lfComment').value.trim();
+
+  try {
+    await api.createLeave({ type, from, to, comment });
+    e.target.reset();
+    toast('Wniosek wysłany', 'success');
+    await updateBell();
+    refreshLeaves();
+  } catch (err) {
+    toast(`Błąd zapisu wniosku: ${err.message || 'forbidden'}`, 'error');
+  }
+}
+
+// ======= Filtry / UI =======
+
+function initFilters() {
+  // wyróżnij dzisiejszy dzień w kalendarzu (jeśli jest)
+  const todayEl = document.querySelector(`[data-date="${new Date().toISOString().slice(0, 10)}"]`);
+  if (todayEl) todayEl.classList.add('ring-2', 'ring-blue-500', 'rounded-md');
+}
+
+// ======= Start =======
+
+document.addEventListener('DOMContentLoaded', initAuth);
+
+// opcjonalny logout
+$('#logoutBtn')?.addEventListener('click', async () => {
+  try {
+    await api.logout();
+  } catch {}
+  location.href = '/login.html';
 });
-</script>
-</body>
-</html>
