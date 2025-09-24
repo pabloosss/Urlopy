@@ -1,417 +1,394 @@
-// server.js — Emerlog Urlopy (Supabase)
-// uruchamianie lokalnie: PORT=10000 node server.js
+// server.js
+// Emerlog Urlopy – backend (Supabase)
+// wymagane ENV: SUPABASE_URL, SUPABASE_SECRET, JWT_SECRET
 
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
+const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
-const crypto = require('node:crypto');
 
 const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SECRET = process.env.SUPABASE_SECRET || process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE || process.env.SUPABASE_KEY || process.env.SUPABASE_SECRET; // elastycznie
+const SUPABASE_SECRET = process.env.SUPABASE_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 
 if (!SUPABASE_URL || !SUPABASE_SECRET) {
   console.error('❌ Brak SUPABASE_URL lub SUPABASE_SECRET w zmiennych środowiskowych.');
   process.exit(1);
 }
-
-const supa = createClient(SUPABASE_URL, SUPABASE_SECRET, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const sb = createClient(SUPABASE_URL, SUPABASE_SECRET, { auth: { persistSession: false } });
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ========== helpers ==========
-const newId = () =>
-  (crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2) + Date.now().toString(36)));
+// ===== Helpers =====
+function startOfYear(d = new Date()) { return new Date(d.getFullYear(), 0, 1); }
+function endOfYear(d = new Date()) { return new Date(d.getFullYear(), 11, 31); }
 
-const mapUserDbToApi = (r) => ({
-  id: r.id,
-  name: r.name,
-  email: r.email,
-  role: r.role,
-  managerId: r.manager_id || null,
-  employment: r.employment || 'UOP',
-  startDate: r.start_date || null,
-  vacationDays: r.vacation_days ?? 20,
-});
+function parseDateISO(s) { return new Date(s + 'T00:00:00'); }
 
-const mapUserApiToDb = (u) => ({
-  id: u.id,
-  name: u.name,
-  email: u.email,
-  pass: u.pass, // jeśli brak, supabase zostawi poprzednie
-  role: u.role,
-  manager_id: u.managerId || null,
-  employment: u.employment || 'UOP',
-  start_date: u.startDate || null,
-  vacation_days: u.vacationDays ?? 20,
-  updated_at: new Date().toISOString(),
-});
+function businessDaysBetween(fromISO, toISO) {
+  if (!fromISO || !toISO) return 0;
+  let d = parseDateISO(fromISO), to = parseDateISO(toISO);
+  if (d > to) [d, to] = [to, d];
+  let count = 0;
+  while (d <= to) {
+    const day = d.getDay(); // 0..6
+    if (day !== 0 && day !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
 
-const mapLeaveDbToApi = (r) => ({
-  id: r.id,
-  userId: r.user_id,
-  type: r.type,
-  from: r.from,
-  to: r.to,
-  comment: r.comment || '',
-  status: r.status,
-  decidedByManager: r.decided_by_manager || null,
-  decidedAtManager: r.decided_at_manager || null,
-  decidedByAdmin: r.decided_by_admin || null,
-  decidedAtAdmin: r.decided_at_admin || null,
-});
-
-const mapLeaveApiToDb = (l) => ({
-  id: l.id,
-  user_id: l.userId,
-  type: l.type,
-  from: l.from,
-  to: l.to,
-  comment: l.comment || null,
-  status: l.status || 'submitted',
-  updated_at: new Date().toISOString(),
-});
-
-// ========== auth ==========
 function signToken(user) {
-  return jwt.sign(
-    { id: user.id, role: user.role, email: user.email, name: user.name },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
+  const payload = {
+    id: user.id,
+    role: user.role,
+    email: user.email,
+    name: user.name,
+    manager_id: user.manager_id || null,
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
 function authRequired(req, res, next) {
-  const h = req.headers.authorization || '';
-  const m = h.match(/^Bearer (.+)$/i);
-  if (!m) return res.status(401).json({ error: 'No token' });
+  const hdr = req.headers.authorization || '';
+  const tok = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
+  if (!tok) return res.status(401).json({ error: 'unauthorized' });
   try {
-    req.user = jwt.verify(m[1], JWT_SECRET);
+    req.user = jwt.verify(tok, JWT_SECRET);
     next();
   } catch {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'unauthorized' });
   }
 }
 
-async function getUserByEmailPass(email, pass) {
-  const { data, error } = await supa
-    .from('users')
-    .select('*')
-    .eq('email', email)
-    .eq('pass', pass)
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+function canSeeUser(viewer, userRow) {
+  if (!viewer) return false;
+  if (viewer.role === 'admin') return true;
+  if (viewer.role === 'manager') {
+    return viewer.id === userRow.id || userRow.manager_id === viewer.id;
+  }
+  // employee
+  return viewer.id === userRow.id;
 }
 
-async function getSubordinateIds(managerId) {
-  const { data, error } = await supa.from('users').select('id').eq('manager_id', managerId);
-  if (error) throw error;
-  return (data || []).map((x) => x.id);
-}
-
-// ========== routes ==========
-
-// health
-app.get('/health', (_req, res) => res.json({ ok: true }));
-
-// auth login
-app.post('/auth/login', async (req, res) => {
+// ===== Auth =====
+app.post('/api/login', async (req, res) => {
   try {
     const { email, pass } = req.body || {};
-    if (!email || !pass) return res.status(400).json({ error: 'email & pass required' });
-    const user = await getUserByEmailPass(email, pass);
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = signToken(user);
-    res.json({ token, user: mapUserDbToApi(user) });
+    if (!email || !pass) return res.status(400).json({ error: 'missing credentials' });
+
+    const { data: users, error } = await sb
+      .from('users')
+      .select('id,name,email,pass,role,manager_id,employment,start_date,vacation_days')
+      .eq('email', email)
+      .limit(1);
+
+    if (error) return res.status(500).json({ error: 'db', details: error.message });
+    const u = users && users[0];
+    if (!u || String(u.pass) !== String(pass)) return res.status(401).json({ error: 'invalid' });
+
+    const token = signToken(u);
+    res.json({ token, user: { ...u, vacation_total: u.vacation_days ?? 20 } });
   } catch (e) {
     console.error('login error', e);
-    res.status(500).json({ error: 'login failed' });
+    res.status(500).json({ error: 'login_failed' });
   }
 });
 
-// USERS
-app.get('/users', authRequired, async (req, res) => {
+app.get('/api/me', authRequired, async (req, res) => {
+  const { data, error } = await sb
+    .from('users')
+    .select('id,name,email,role,manager_id,employment,start_date,vacation_days')
+    .eq('id', req.user.id)
+    .limit(1);
+  if (error) return res.status(500).json({ error: 'db' });
+  const u = data?.[0];
+  res.json(u || null);
+});
+
+// ===== Users =====
+
+// GET /api/users?q=&manager_id=&sort=vac_left|name|manager|start_date
+app.get('/api/users', authRequired, async (req, res) => {
   try {
-    const me = req.user;
-    if (me.role === 'admin') {
-      const { data, error } = await supa.from('users').select('*').order('name', { ascending: true });
-      if (error) throw error;
-      return res.json(data.map(mapUserDbToApi));
+    const viewer = req.user;
+    // we fetch all, then filter in memory according to rights (simple and safe)
+    const { data: list, error } = await sb
+      .from('users')
+      .select('id,name,email,role,manager_id,employment,start_date,vacation_days');
+    if (error) return res.status(500).json({ error: 'db' });
+
+    // visibility filter
+    let visible = list.filter(u => canSeeUser(viewer, u));
+
+    // search / filters
+    const q = (req.query.q || '').toString().trim().toLowerCase();
+    if (q) {
+      visible = visible.filter(u =>
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      );
     }
-    if (me.role === 'manager') {
-      const { data, error } = await supa
-        .from('users')
-        .select('*')
-        .or(`id.eq.${me.id},manager_id.eq.${me.id}`)
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return res.json(data.map(mapUserDbToApi));
+    const mgr = (req.query.manager_id || '').toString().trim();
+    if (mgr) visible = visible.filter(u => (u.manager_id || '') === mgr);
+
+    // prefetch approved leaves in current year
+    const y0 = startOfYear(); const y1 = endOfYear();
+    const fromISO = y0.toISOString().slice(0, 10);
+    const toISO = y1.toISOString().slice(0, 10);
+
+    const { data: leaves, error: lerr } = await sb
+      .from('leaves')
+      .select('id,user_id,type,from,to,status')
+      .eq('status', 'approved')
+      .gte('from', fromISO)
+      .lte('to', toISO);
+
+    if (lerr) return res.status(500).json({ error: 'db' });
+
+    const VAC_TYPES = new Set([
+      'urlop wypoczynkowy', 'wypoczynkowy',
+      'urlop na żądanie', 'na żądanie', 'na zadanie'
+    ]);
+
+    const usedDaysByUser = {};
+    for (const l of leaves || []) {
+      const ty = (l.type || '').toLowerCase();
+      if (!VAC_TYPES.has(ty)) continue;
+      const days = businessDaysBetween(l.from, l.to);
+      usedDaysByUser[l.user_id] = (usedDaysByUser[l.user_id] || 0) + days;
     }
-    // employee – tylko on sam
-    const { data, error } = await supa.from('users').select('*').eq('id', me.id).limit(1);
-    if (error) throw error;
-    return res.json((data || []).map(mapUserDbToApi));
+
+    const enriched = visible.map(u => {
+      const total = Number(u.vacation_days ?? 20);
+      const used = Number(usedDaysByUser[u.id] || 0);
+      const left = Math.max(0, total - used);
+      return { ...u, vacation_total: total, vacation_left: left };
+    });
+
+    // sort
+    const sort = (req.query.sort || '').toString();
+    if (sort === 'vac_left') {
+      enriched.sort((a, b) => b.vacation_left - a.vacation_left);
+    } else if (sort === 'name') {
+      enriched.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (sort === 'start_date') {
+      enriched.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
+    }
+
+    res.json(enriched);
   } catch (e) {
-    console.error('GET /users', e);
-    res.status(500).json({ error: 'users fetch failed' });
+    console.error('GET /api/users error', e);
+    res.status(500).json({ error: 'server' });
   }
 });
 
-app.post('/users', authRequired, async (req, res) => {
+// create user
+app.post('/api/users', authRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'admin only' });
-    const body = { ...req.body };
-    body.id = body.id || newId();
-    if (!body.pass) body.pass = '1';
-    const payload = mapUserApiToDb(body);
-    const { data, error } = await supa.from('users').insert(payload).select('*').single();
-    if (error) throw error;
-    res.json(mapUserDbToApi(data));
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    const row = req.body || {};
+    // defaults
+    row.role = row.role || 'employee';
+    if (row.vacation_days == null) row.vacation_days = 20;
+
+    const { data, error } = await sb.from('users').insert(row).select().single();
+    if (error) return res.status(400).json({ error: 'create user failed', details: error.message });
+    res.json(data);
   } catch (e) {
-    console.error('POST /users', e);
-    res.status(500).json({ error: 'create user failed' });
+    console.error('POST /api/users', e);
+    res.status(500).json({ error: 'server' });
   }
 });
 
-app.put('/users/:id', authRequired, async (req, res) => {
+// update user
+app.put('/api/users/:id', authRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'admin only' });
     const id = req.params.id;
-    const incoming = { ...req.body, id };
-    const payload = mapUserApiToDb(incoming);
-    // nie aktualizuj email/pass jeśli puste
-    if (!('pass' in req.body)) delete payload.pass;
-    if (!('email' in req.body)) delete payload.email;
+    if (!id) return res.status(400).json({ error: 'missing id' });
 
-    const { data, error } = await supa.from('users').update(payload).eq('id', id).select('*').single();
-    if (error) throw error;
-    res.json(mapUserDbToApi(data));
-  } catch (e) {
-    console.error('PUT /users/:id', e);
-    res.status(500).json({ error: 'update user failed' });
-  }
-});
-
-app.delete('/users/:id', authRequired, async (req, res) => {
-  try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'admin only' });
-    const id = req.params.id;
-    const { error } = await supa.from('users').delete().eq('id', id);
-    if (error) throw error;
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('DELETE /users/:id', e);
-    res.status(500).json({ error: 'delete user failed' });
-  }
-});
-
-// LEAVES
-app.get('/leaves', authRequired, async (req, res) => {
-  try {
-    const me = req.user;
-    if (me.role === 'admin') {
-      const { data, error } = await supa
-        .from('leaves')
-        .select('*')
-        .order('from', { ascending: true });
-      if (error) throw error;
-      return res.json(data.map(mapLeaveDbToApi));
-    }
-    if (me.role === 'manager') {
-      const subs = await getSubordinateIds(me.id);
-      const ids = [me.id, ...subs];
-      const { data, error } = await supa.from('leaves').select('*').in('user_id', ids).order('from', { ascending: true });
-      if (error) throw error;
-      return res.json(data.map(mapLeaveDbToApi));
-    }
-    // employee
-    const { data, error } = await supa.from('leaves').select('*').eq('user_id', me.id).order('from', { ascending: true });
-    if (error) throw error;
-    return res.json(data.map(mapLeaveDbToApi));
-  } catch (e) {
-    console.error('GET /leaves', e);
-    res.status(500).json({ error: 'leaves fetch failed' });
-  }
-});
-
-function isManagerOf(managerId, userRow) {
-  return userRow && userRow.manager_id === managerId;
-}
-
-async function fetchUser(id) {
-  const { data, error } = await supa.from('users').select('*').eq('id', id).maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-app.post('/leaves', authRequired, async (req, res) => {
-  try {
-    const me = req.user;
-    const body = { ...req.body };
-    body.id = body.id || newId();
-    // uprawnienia: pracownik może dla siebie; manager dla siebie/podopiecznych; admin dla każdego
-    if (me.role === 'employee' && body.userId !== me.id) return res.status(403).json({ error: 'forbidden' });
-    if (me.role === 'manager' && body.userId !== me.id) {
-      const u = await fetchUser(body.userId);
-      if (!isManagerOf(me.id, u)) return res.status(403).json({ error: 'forbidden' });
-    }
-    body.status = 'submitted';
-    const payload = mapLeaveApiToDb(body);
-    const { data, error } = await supa.from('leaves').insert(payload).select('*').single();
-    if (error) throw error;
-    res.json(mapLeaveDbToApi(data));
-  } catch (e) {
-    console.error('POST /leaves', e);
-    res.status(500).json({ error: 'create leave failed' });
-  }
-});
-
-app.put('/leaves/:id', authRequired, async (req, res) => {
-  try {
-    const me = req.user;
-    const id = req.params.id;
-
-    // pobierz obecny wniosek
-    const { data: cur, error: errCur } = await supa.from('leaves').select('*').eq('id', id).single();
-    if (errCur) throw errCur;
-
-    // zmiana statusu?
-    if (req.body && typeof req.body.status === 'string') {
-      const status = req.body.status;
-      // reguły:
-      // - manager: tylko na podopiecznych i tylko z submitted -> manager_approved / rejected_manager
-      // - admin: approve tylko gdy manager_approved; reject gdy submitted lub manager_approved
-      if (me.role === 'manager') {
-        const u = await fetchUser(cur.user_id);
-        if (!isManagerOf(me.id, u)) return res.status(403).json({ error: 'forbidden' });
-        if (cur.status !== 'submitted') return res.status(400).json({ error: 'bad state' });
-        let patch = { status, updated_at: new Date().toISOString() };
-        if (status === 'manager_approved') {
-          patch.decided_by_manager = me.id;
-          patch.decided_at_manager = new Date().toISOString();
-        } else if (status === 'rejected_manager') {
-          patch.decided_by_manager = me.id;
-          patch.decided_at_manager = new Date().toISOString();
-        } else {
-          return res.status(400).json({ error: 'invalid status for manager' });
-        }
-        const { data, error } = await supa.from('leaves').update(patch).eq('id', id).select('*').single();
-        if (error) throw error;
-        return res.json(mapLeaveDbToApi(data));
-      }
-      if (me.role === 'admin') {
-        if (status === 'approved') {
-          if (cur.status !== 'manager_approved') return res.status(400).json({ error: 'admin can approve only after manager' });
-          const patch = {
-            status: 'approved',
-            decided_by_admin: me.id,
-            decided_at_admin: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          const { data, error } = await supa.from('leaves').update(patch).eq('id', id).select('*').single();
-          if (error) throw error;
-          return res.json(mapLeaveDbToApi(data));
-        }
-        if (status === 'rejected_admin') {
-          if (cur.status !== 'submitted' && cur.status !== 'manager_approved')
-            return res.status(400).json({ error: 'bad state for admin reject' });
-          const patch = {
-            status: 'rejected_admin',
-            decided_by_admin: me.id,
-            decided_at_admin: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          const { data, error } = await supa.from('leaves').update(patch).eq('id', id).select('*').single();
-          if (error) throw error;
-          return res.json(mapLeaveDbToApi(data));
-        }
-        return res.status(400).json({ error: 'invalid status for admin' });
-      }
+    // employee może edytować siebie (ograniczony zakres), menedżer/admin dowolnie
+    if (req.user.role === 'employee' && req.user.id !== id) {
       return res.status(403).json({ error: 'forbidden' });
     }
 
-    // edycja pól (np. daty/komentarz) – dozwolone:
-    // - owner: gdy status = submitted
-    // - manager: dla podopiecznych, gdy status = submitted
-    // - admin: zawsze
-    const patchApi = { ...req.body, id, userId: cur.user_id };
-    const patchDb = mapLeaveApiToDb(patchApi);
-    delete patchDb.user_id; // nie zmieniamy właściciela tutaj
-    if (me.role === 'admin') {
-      const { data, error } = await supa.from('leaves').update(patchDb).eq('id', id).select('*').single();
-      if (error) throw error;
-      return res.json(mapLeaveDbToApi(data));
+    const patch = { ...req.body };
+    // nie pozwól zwykłemu pracownikowi podnieść roli lub komuś zmienić
+    if (req.user.role === 'employee') {
+      delete patch.role; delete patch.manager_id; delete patch.employment;
+      delete patch.start_date; // itp. minimalny bezpieczny patch
     }
-    if (cur.status !== 'submitted') return res.status(403).json({ error: 'cannot edit non-submitted' });
-    if (me.role === 'employee') {
-      if (cur.user_id !== me.id) return res.status(403).json({ error: 'forbidden' });
-      const { data, error } = await supa.from('leaves').update(patchDb).eq('id', id).select('*').single();
-      if (error) throw error;
-      return res.json(mapLeaveDbToApi(data));
-    }
-    if (me.role === 'manager') {
-      const u = await fetchUser(cur.user_id);
-      if (!isManagerOf(me.id, u)) return res.status(403).json({ error: 'forbidden' });
-      const { data, error } = await supa.from('leaves').update(patchDb).eq('id', id).select('*').single();
-      if (error) throw error;
-      return res.json(mapLeaveDbToApi(data));
-    }
-    return res.status(403).json({ error: 'forbidden' });
+
+    const { data, error } = await sb.from('users').update(patch).eq('id', id).select().single();
+    if (error) return res.status(400).json({ error: 'update failed', details: error.message });
+    res.json(data);
   } catch (e) {
-    console.error('PUT /leaves/:id', e);
-    res.status(500).json({ error: 'update leave failed' });
+    console.error('PUT /api/users/:id', e);
+    res.status(500).json({ error: 'server' });
   }
 });
 
-app.delete('/leaves/:id', authRequired, async (req, res) => {
+// delete user
+app.delete('/api/users/:id', authRequired, async (req, res) => {
   try {
-    const me = req.user;
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ error: 'forbidden' });
+    }
     const id = req.params.id;
-    const { data: cur, error: errCur } = await supa.from('leaves').select('*').eq('id', id).single();
-    if (errCur) throw errCur;
-
-    // owner może usunąć tylko submitted; admin zawsze; manager gdy submitted podopiecznego
-    if (me.role === 'admin') {
-      const { error } = await supa.from('leaves').delete().eq('id', id);
-      if (error) throw error;
-      return res.json({ ok: true });
-    }
-    if (cur.status !== 'submitted') return res.status(403).json({ error: 'cannot delete non-submitted' });
-
-    if (me.role === 'employee' && cur.user_id === me.id) {
-      const { error } = await supa.from('leaves').delete().eq('id', id);
-      if (error) throw error;
-      return res.json({ ok: true });
-    }
-    if (me.role === 'manager') {
-      const u = await fetchUser(cur.user_id);
-      if (!isManagerOf(me.id, u)) return res.status(403).json({ error: 'forbidden' });
-      const { error } = await supa.from('leaves').delete().eq('id', id);
-      if (error) throw error;
-      return res.json({ ok: true });
-    }
-    return res.status(403).json({ error: 'forbidden' });
+    await sb.from('users').delete().eq('id', id);
+    res.json({ ok: true });
   } catch (e) {
-    console.error('DELETE /leaves/:id', e);
-    res.status(500).json({ error: 'delete leave failed' });
+    console.error('DELETE /api/users/:id', e);
+    res.status(500).json({ error: 'server' });
   }
 });
 
-// SPA fallback
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// ===== Leaves =====
+
+// widoczność listy wniosków + filtry: ?status=submitted|approved|rejected
+app.get('/api/leaves', authRequired, async (req, res) => {
+  try {
+    const viewer = req.user;
+    const { data: users } = await sb
+      .from('users')
+      .select('id,manager_id');
+
+    // whitelista ID
+    let allowedIds = new Set();
+    if (viewer.role === 'admin') {
+      for (const u of users || []) allowedIds.add(u.id);
+    } else if (viewer.role === 'manager') {
+      allowedIds.add(viewer.id);
+      for (const u of users || []) if (u.manager_id === viewer.id) allowedIds.add(u.id);
+    } else {
+      allowedIds.add(viewer.id);
+    }
+
+    let query = sb.from('leaves').select('id,user_id,type,from,to,comment,status,decided_by_l,decided_by_i,decided_at_l,decided_at_i,created_at,updated_at');
+    const status = (req.query.status || '').toString();
+    if (status) query = query.eq('status', status);
+
+    const { data, error } = await query.order('from', { ascending: true });
+    if (error) return res.status(500).json({ error: 'db' });
+
+    const filtered = (data || []).filter(l => allowedIds.has(l.user_id));
+    res.json(filtered);
+  } catch (e) {
+    console.error('GET /api/leaves', e);
+    res.status(500).json({ error: 'server' });
+  }
 });
 
+// create leave – employee składa tylko za siebie
+app.post('/api/leaves', authRequired, async (req, res) => {
+  try {
+    const viewer = req.user;
+    const row = { ...req.body };
+
+    if (viewer.role === 'employee') {
+      row.user_id = viewer.id; // ignorujemy to co przyszło z frontu
+    } else if (!row.user_id) {
+      return res.status(400).json({ error: 'user_id required' });
+    }
+    row.status = row.status || 'submitted';
+
+    const { data, error } = await sb.from('leaves').insert(row).select().single();
+    if (error) return res.status(400).json({ error: 'create failed', details: error.message });
+
+    res.json(data);
+  } catch (e) {
+    console.error('POST /api/leaves', e);
+    res.status(500).json({ error: 'server' });
+  }
+});
+
+// update leave (akceptacja/odrzucenie lub edycja wniosku)
+app.put('/api/leaves/:id', authRequired, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const patch = { ...req.body };
+
+    // odczytaj wniosek, by sprawdzić właściciela i status
+    const { data: lrow, error: gerr } = await sb.from('leaves').select('*').eq('id', id).single();
+    if (gerr || !lrow) return res.status(404).json({ error: 'not_found' });
+
+    const viewer = req.user;
+
+    const isOwner = lrow.user_id === viewer.id;
+
+    // pracownik: może edytować TYLKO swój wniosek i tylko gdy submitted
+    if (viewer.role === 'employee') {
+      if (!isOwner) return res.status(403).json({ error: 'forbidden' });
+      if (lrow.status !== 'submitted') return res.status(400).json({ error: 'locked' });
+      // nie pozwalaj samemu zmieniać statusu
+      delete patch.status;
+      delete patch.decided_by_l;
+      delete patch.decided_by_i;
+      delete patch.decided_at_l;
+      delete patch.decided_at_i;
+    }
+
+    // manager: może akceptować dla swoich podopiecznych (lub swoje)
+    if (viewer.role === 'manager') {
+      // sprawdź czy user jest podwładnym
+      const { data: emp } = await sb.from('users').select('id,manager_id').eq('id', lrow.user_id).single();
+      if (lrow.user_id !== viewer.id && emp?.manager_id !== viewer.id && viewer.role !== 'admin') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      if (patch.status) {
+        patch.decided_by_l = viewer.id;
+        patch.decided_at_l = new Date().toISOString();
+      }
+    }
+
+    // admin: pełna władza
+    if (viewer.role === 'admin' && patch.status) {
+      patch.decided_by_i = viewer.id;
+      patch.decided_at_i = new Date().toISOString();
+    }
+
+    const { data, error } = await sb.from('leaves').update(patch).eq('id', id).select().single();
+    if (error) return res.status(400).json({ error: 'update failed', details: error.message });
+    res.json(data);
+  } catch (e) {
+    console.error('PUT /api/leaves/:id', e);
+    res.status(500).json({ error: 'server' });
+  }
+});
+
+// delete leave
+app.delete('/api/leaves/:id', authRequired, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { data: lrow } = await sb.from('leaves').select('id,user_id,status').eq('id', id).single();
+    if (!lrow) return res.status(404).json({ error: 'not_found' });
+
+    const viewer = req.user;
+    const isOwner = lrow.user_id === viewer.id;
+
+    if (viewer.role === 'employee' && (!isOwner || lrow.status !== 'submitted')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    if (viewer.role === 'manager') {
+      // manager może skasować swój/podopiecznego (dowolny status w naszej logice)
+    }
+    await sb.from('leaves').delete().eq('id', id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE /api/leaves/:id', e);
+    res.status(500).json({ error: 'server' });
+  }
+});
+
+// ===== Start =====
 app.listen(PORT, () => {
   console.log(`Emerlog Urlopy (Supabase) running on :${PORT}`);
 });
