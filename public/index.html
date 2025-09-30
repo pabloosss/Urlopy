@@ -1,10 +1,9 @@
 /* =========================================================
    Emerlog Urlopy – FRONTEND
-   Zmieniono bazę endpointów: bez prefiksu `/api`.
-   Jeśli chcesz łatwo wrócić do starego wariantu, ustaw API_BASE = '/api'.
+   Endpointy bez prefiksu `/api` (API_BASE = '').
 ========================================================= */
 
-const API_BASE = ''; // <— KLUCZOWA ZMIANA: było '/api', jest '' (pusty)
+const API_BASE = ''; // było '/api'
 
 const api = {
   async request(path, { method = 'GET', body, headers = {} } = {}) {
@@ -69,10 +68,10 @@ function formatDate(d) {
 
 function statusBadge(status) {
   const map = {
-    submitted: { text: 'Oczekuje', cls: 'bg-blue-100 text-blue-700' },
-    manager_approved: { text: 'Po kierowniku', cls: 'bg-amber-100 text-amber-700' },
-    approved: { text: 'Zatwierdzony', cls: 'bg-emerald-100 text-emerald-700' },
-    rejected: { text: 'Odrzucony', cls: 'bg-rose-100 text-rose-700' },
+    submitted:         { text: 'Oczekuje',       cls: 'bg-blue-100 text-blue-700' },
+    manager_approved:  { text: 'Po kierowniku',  cls: 'bg-amber-100 text-amber-700' },
+    approved:          { text: 'Zatwierdzony',   cls: 'bg-emerald-100 text-emerald-700' },
+    rejected:          { text: 'Odrzucony',      cls: 'bg-rose-100 text-rose-700' },
   };
   const s = map[status] || { text: status, cls: 'bg-gray-100 text-gray-700' };
   return `<span class="px-2 py-1 rounded-full text-xs ${s.cls}">${s.text}</span>`;
@@ -95,7 +94,6 @@ async function initAuth() {
       }
     });
   } else {
-    // na stronach po zalogowaniu — wczytaj me i zasil UI
     try {
       const me = await api.me();
       window.__ME = me?.user || me || {};
@@ -104,8 +102,7 @@ async function initAuth() {
       initEmployees();
       initLeaves();
       initFilters();
-    } catch (err) {
-      // nie zalogowany -> na stronę logowania
+    } catch {
       location.href = '/login.html';
     }
   }
@@ -124,7 +121,6 @@ async function updateBell() {
   try {
     const me = window.__ME || {};
     if (me.role === 'admin') {
-      // dla admina liczba wniosków do akceptacji (status: submitted lub manager_approved)
       const list = await api.listLeaves({ status_in: 'submitted,manager_approved' });
       setBell(list?.length || 0);
     } else if (me.role === 'manager') {
@@ -158,9 +154,8 @@ async function initDashboard() {
   if (!boxDays && !boxPending && !boxToday) return;
 
   try {
-    // Dzienne karty – prosto z users i leaves
     const me = window.__ME;
-    const users = await api.listUsers(); // admin widzi wszystkich, manager swoich, employee tylko siebie
+    const users = await api.listUsers();
     const my = users.find(u => u.id === me.id) || me;
 
     const used = Number(my.used_days ?? 0);
@@ -170,8 +165,7 @@ async function initDashboard() {
     const pending = await api.listLeaves({ scope: 'mine_or_team', status: 'submitted' });
     if (boxPending) boxPending.textContent = pending?.length ?? 0;
 
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
     const todays = await api.listLeaves({ scope: 'mine', on: todayStr });
     const isOff = (todays || []).some(l => l.status === 'approved' || l.status === 'manager_approved');
     if (boxToday) boxToday.textContent = isOff ? 'Nieobecny' : 'Obecny';
@@ -209,12 +203,18 @@ async function refreshUsers() {
         (u.role || '').toLowerCase().includes(q)
       )
       .map(u => {
+        const roleBadge =
+          u.role === 'admin'
+            ? 'bg-slate-800 text-white'
+            : u.role === 'manager'
+            ? 'bg-cyan-100 text-cyan-700'
+            : 'bg-gray-100 text-gray-700';
         return `
           <tr class="border-b last:border-0">
             <td class="py-2 px-3">${u.name ?? '—'}</td>
             <td class="py-2 px-3">${u.email ?? '—'}</td>
             <td class="py-2 px-3">
-              <span class="px-2 py-1 rounded-full text-xs ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'manager' ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-700'}">
+              <span class="px-2 py-1 rounded-full text-xs ${roleBadge}">
                 ${u.role}
               </span>
             </td>
@@ -314,7 +314,7 @@ async function deleteUser(id) {
   try {
     await api.deleteUser(id);
     refreshUsers();
-  } catch (err) {
+  } catch {
     toast('Błąd usuwania', 'error');
   }
 }
@@ -327,7 +327,6 @@ function initLeaves() {
 
   $('#leaveForm')?.addEventListener('submit', onSubmitLeave);
 
-  // Filtry
   $('#filterStatus')?.addEventListener('change', refreshLeaves);
   $('#filterMine')?.addEventListener('change', refreshLeaves);
 
@@ -368,7 +367,6 @@ async function refreshLeaves() {
 
     tbody.innerHTML = rows || `<tr><td colspan="8" class="py-6 text-center text-gray-400">Brak wniosków</td></tr>`;
 
-    // podłącz akcje
     tbody.querySelectorAll('[data-approve]').forEach(btn => {
       btn.addEventListener('click', () => handleApprove(btn.dataset.approve, btn.dataset.level));
     });
@@ -383,7 +381,7 @@ async function refreshLeaves() {
 function renderLeaveActions(l) {
   const me = window.__ME || {};
   const canManager = me.role === 'manager' && l.status === 'submitted';
-  const canAdmin = me.role === 'admin' && (l.status === 'manager_approved'); // admin dopiero po kierowniku
+  const canAdmin = me.role === 'admin' && (l.status === 'manager_approved'); // admin po kierowniku
   const mine = l.user_id === me.id && (l.status === 'submitted');
 
   const actions = [];
@@ -407,7 +405,7 @@ async function handleApprove(id, level) {
     toast('Zatwierdzono', 'success');
     await updateBell();
     refreshLeaves();
-  } catch (e) {
+  } catch {
     toast('Błąd akceptacji', 'error');
   }
 }
@@ -419,7 +417,7 @@ async function handleReject(id, level) {
     toast('Odrzucono', 'success');
     await updateBell();
     refreshLeaves();
-  } catch (e) {
+  } catch {
     toast('Błąd odrzucenia', 'error');
   }
 }
@@ -445,8 +443,9 @@ async function onSubmitLeave(e) {
 // ======= Filtry / UI =======
 
 function initFilters() {
-  // wyróżnij dzisiejszy dzień w kalendarzu (jeśli jest)
-  const todayEl = document.querySelector(`[data-date="${new Date().toISOString().slice(0, 10)}"]`);
+  const todayEl = document.querySelector(
+    `[data-date="${new Date().toISOString().slice(0, 10)}"]`
+  );
   if (todayEl) todayEl.classList.add('ring-2', 'ring-blue-500', 'rounded-md');
 }
 
@@ -454,7 +453,6 @@ function initFilters() {
 
 document.addEventListener('DOMContentLoaded', initAuth);
 
-// opcjonalny logout
 $('#logoutBtn')?.addEventListener('click', async () => {
   try {
     await api.logout();
