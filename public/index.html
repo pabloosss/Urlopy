@@ -1,29 +1,28 @@
 /* =========================================================
-   Emerlog Urlopy – FRONTEND
-   Endpointy bez prefiksu `/api` (API_BASE = '').
-========================================================= */
+ * Emerlog Urlopy — FRONTEND (Supabase backend via server.js)
+ * Endpointy: bez prefiksu `/api` (API_BASE = '').
+ * ======================================================= */
 
 const API_BASE = ''; // było '/api'
 
+/* ------------------------- API helper ------------------------- */
 const api = {
   async request(path, { method = 'GET', body, headers = {} } = {}) {
     const res = await fetch(`${API_BASE}${path}`, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: body ? JSON.stringify(body) : undefined,
       credentials: 'include',
     });
+
     if (!res.ok) {
-      let msg = `HTTP ${res.status}`;
+      let errText = `HTTP ${res.status}`;
       try {
-        const t = await res.text();
-        msg = t || msg;
+        errText = await res.text();
       } catch {}
-      throw new Error(msg);
+      throw new Error(errText || `HTTP ${res.status}`);
     }
+
     const ct = res.headers.get('content-type') || '';
     return ct.includes('application/json') ? res.json() : res.text();
   },
@@ -50,8 +49,7 @@ const api = {
   rejectLeave: (id, level, reason) => api.request(`/leaves/${encodeURIComponent(id)}/reject`, { method: 'POST', body: { level, reason } }),
 };
 
-// ======= UI Helpers =======
-
+/* ------------------------- UI utils ------------------------- */
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -63,63 +61,64 @@ function toast(msg, type = 'info') {
 function formatDate(d) {
   if (!d) return '—';
   const dt = typeof d === 'string' ? new Date(d) : d;
+  if (Number.isNaN(dt.getTime())) return '—';
   return dt.toLocaleDateString('pl-PL');
 }
 
 function statusBadge(status) {
   const map = {
-    submitted:         { text: 'Oczekuje',       cls: 'bg-blue-100 text-blue-700' },
-    manager_approved:  { text: 'Po kierowniku',  cls: 'bg-amber-100 text-amber-700' },
-    approved:          { text: 'Zatwierdzony',   cls: 'bg-emerald-100 text-emerald-700' },
-    rejected:          { text: 'Odrzucony',      cls: 'bg-rose-100 text-rose-700' },
+    submitted:         { text: 'Oczekuje',      cls: 'bg-blue-100 text-blue-700' },
+    manager_approved:  { text: 'Po kierowniku', cls: 'bg-amber-100 text-amber-700' },
+    approved:          { text: 'Zatwierdzony',  cls: 'bg-emerald-100 text-emerald-700' },
+    rejected:          { text: 'Odrzucony',     cls: 'bg-rose-100 text-rose-700' },
   };
-  const s = map[status] || { text: status, cls: 'bg-gray-100 text-gray-700' };
-  return `<span class="px-2 py-1 rounded-full text-xs ${s.cls}">${s.text}</span>`;
+  const s = map[status] || { text: status || '—', cls: 'bg-gray-100 text-gray-700' };
+  return `<span class="badge ${s.cls}">${s.text}</span>`;
 }
 
-// ======= Auth flow =======
-
+/* ------------------------- Auth flow ------------------------- */
 async function initAuth() {
   const loginForm = $('#loginForm');
+
   if (loginForm) {
+    // Strona logowania
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = $('#loginEmail').value.trim();
       const pass = $('#loginPass').value.trim();
       try {
         await api.login(email, pass);
-        location.href = '/';
+        location.replace('/');
       } catch (err) {
         toast('login failed', 'error');
       }
     });
-  } else {
-    try {
-      const me = await api.me();
-      window.__ME = me?.user || me || {};
-      fillHeader();
-      await initDashboard();
-      initEmployees();
-      initLeaves();
-      initFilters();
-    } catch {
-      location.href = '/login.html';
-    }
+    return;
+  }
+
+  // Strony za logowaniem
+  try {
+    const me = await api.me();
+    window.__ME = me?.user || me || {};
+    fillHeader();
+    await initDashboard();
+    initEmployees();
+    initLeaves();
+    initFilters();
+  } catch {
+    location.replace('/login.html');
   }
 }
 
 function fillHeader() {
-  const nameEl = $('#topUserName');
-  const roleEl = $('#topUserRole');
-  if (nameEl) nameEl.textContent = window.__ME?.name || '—';
-  if (roleEl) roleEl.textContent = window.__ME?.role || '—';
-  const bell = $('#notifBellCount');
-  if (bell) updateBell();
+  $('#topUserName') && ($('#topUserName').textContent = window.__ME?.name || '—');
+  $('#topUserRole') && ($('#topUserRole').textContent = window.__ME?.role || '—');
+  updateBell().catch(() => setBell(0));
 }
 
 async function updateBell() {
+  const me = window.__ME || {};
   try {
-    const me = window.__ME || {};
     if (me.role === 'admin') {
       const list = await api.listLeaves({ status_in: 'submitted,manager_approved' });
       setBell(list?.length || 0);
@@ -145,54 +144,57 @@ function setBell(n) {
   }
 }
 
-// ======= Dashboard =======
-
+/* ------------------------- Dashboard ------------------------- */
 async function initDashboard() {
-  const boxDays = $('#dashDays');
-  const boxPending = $('#dashPending');
-  const boxToday = $('#dashToday');
-  if (!boxDays && !boxPending && !boxToday) return;
+  const hasAny = $('#dashDays') || $('#dashPending') || $('#dashToday');
+  if (!hasAny) return;
 
   try {
     const me = window.__ME;
-    const users = await api.listUsers();
+    const users = await api.listUsers(); // backend filtruje wg roli
     const my = users.find(u => u.id === me.id) || me;
 
     const used = Number(my.used_days ?? 0);
     const pool = Number(my.vacation_days ?? 0);
-    if (boxDays) boxDays.textContent = `${pool - used} / ${pool} dni`;
+    $('#dashDays') && ($('#dashDays').textContent = `${Math.max(pool - used, 0)} / ${pool} dni`);
 
     const pending = await api.listLeaves({ scope: 'mine_or_team', status: 'submitted' });
-    if (boxPending) boxPending.textContent = pending?.length ?? 0;
+    $('#dashPending') && ($('#dashPending').textContent = pending?.length ?? 0);
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const todays = await api.listLeaves({ scope: 'mine', on: todayStr });
     const isOff = (todays || []).some(l => l.status === 'approved' || l.status === 'manager_approved');
-    if (boxToday) boxToday.textContent = isOff ? 'Nieobecny' : 'Obecny';
+    $('#dashToday') && ($('#dashToday').textContent = isOff ? 'Nieobecny' : 'Obecny');
   } catch (e) {
     console.warn(e);
   }
 }
 
-// ======= Employees =======
-
+/* ------------------------- Employees ------------------------- */
 function initEmployees() {
-  const table = $('#employeesTable');
-  if (!table) return;
+  if (!$('#employeesTable')) return;
 
   refreshUsers();
-
   $('#userAddBtn')?.addEventListener('click', () => openUserModal());
   $('#userModalForm')?.addEventListener('submit', onSaveUser);
+  $('#userSearch')?.addEventListener('input', () => refreshUsers());
 }
 
 async function refreshUsers() {
   const tbody = $('#employeesTbody');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-400">Ładowanie…</td></tr>`;
+  tbody.innerHTML = `<tr><td class="py-3 text-gray-500">Ładowanie…</td></tr>`;
 
   try {
     const users = await api.listUsers();
+
+    // sort: najpierw wg manager_name, potem name
+    users.sort((a, b) => {
+      const am = (a.manager_name || '').localeCompare(b.manager_name || '');
+      if (am !== 0) return am;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
     const q = ($('#userSearch')?.value || '').toLowerCase();
 
     const rows = (users || [])
@@ -200,51 +202,42 @@ async function refreshUsers() {
         !q ||
         (u.name || '').toLowerCase().includes(q) ||
         (u.email || '').toLowerCase().includes(q) ||
-        (u.role || '').toLowerCase().includes(q)
+        (u.role || '').toLowerCase().includes(q) ||
+        (u.manager_name || '').toLowerCase().includes(q)
       )
       .map(u => {
-        const roleBadge =
-          u.role === 'admin'
-            ? 'bg-slate-800 text-white'
-            : u.role === 'manager'
-            ? 'bg-cyan-100 text-cyan-700'
-            : 'bg-gray-100 text-gray-700';
         return `
-          <tr class="border-b last:border-0">
-            <td class="py-2 px-3">${u.name ?? '—'}</td>
-            <td class="py-2 px-3">${u.email ?? '—'}</td>
-            <td class="py-2 px-3">
-              <span class="px-2 py-1 rounded-full text-xs ${roleBadge}">
-                ${u.role}
-              </span>
+          <tr class="border-t">
+            <td class="py-2 pr-3">${u.name ?? '—'}</td>
+            <td class="py-2 pr-3">${u.email ?? '—'}</td>
+            <td class="py-2 pr-3">
+              <span class="badge ${u.role === 'admin' ? 'bg-slate-800 text-white' : u.role === 'manager' ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-700'}">${u.role}</span>
             </td>
-            <td class="py-2 px-3">${u.manager_name ?? '—'}</td>
-            <td class="py-2 px-3">${(u.employment || '').toUpperCase() || '—'}</td>
-            <td class="py-2 px-3">${formatDate(u.start_date)}</td>
-            <td class="py-2 px-3 text-center">${u.vacation_days ?? '—'}</td>
-            <td class="py-2 px-3 text-right space-x-2">
-              <button class="btn xs" data-edit="${u.id}">✏️</button>
-              <button class="btn xs danger" data-del="${u.id}">🗑️</button>
+            <td class="py-2 pr-3">${u.manager_name ?? '—'}</td>
+            <td class="py-2 pr-3">${(u.employment || '').toUpperCase() || '—'}</td>
+            <td class="py-2 pr-3">${formatDate(u.start_date)}</td>
+            <td class="py-2 pr-3">${u.vacation_days ?? '—'}</td>
+            <td class="py-2">
+              <button class="btn-outline text-xs" data-edit="${u.id}">Edytuj</button>
+              <button class="btn-outline text-xs ml-2" data-del="${u.id}">Usuń</button>
             </td>
           </tr>
         `;
       })
       .join('');
 
-    tbody.innerHTML = rows || `<tr><td colspan="8" class="py-6 text-center text-gray-400">Brak danych</td></tr>`;
+    tbody.innerHTML = rows || `<tr><td class="py-3 text-gray-500">Brak danych</td></tr>`;
 
-    // Akcje
+    // akcje
     tbody.querySelectorAll('[data-edit]').forEach(btn =>
       btn.addEventListener('click', () => openUserModal(btn.dataset.edit))
     );
     tbody.querySelectorAll('[data-del]').forEach(btn =>
       btn.addEventListener('click', () => deleteUser(btn.dataset.del))
     );
-
-    // szukajka
-    $('#userSearch')?.addEventListener('input', () => refreshUsers());
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-rose-500">Błąd wczytywania</td></tr>`;
+    console.error(e);
+    tbody.innerHTML = `<tr><td class="py-3 text-rose-600">Błąd wczytywania</td></tr>`;
   }
 }
 
@@ -252,9 +245,9 @@ async function openUserModal(id) {
   const form = $('#userModalForm');
   form.reset();
   form.dataset.id = id || '';
-
   $('#umfTitle').textContent = id ? 'Edytuj pracownika' : 'Dodaj pracownika';
 
+  // jeśli edycja — wczytaj dane do formularza
   if (id) {
     try {
       const list = await api.listUsers();
@@ -269,16 +262,15 @@ async function openUserModal(id) {
         $('#umfStart').value = (u.start_date || '').slice(0, 10);
         $('#umfDays').value = u.vacation_days ?? 20;
       }
-    } catch (e) {
+    } catch {
       toast('Błąd wczytania użytkownika', 'error');
     }
   }
+
   $('#userModal').classList.remove('hidden');
 }
-
-function closeUserModal() {
-  $('#userModal').classList.add('hidden');
-}
+function closeUserModal() { $('#userModal').classList.add('hidden'); }
+window.closeUserModal = closeUserModal; // używane w onclick w HTML
 
 async function onSaveUser(e) {
   e.preventDefault();
@@ -319,24 +311,20 @@ async function deleteUser(id) {
   }
 }
 
-// ======= Leaves (Wnioski) =======
-
+/* ------------------------- Leaves (Wnioski) ------------------------- */
 function initLeaves() {
-  const table = $('#leavesTable');
-  if (!table) return;
+  if (!$('#leavesTable')) return;
 
   $('#leaveForm')?.addEventListener('submit', onSubmitLeave);
-
   $('#filterStatus')?.addEventListener('change', refreshLeaves);
   $('#filterMine')?.addEventListener('change', refreshLeaves);
-
   refreshLeaves();
 }
 
 async function refreshLeaves() {
   const tbody = $('#leavesTbody');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-400">Ładowanie…</td></tr>`;
+  tbody.innerHTML = `<tr><td class="py-3 text-gray-500">Ładowanie…</td></tr>`;
 
   const status = $('#filterStatus')?.value || '';
   const onlyMine = $('#filterMine')?.checked;
@@ -349,52 +337,51 @@ async function refreshLeaves() {
     const list = await api.listLeaves(params);
 
     const rows = (list || [])
-      .map(l => {
-        return `
-        <tr class="border-b last:border-0">
-          <td class="py-2 px-3">${l.user_name ?? '—'}</td>
-          <td class="py-2 px-3">${l.type ?? '—'}</td>
-          <td class="py-2 px-3">${formatDate(l.from)}</td>
-          <td class="py-2 px-3">${formatDate(l.to)}</td>
-          <td class="py-2 px-3">${l.comment ? `<span class="text-gray-500">${l.comment}</span>` : '—'}</td>
-          <td class="py-2 px-3">${statusBadge(l.status)}</td>
-          <td class="py-2 px-3 text-right space-x-2">
-            ${renderLeaveActions(l)}
-          </td>
-        </tr>`;
-      })
+      .map(l => `
+        <tr class="border-t">
+          <td class="py-2 pr-3">${l.user_name ?? '—'}</td>
+          <td class="py-2 pr-3">${l.type ?? '—'}</td>
+          <td class="py-2 pr-3">${formatDate(l.from)}</td>
+          <td class="py-2 pr-3">${formatDate(l.to)}</td>
+          <td class="py-2 pr-3">${l.comment ? `<span class="text-gray-700">${l.comment}</span>` : '—'}</td>
+          <td class="py-2 pr-3">${statusBadge(l.status)}</td>
+          <td class="py-2">${renderLeaveActions(l)}</td>
+        </tr>
+      `)
       .join('');
 
-    tbody.innerHTML = rows || `<tr><td colspan="8" class="py-6 text-center text-gray-400">Brak wniosków</td></tr>`;
+    tbody.innerHTML = rows || `<tr><td class="py-3 text-gray-500">Brak wniosków</td></tr>`;
 
-    tbody.querySelectorAll('[data-approve]').forEach(btn => {
-      btn.addEventListener('click', () => handleApprove(btn.dataset.approve, btn.dataset.level));
-    });
-    tbody.querySelectorAll('[data-reject]').forEach(btn => {
-      btn.addEventListener('click', () => handleReject(btn.dataset.reject, btn.dataset.level));
-    });
+    // podłącz akcje
+    tbody.querySelectorAll('[data-approve]').forEach(btn =>
+      btn.addEventListener('click', () => handleApprove(btn.dataset.approve, btn.dataset.level))
+    );
+    tbody.querySelectorAll('[data-reject]').forEach(btn =>
+      btn.addEventListener('click', () => handleReject(btn.dataset.reject, btn.dataset.level))
+    );
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-rose-500">Błąd wczytywania</td></tr>`;
+    console.error(e);
+    tbody.innerHTML = `<tr><td class="py-3 text-rose-600">Błąd wczytywania</td></tr>`;
   }
 }
 
 function renderLeaveActions(l) {
   const me = window.__ME || {};
   const canManager = me.role === 'manager' && l.status === 'submitted';
-  const canAdmin = me.role === 'admin' && (l.status === 'manager_approved'); // admin po kierowniku
-  const mine = l.user_id === me.id && (l.status === 'submitted');
+  const canAdmin   = me.role === 'admin'   && l.status === 'manager_approved'; // admin po kierowniku
+  const mine       = l.user_id === me.id   && l.status === 'submitted';
 
   const actions = [];
   if (canManager) {
-    actions.push(`<button class="btn xs success" data-approve="${l.id}" data-level="manager">✅ Kierownik</button>`);
-    actions.push(`<button class="btn xs danger" data-reject="${l.id}" data-level="manager">❌ Kierownik</button>`);
+    actions.push(`<button class="btn-outline text-xs" data-approve="${l.id}" data-level="manager">✅ Kierownik</button>`);
+    actions.push(`<button class="btn-outline text-xs ml-2" data-reject="${l.id}" data-level="manager">❌ Kierownik</button>`);
   }
   if (canAdmin) {
-    actions.push(`<button class="btn xs success" data-approve="${l.id}" data-level="admin">✅ Admin</button>`);
-    actions.push(`<button class="btn xs danger" data-reject="${l.id}" data-level="admin">❌ Admin</button>`);
+    actions.push(`<button class="btn-outline text-xs" data-approve="${l.id}" data-level="admin">✅ Admin</button>`);
+    actions.push(`<button class="btn-outline text-xs ml-2" data-reject="${l.id}" data-level="admin">❌ Admin</button>`);
   }
   if (mine) {
-    actions.push(`<span class="text-gray-400 text-xs">edytuj/wycofaj – wkrótce</span>`);
+    actions.push(`<span class="text-xs text-gray-400 ml-2">edytuj/wycofaj – wkrótce</span>`);
   }
   return actions.join(' ');
 }
@@ -430,7 +417,7 @@ async function onSubmitLeave(e) {
   const comment = $('#lfComment').value.trim();
 
   try {
-    await api.createLeave({ type, from, to, comment });
+    await api.createLeave({ type, from, to, comment }); // user_id ustawi backend na podstawie sesji
     e.target.reset();
     toast('Wniosek wysłany', 'success');
     await updateBell();
@@ -440,22 +427,18 @@ async function onSubmitLeave(e) {
   }
 }
 
-// ======= Filtry / UI =======
-
+/* ------------------------- Drobne UI ------------------------- */
 function initFilters() {
-  const todayEl = document.querySelector(
-    `[data-date="${new Date().toISOString().slice(0, 10)}"]`
-  );
+  // podświetl dzisiaj, jeśli w layout jest kalendarz z data-date="YYYY-MM-DD"
+  const todayEl = document.querySelector(`[data-date="${new Date().toISOString().slice(0, 10)}"]`);
   if (todayEl) todayEl.classList.add('ring-2', 'ring-blue-500', 'rounded-md');
 }
 
-// ======= Start =======
-
+/* ------------------------- Boot ------------------------- */
 document.addEventListener('DOMContentLoaded', initAuth);
 
+// logout
 $('#logoutBtn')?.addEventListener('click', async () => {
-  try {
-    await api.logout();
-  } catch {}
-  location.href = '/login.html';
+  try { await api.logout(); } catch {}
+  location.replace('/login.html');
 });
