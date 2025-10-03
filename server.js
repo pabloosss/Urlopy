@@ -1,394 +1,482 @@
-// server.js
-// Emerlog Urlopy – backend (Supabase)
-// wymagane ENV: SUPABASE_URL, SUPABASE_SECRET, JWT_SECRET
+// =============================================================
+// Emerlog Urlopy — BACKEND (Express + Supabase)
+// Endpointy BEZ prefiksu /api (frontend woła np. POST /login)
+// =============================================================
 
 const express = require('express');
 const path = require('path');
-const cors = require('cors');
-const jwt = require('jsonwebtoken');
-const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const { createClient } = require('@supabase/supabase-js');
 
-const PORT = process.env.PORT || 10000;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SECRET = process.env.SUPABASE_SECRET;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+const app = express();
+app.use(express.json());
+app.use(cookieParser());
 
-if (!SUPABASE_URL || !SUPABASE_SECRET) {
+// --------- ENV / Supabase client ---------
+const SUPABASE_URL =
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE ||
+  process.env.SUPABASE_SECRET ||
+  process.env.SUPABASE_SERVICE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error('❌ Brak SUPABASE_URL lub SUPABASE_SECRET w zmiennych środowiskowych.');
   process.exit(1);
 }
-const sb = createClient(SUPABASE_URL, SUPABASE_SECRET, { auth: { persistSession: false } });
 
-const app = express();
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  db: { schema: 'public' },
+});
 
-// ===== Helpers =====
-function startOfYear(d = new Date()) { return new Date(d.getFullYear(), 0, 1); }
-function endOfYear(d = new Date()) { return new Date(d.getFullYear(), 11, 31); }
+// --------- Helpers ---------
+const PROD = process.env.NODE_ENV === 'production';
+const COOKIE_NAME = 'uid';
+const cookieOpts = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: PROD,
+  maxAge: 1000 * 60 * 60 * 24 * 30, // 30 dni
+};
 
-function parseDateISO(s) { return new Date(s + 'T00:00:00'); }
-
-function businessDaysBetween(fromISO, toISO) {
-  if (!fromISO || !toISO) return 0;
-  let d = parseDateISO(fromISO), to = parseDateISO(toISO);
-  if (d > to) [d, to] = [to, d];
-  let count = 0;
-  while (d <= to) {
-    const day = d.getDay(); // 0..6
-    if (day !== 0 && day !== 6) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
-function signToken(user) {
-  const payload = {
-    id: user.id,
-    role: user.role,
-    email: user.email,
-    name: user.name,
-    manager_id: user.manager_id || null,
+function sanitizeUser(u) {
+  if (!u) return null;
+  const {
+    id, email, name, role, manager_id, employment,
+    start_date, vacation_days, used_days, created_at,
+  } = u;
+  return {
+    id, email, name, role, manager_id, employment,
+    start_date, vacation_days, used_days, created_at,
   };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
-function authRequired(req, res, next) {
-  const hdr = req.headers.authorization || '';
-  const tok = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
-  if (!tok) return res.status(401).json({ error: 'unauthorized' });
-  try {
-    req.user = jwt.verify(tok, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'unauthorized' });
+async function getUserFromReq(req) {
+  const uid = req.cookies[COOKIE_NAME];
+  if (!uid) return null;
+  const { data, error } = await sb
+    .from('users')
+    .select('*')
+    .eq('id', uid)
+    .maybeSingle();
+  if (error) return null;
+  return data || null;
+}
+
+async function requireAuth(req, res, next) {
+  const u = await getUserFromReq(req);
+  if (!u) return res.status(401).json({ error: 'unauthorized' });
+  req.user = u;
+  next();
+}
+
+function isAdmin(u)   { return u?.role === 'admin'; }
+function isManager(u) { return u?.role === 'manager'; }
+
+// ID list widocznych userów dla aktualnego zalogowanego
+async function visibleUserIds(current) {
+  if (isAdmin(current)) {
+    const { data } = await sb.from('users').select('id');
+    return (data || []).map(x => x.id);
   }
-}
-
-function canSeeUser(viewer, userRow) {
-  if (!viewer) return false;
-  if (viewer.role === 'admin') return true;
-  if (viewer.role === 'manager') {
-    return viewer.id === userRow.id || userRow.manager_id === viewer.id;
+  if (isManager(current)) {
+    const { data } = await sb.from('users').select('id').eq('manager_id', current.id);
+    return [current.id, ...(data || []).map(x => x.id)];
   }
-  // employee
-  return viewer.id === userRow.id;
+  return [current.id];
 }
 
-// ===== Auth =====
-app.post('/api/login', async (req, res) => {
+// map id->user (przydatne do nazw)
+async function usersIndex(ids) {
+  if (!ids?.length) return {};
+  const { data } = await sb.from('users')
+    .select('id,name,manager_id,role,email,employment,start_date,vacation_days,used_days')
+    .in('id', ids);
+  const idx = {};
+  (data || []).forEach(u => { idx[u.id] = u; });
+  return idx;
+}
+
+function daysInclusive(fromISO, toISO) {
+  const a = new Date(fromISO);
+  const b = new Date(toISO);
+  if (isNaN(a) || isNaN(b)) return 0;
+  const ms = (b.setHours(12,0,0,0) - a.setHours(12,0,0,0));
+  return Math.max(0, Math.floor(ms / 86400000) + 1);
+}
+
+// =============================================================
+//                         AUTH
+// =============================================================
+app.post('/login', async (req, res) => {
   try {
     const { email, pass } = req.body || {};
     if (!email || !pass) return res.status(400).json({ error: 'missing credentials' });
 
-    const { data: users, error } = await sb
+    // Pobierz usera po email (szukamy różnych nazw kolumn hasła)
+    const { data: user, error } = await sb
       .from('users')
-      .select('id,name,email,pass,role,manager_id,employment,start_date,vacation_days')
-      .eq('email', email)
-      .limit(1);
+      .select('*')
+      .eq('email', String(email).toLowerCase())
+      .maybeSingle();
 
-    if (error) return res.status(500).json({ error: 'db', details: error.message });
-    const u = users && users[0];
-    if (!u || String(u.pass) !== String(pass)) return res.status(401).json({ error: 'invalid' });
+    if (error || !user) return res.status(401).json({ error: 'invalid' });
 
-    const token = signToken(u);
-    res.json({ token, user: { ...u, vacation_total: u.vacation_days ?? 20 } });
+    // Prosty dev-check: kolumna 'pass' lub 'password' wprost (bez hash).
+    // Jeżeli nie ma kolumny, logowanie się nie uda — wtedy popraw kolumny w DB.
+    const plain = user.pass ?? user.password ?? '';
+    if (String(plain) !== String(pass)) {
+      return res.status(401).json({ error: 'invalid' });
+    }
+
+    res.cookie(COOKIE_NAME, user.id, cookieOpts);
+    res.json({ ok: true, user: sanitizeUser(user) });
   } catch (e) {
     console.error('login error', e);
-    res.status(500).json({ error: 'login_failed' });
+    res.status(500).json({ error: 'login failed' });
   }
 });
 
-app.get('/api/me', authRequired, async (req, res) => {
-  const { data, error } = await sb
-    .from('users')
-    .select('id,name,email,role,manager_id,employment,start_date,vacation_days')
-    .eq('id', req.user.id)
-    .limit(1);
-  if (error) return res.status(500).json({ error: 'db' });
-  const u = data?.[0];
-  res.json(u || null);
+app.post('/logout', (req, res) => {
+  res.clearCookie(COOKIE_NAME, cookieOpts);
+  res.json({ ok: true });
 });
 
-// ===== Users =====
+app.get('/me', requireAuth, (req, res) => {
+  res.json({ user: sanitizeUser(req.user) });
+});
 
-// GET /api/users?q=&manager_id=&sort=vac_left|name|manager|start_date
-app.get('/api/users', authRequired, async (req, res) => {
+// =============================================================
+//                         USERS
+// =============================================================
+app.get('/users', requireAuth, async (req, res) => {
   try {
-    const viewer = req.user;
-    // we fetch all, then filter in memory according to rights (simple and safe)
-    const { data: list, error } = await sb
-      .from('users')
-      .select('id,name,email,role,manager_id,employment,start_date,vacation_days');
-    if (error) return res.status(500).json({ error: 'db' });
+    let query = sb.from('users')
+      .select('id,name,email,role,manager_id,employment,start_date,vacation_days,used_days')
+      .order('manager_id', { ascending: true })
+      .order('name', { ascending: true });
 
-    // visibility filter
-    let visible = list.filter(u => canSeeUser(viewer, u));
-
-    // search / filters
-    const q = (req.query.q || '').toString().trim().toLowerCase();
-    if (q) {
-      visible = visible.filter(u =>
-        (u.name || '').toLowerCase().includes(q) ||
-        (u.email || '').toLowerCase().includes(q)
-      );
-    }
-    const mgr = (req.query.manager_id || '').toString().trim();
-    if (mgr) visible = visible.filter(u => (u.manager_id || '') === mgr);
-
-    // prefetch approved leaves in current year
-    const y0 = startOfYear(); const y1 = endOfYear();
-    const fromISO = y0.toISOString().slice(0, 10);
-    const toISO = y1.toISOString().slice(0, 10);
-
-    const { data: leaves, error: lerr } = await sb
-      .from('leaves')
-      .select('id,user_id,type,from,to,status')
-      .eq('status', 'approved')
-      .gte('from', fromISO)
-      .lte('to', toISO);
-
-    if (lerr) return res.status(500).json({ error: 'db' });
-
-    const VAC_TYPES = new Set([
-      'urlop wypoczynkowy', 'wypoczynkowy',
-      'urlop na żądanie', 'na żądanie', 'na zadanie'
-    ]);
-
-    const usedDaysByUser = {};
-    for (const l of leaves || []) {
-      const ty = (l.type || '').toLowerCase();
-      if (!VAC_TYPES.has(ty)) continue;
-      const days = businessDaysBetween(l.from, l.to);
-      usedDaysByUser[l.user_id] = (usedDaysByUser[l.user_id] || 0) + days;
+    if (!isAdmin(req.user)) {
+      if (isManager(req.user)) {
+        // manager: on + podopieczni
+        const { data: team } = await sb.from('users').select('id').eq('manager_id', req.user.id);
+        const ids = [req.user.id, ...(team || []).map(x => x.id)];
+        query = query.in('id', ids);
+      } else {
+        // employee: tylko on
+        query = query.eq('id', req.user.id);
+      }
     }
 
-    const enriched = visible.map(u => {
-      const total = Number(u.vacation_days ?? 20);
-      const used = Number(usedDaysByUser[u.id] || 0);
-      const left = Math.max(0, total - used);
-      return { ...u, vacation_total: total, vacation_left: left };
-    });
+    const { data, error } = await query;
+    if (error) throw error;
 
-    // sort
-    const sort = (req.query.sort || '').toString();
-    if (sort === 'vac_left') {
-      enriched.sort((a, b) => b.vacation_left - a.vacation_left);
-    } else if (sort === 'name') {
-      enriched.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    } else if (sort === 'start_date') {
-      enriched.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
-    }
+    // dopisz manager_name
+    const allIds = Array.from(new Set((data || []).flatMap(u => [u.id, u.manager_id].filter(Boolean))));
+    const idx = await usersIndex(allIds);
 
-    res.json(enriched);
+    const out = (data || []).map(u => ({
+      ...u,
+      manager_name: u.manager_id ? (idx[u.manager_id]?.name || '—') : '—',
+    }));
+
+    res.json(out);
   } catch (e) {
-    console.error('GET /api/users error', e);
-    res.status(500).json({ error: 'server' });
+    console.error('GET /users', e);
+    res.status(500).json({ error: 'list users failed' });
   }
 });
 
-// create user
-app.post('/api/users', authRequired, async (req, res) => {
+app.post('/users', requireAuth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-      return res.status(403).json({ error: 'forbidden' });
-    }
-    const row = req.body || {};
-    // defaults
-    row.role = row.role || 'employee';
-    if (row.vacation_days == null) row.vacation_days = 20;
+    if (!isAdmin(req.user)) return res.status(403).json({ error: 'forbidden' });
 
-    const { data, error } = await sb.from('users').insert(row).select().single();
-    if (error) return res.status(400).json({ error: 'create user failed', details: error.message });
-    res.json(data);
+    const payload = req.body || {};
+    const insert = {
+      id: payload.id, // opcjonalnie
+      name: payload.name ?? null,
+      email: (payload.email || '').toLowerCase(),
+      pass: payload.pass || 'test123',        // DEV: proste hasło jeżeli nie podano
+      role: payload.role || 'employee',
+      manager_id: payload.manager_id || null,
+      employment: payload.employment || 'UOP',
+      start_date: payload.start_date || null,
+      vacation_days: Number.isFinite(+payload.vacation_days) ? +payload.vacation_days : 20,
+      used_days: Number.isFinite(+payload.used_days) ? +payload.used_days : 0,
+    };
+
+    const { data, error } = await sb.from('users').insert(insert).select().maybeSingle();
+    if (error) throw error;
+
+    res.json(sanitizeUser(data));
   } catch (e) {
-    console.error('POST /api/users', e);
-    res.status(500).json({ error: 'server' });
+    console.error('POST /users', e);
+    res.status(500).json({ error: 'create user failed' });
   }
 });
 
-// update user
-app.put('/api/users/:id', authRequired, async (req, res) => {
+app.put('/users/:id', requireAuth, async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id) return res.status(400).json({ error: 'missing id' });
+    const { id } = req.params;
+    const payload = req.body || {};
 
-    // employee może edytować siebie (ograniczony zakres), menedżer/admin dowolnie
-    if (req.user.role === 'employee' && req.user.id !== id) {
+    if (!isAdmin(req.user) && req.user.id !== id) {
       return res.status(403).json({ error: 'forbidden' });
     }
 
-    const patch = { ...req.body };
-    // nie pozwól zwykłemu pracownikowi podnieść roli lub komuś zmienić
-    if (req.user.role === 'employee') {
-      delete patch.role; delete patch.manager_id; delete patch.employment;
-      delete patch.start_date; // itp. minimalny bezpieczny patch
-    }
+    const update = {
+      name: payload.name,
+      email: payload.email ? String(payload.email).toLowerCase() : undefined,
+      role: isAdmin(req.user) ? payload.role : undefined, // roli nie zmienia sam pracownik
+      manager_id: isAdmin(req.user) ? (payload.manager_id || null) : undefined,
+      employment: payload.employment,
+      start_date: payload.start_date || null,
+      vacation_days: Number.isFinite(+payload.vacation_days) ? +payload.vacation_days : undefined,
+      used_days: Number.isFinite(+payload.used_days) ? +payload.used_days : undefined,
+    };
 
-    const { data, error } = await sb.from('users').update(patch).eq('id', id).select().single();
-    if (error) return res.status(400).json({ error: 'update failed', details: error.message });
-    res.json(data);
+    if (payload.pass) update.pass = payload.pass; // proste hasło dev
+
+    const { data, error } = await sb.from('users').update(update).eq('id', id).select().maybeSingle();
+    if (error) throw error;
+
+    res.json(sanitizeUser(data));
   } catch (e) {
-    console.error('PUT /api/users/:id', e);
-    res.status(500).json({ error: 'server' });
+    console.error('PUT /users', e);
+    res.status(500).json({ error: 'update user failed' });
   }
 });
 
-// delete user
-app.delete('/api/users/:id', authRequired, async (req, res) => {
+app.delete('/users/:id', requireAuth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
-      return res.status(403).json({ error: 'forbidden' });
-    }
-    const id = req.params.id;
-    await sb.from('users').delete().eq('id', id);
+    if (!isAdmin(req.user)) return res.status(403).json({ error: 'forbidden' });
+
+    const { id } = req.params;
+    // (opcjonalnie) usuń wnioski usera
+    await sb.from('leaves').delete().eq('user_id', id);
+    const { error } = await sb.from('users').delete().eq('id', id);
+    if (error) throw error;
+
     res.json({ ok: true });
   } catch (e) {
-    console.error('DELETE /api/users/:id', e);
-    res.status(500).json({ error: 'server' });
+    console.error('DELETE /users', e);
+    res.status(500).json({ error: 'delete user failed' });
   }
 });
 
-// ===== Leaves =====
-
-// widoczność listy wniosków + filtry: ?status=submitted|approved|rejected
-app.get('/api/leaves', authRequired, async (req, res) => {
+// =============================================================
+//                         LEAVES
+// =============================================================
+app.get('/leaves', requireAuth, async (req, res) => {
   try {
-    const viewer = req.user;
-    const { data: users } = await sb
-      .from('users')
-      .select('id,manager_id');
+    const { status, status_in, scope, on } = req.query;
+    const allowedIds = await visibleUserIds(req.user);
 
-    // whitelista ID
-    let allowedIds = new Set();
-    if (viewer.role === 'admin') {
-      for (const u of users || []) allowedIds.add(u.id);
-    } else if (viewer.role === 'manager') {
-      allowedIds.add(viewer.id);
-      for (const u of users || []) if (u.manager_id === viewer.id) allowedIds.add(u.id);
+    let q = sb.from('leaves')
+      .select('*')
+      .in('user_id', allowedIds)
+      .order('from', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (status) q = q.eq('status', status);
+    if (status_in) q = q.in('status', String(status_in).split(',').map(s => s.trim()).filter(Boolean));
+
+    if (scope === 'mine') {
+      q = q.eq('user_id', req.user.id);
+    } else if (scope === 'mine_or_team' && isManager(req.user) && !isAdmin(req.user)) {
+      // już ograniczone przez allowedIds
+    }
+
+    if (on) {
+      // from <= on <= to
+      q = q.lte('from', on).gte('to', on);
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    const allUserIds = Array.from(new Set((data || []).map(l => l.user_id)));
+    const idx = await usersIndex(allUserIds);
+
+    const out = (data || []).map(l => ({
+      ...l,
+      user_name: idx[l.user_id]?.name || '—',
+    }));
+
+    res.json(out);
+  } catch (e) {
+    console.error('GET /leaves', e);
+    res.status(500).json({ error: 'list leaves failed' });
+  }
+});
+
+app.post('/leaves', requireAuth, async (req, res) => {
+  try {
+    const { type, from, to, comment } = req.body || {};
+    if (!type || !from || !to) return res.status(400).json({ error: 'missing fields' });
+
+    const insert = {
+      user_id: req.user.id,               // ważne: wnioskodawca = aktualny user
+      type,
+      from,
+      to,
+      comment: comment || null,
+      status: 'submitted',
+      created_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await sb.from('leaves').insert(insert).select().maybeSingle();
+    if (error) throw error;
+
+    res.json(data);
+  } catch (e) {
+    console.error('POST /leaves', e);
+    res.status(500).json({ error: 'create leave failed' });
+  }
+});
+
+app.put('/leaves/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Edycja tylko gdy submitted i należy do usera (albo admin)
+    const { data: l, error: e1 } = await sb.from('leaves').select('*').eq('id', id).maybeSingle();
+    if (e1 || !l) return res.status(404).json({ error: 'not found' });
+
+    if (!isAdmin(req.user) && !(l.user_id === req.user.id && l.status === 'submitted')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { type, from, to, comment } = req.body || {};
+    const upd = {
+      type: type ?? l.type,
+      from: from ?? l.from,
+      to: to ?? l.to,
+      comment: comment ?? l.comment,
+    };
+
+    const { data, error } = await sb.from('leaves').update(upd).eq('id', id).select().maybeSingle();
+    if (error) throw error;
+
+    res.json(data);
+  } catch (e) {
+    console.error('PUT /leaves/:id', e);
+    res.status(500).json({ error: 'update leave failed' });
+  }
+});
+
+app.post('/leaves/:id/approve', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { level } = req.body || {};
+    const { data: leave, error: e1 } = await sb.from('leaves').select('*').eq('id', id).maybeSingle();
+    if (e1 || !leave) return res.status(404).json({ error: 'not found' });
+
+    // dane wnioskującego
+    const { data: owner } = await sb.from('users').select('id,manager_id').eq('id', leave.user_id).maybeSingle();
+
+    if (level === 'manager') {
+      if (!isManager(req.user)) return res.status(403).json({ error: 'forbidden' });
+      if (leave.status !== 'submitted') return res.status(400).json({ error: 'bad status' });
+      if (owner?.manager_id !== req.user.id) return res.status(403).json({ error: 'not your subordinate' });
+
+      const { data, error } = await sb.from('leaves').update({
+        status: 'manager_approved',
+        manager_id: req.user.id,
+        manager_decision_at: new Date().toISOString(),
+      }).eq('id', id).select().maybeSingle();
+      if (error) throw error;
+
+      return res.json(data);
+    }
+
+    if (level === 'admin') {
+      if (!isAdmin(req.user)) return res.status(403).json({ error: 'forbidden' });
+      // ADMIN NIE MOŻE ZATWIERDZIĆ przed kierownikiem
+      if (leave.status !== 'manager_approved') {
+        return res.status(400).json({ error: 'manager approval required first' });
+      }
+
+      // (opcjonalnie) nalicz wykorzystane dni dla typów urlopowych
+      let usedAdd = 0;
+      const countableTypes = new Set([
+        'Urlop wypoczynkowy',
+        'Urlop na żądanie',
+      ]);
+      if (countableTypes.has(leave.type)) {
+        usedAdd = daysInclusive(leave.from, leave.to);
+      }
+
+      const { data, error } = await sb.from('leaves').update({
+        status: 'approved',
+        admin_id: req.user.id,
+        admin_decision_at: new Date().toISOString(),
+      }).eq('id', id).select().maybeSingle();
+      if (error) throw error;
+
+      if (usedAdd > 0) {
+        await sb.rpc('noop').catch(() => {}); // placeholder, by uniknąć "unused await" przy braku transakcji
+        await sb.from('users')
+          .update({ used_days: (owner?.used_days || 0) + usedAdd })
+          .eq('id', leave.user_id);
+      }
+
+      return res.json(data);
+    }
+
+    return res.status(400).json({ error: 'invalid level' });
+  } catch (e) {
+    console.error('POST /leaves/:id/approve', e);
+    res.status(500).json({ error: 'approve failed' });
+  }
+});
+
+app.post('/leaves/:id/reject', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { level, reason } = req.body || {};
+
+    const { data: leave, error: e1 } = await sb.from('leaves').select('*').eq('id', id).maybeSingle();
+    if (e1 || !leave) return res.status(404).json({ error: 'not found' });
+
+    const { data: owner } = await sb.from('users').select('manager_id').eq('id', leave.user_id).maybeSingle();
+
+    if (level === 'manager') {
+      if (!isManager(req.user)) return res.status(403).json({ error: 'forbidden' });
+      if (owner?.manager_id !== req.user.id) return res.status(403).json({ error: 'not your subordinate' });
+      if (leave.status !== 'submitted') return res.status(400).json({ error: 'bad status' });
+    } else if (level === 'admin') {
+      if (!isAdmin(req.user)) return res.status(403).json({ error: 'forbidden' });
+      // Admin może odrzucić na każdym etapie
     } else {
-      allowedIds.add(viewer.id);
+      return res.status(400).json({ error: 'invalid level' });
     }
 
-    let query = sb.from('leaves').select('id,user_id,type,from,to,comment,status,decided_by_l,decided_by_i,decided_at_l,decided_at_i,created_at,updated_at');
-    const status = (req.query.status || '').toString();
-    if (status) query = query.eq('status', status);
-
-    const { data, error } = await query.order('from', { ascending: true });
-    if (error) return res.status(500).json({ error: 'db' });
-
-    const filtered = (data || []).filter(l => allowedIds.has(l.user_id));
-    res.json(filtered);
-  } catch (e) {
-    console.error('GET /api/leaves', e);
-    res.status(500).json({ error: 'server' });
-  }
-});
-
-// create leave – employee składa tylko za siebie
-app.post('/api/leaves', authRequired, async (req, res) => {
-  try {
-    const viewer = req.user;
-    const row = { ...req.body };
-
-    if (viewer.role === 'employee') {
-      row.user_id = viewer.id; // ignorujemy to co przyszło z frontu
-    } else if (!row.user_id) {
-      return res.status(400).json({ error: 'user_id required' });
-    }
-    row.status = row.status || 'submitted';
-
-    const { data, error } = await sb.from('leaves').insert(row).select().single();
-    if (error) return res.status(400).json({ error: 'create failed', details: error.message });
+    const { data, error } = await sb.from('leaves').update({
+      status: 'rejected',
+      reject_reason: reason || null,
+      rejected_by: req.user.id,
+      rejected_at: new Date().toISOString(),
+    }).eq('id', id).select().maybeSingle();
+    if (error) throw error;
 
     res.json(data);
   } catch (e) {
-    console.error('POST /api/leaves', e);
-    res.status(500).json({ error: 'server' });
+    console.error('POST /leaves/:id/reject', e);
+    res.status(500).json({ error: 'reject failed' });
   }
 });
 
-// update leave (akceptacja/odrzucenie lub edycja wniosku)
-app.put('/api/leaves/:id', authRequired, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const patch = { ...req.body };
+// =============================================================
+//                Static (frontend) + start
+// =============================================================
+app.use(express.static(path.join(__dirname, 'public')));
 
-    // odczytaj wniosek, by sprawdzić właściciela i status
-    const { data: lrow, error: gerr } = await sb.from('leaves').select('*').eq('id', id).single();
-    if (gerr || !lrow) return res.status(404).json({ error: 'not_found' });
-
-    const viewer = req.user;
-
-    const isOwner = lrow.user_id === viewer.id;
-
-    // pracownik: może edytować TYLKO swój wniosek i tylko gdy submitted
-    if (viewer.role === 'employee') {
-      if (!isOwner) return res.status(403).json({ error: 'forbidden' });
-      if (lrow.status !== 'submitted') return res.status(400).json({ error: 'locked' });
-      // nie pozwalaj samemu zmieniać statusu
-      delete patch.status;
-      delete patch.decided_by_l;
-      delete patch.decided_by_i;
-      delete patch.decided_at_l;
-      delete patch.decided_at_i;
-    }
-
-    // manager: może akceptować dla swoich podopiecznych (lub swoje)
-    if (viewer.role === 'manager') {
-      // sprawdź czy user jest podwładnym
-      const { data: emp } = await sb.from('users').select('id,manager_id').eq('id', lrow.user_id).single();
-      if (lrow.user_id !== viewer.id && emp?.manager_id !== viewer.id && viewer.role !== 'admin') {
-        return res.status(403).json({ error: 'forbidden' });
-      }
-      if (patch.status) {
-        patch.decided_by_l = viewer.id;
-        patch.decided_at_l = new Date().toISOString();
-      }
-    }
-
-    // admin: pełna władza
-    if (viewer.role === 'admin' && patch.status) {
-      patch.decided_by_i = viewer.id;
-      patch.decided_at_i = new Date().toISOString();
-    }
-
-    const { data, error } = await sb.from('leaves').update(patch).eq('id', id).select().single();
-    if (error) return res.status(400).json({ error: 'update failed', details: error.message });
-    res.json(data);
-  } catch (e) {
-    console.error('PUT /api/leaves/:id', e);
-    res.status(500).json({ error: 'server' });
-  }
+// fallback dla ścieżek SPA (opcjonalnie)
+app.get(['/', '/index.html', '/dashboard', '/employees', '/leaves'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// delete leave
-app.delete('/api/leaves/:id', authRequired, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const { data: lrow } = await sb.from('leaves').select('id,user_id,status').eq('id', id).single();
-    if (!lrow) return res.status(404).json({ error: 'not_found' });
-
-    const viewer = req.user;
-    const isOwner = lrow.user_id === viewer.id;
-
-    if (viewer.role === 'employee' && (!isOwner || lrow.status !== 'submitted')) {
-      return res.status(403).json({ error: 'forbidden' });
-    }
-    if (viewer.role === 'manager') {
-      // manager może skasować swój/podopiecznego (dowolny status w naszej logice)
-    }
-    await sb.from('leaves').delete().eq('id', id);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('DELETE /api/leaves/:id', e);
-    res.status(500).json({ error: 'server' });
-  }
-});
-
-// ===== Start =====
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Emerlog Urlopy (Supabase) running on :${PORT}`);
 });
