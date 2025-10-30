@@ -13,8 +13,9 @@
 <main class="wrap">
   <section id="loginView" class="card">
     <h3>Logowanie</h3>
-    <input id="email" placeholder="email">
-    <input id="pass" type="password" placeholder="hasło">
+    <div id="err" class="err hidden"></div>
+    <input id="email" placeholder="email" autocomplete="username">
+    <input id="pass" type="password" placeholder="hasło" autocomplete="current-password">
     <button id="loginBtn">Zaloguj</button>
   </section>
 
@@ -62,14 +63,25 @@
   const $comment = $('#comment')
   const $filter = $('#filter')
   const $leavesList = $('#leavesList')
+  const $err = $('#err')
+
+  function showErr(msg){
+    $err.textContent = msg || ''
+    $err.classList.toggle('hidden', !msg)
+    console.error(msg)
+  }
 
   async function refreshTop(){
-    const { left, total } = await meDays()
-    $('#days').textContent = `${left}/${total}`
-    let pending = 0
-    pending += (await managerInboxCount()).count
-    pending += (await adminInboxCount()).count
-    $('#bell').textContent = pending
+    try{
+      const { left, total } = await meDays()
+      $('#days').textContent = `${left}/${total}`
+      let pending = 0
+      pending += (await managerInboxCount()).count
+      pending += (await adminInboxCount()).count
+      $('#bell').textContent = pending
+    }catch(e){
+      // brak uprawnień do users przy nielogowanym – ignoruj
+    }
   }
 
   async function render(){
@@ -87,7 +99,8 @@
 
   async function loadList(){
     const status = $filter.value || null
-    const { data } = await listLeaves(status)
+    const { data, error } = await listLeaves(status)
+    if (error){ showErr(error.message); return }
     $leavesList.innerHTML = (data||[]).map(l=>`
       <div class="row">
         <span>${l.type}</span>
@@ -99,21 +112,23 @@
       </div>
     `).join('')
     document.querySelectorAll('.mapp').forEach(b=>b.onclick=async()=>{
-      await managerApprove(b.dataset.id); await render()
+      const { error } = await managerApprove(b.dataset.id)
+      if (error) showErr(error.message); else await render()
     })
     document.querySelectorAll('.aapp').forEach(b=>b.onclick=async()=>{
       const ok=confirm('Zatwierdzić? OK=tak, Anuluj=odrzuć')
-      await adminFinalize(b.dataset.id, ok)
-      await render()
+      const { error } = await adminFinalize(b.dataset.id, ok)
+      if (error) showErr(error.message); else await render()
     })
   }
 
   $('#loginBtn').onclick = async ()=>{
+    showErr('')
     try {
       await signIn($email.value, $pass.value)
       await render()
     } catch(e){
-      alert(e.message)
+      showErr(e.message || String(e))
     }
   }
 
@@ -124,19 +139,22 @@
 
   $('#newLeave').onsubmit = async e=>{
     e.preventDefault()
-    await submitLeave({
+    showErr('')
+    const { error } = await submitLeave({
       type:$type.value,
       from:$from.value,
       to:$to.value,
       comment:$comment.value
     })
+    if (error) showErr(error.message)
     await render()
   }
 
   $filter.onchange = loadList
 
   $('#exportCsv').onclick = async ()=>{
-    const { data } = await listLeaves()
+    const { data, error } = await listLeaves()
+    if (error){ showErr(error.message); return }
     const header = Object.keys(data[0]||{id:'id'})
     const rows = [header.join(','), ...data.map(r=>header.map(k=>JSON.stringify(r[k]??'')).join(','))]
     const blob = new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8' })
