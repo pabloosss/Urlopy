@@ -1,0 +1,107 @@
+<!doctype html><html lang="pl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Urlopy v2</title>
+<link rel="stylesheet" href="./styles.css">
+</head><body>
+<header class="topbar">
+  <div>Urlopy v2</div>
+  <div>Pozostało: <span id="days">--/--</span></div>
+  <button id="bell" title="Do decyzji">0</button>
+  <button id="logoutBtn">Wyloguj</button>
+</header>
+
+<main class="wrap">
+  <section id="loginView" class="card">
+    <h3>Logowanie</h3>
+    <input id="email" placeholder="email">
+    <input id="pass" type="password" placeholder="hasło">
+    <button id="loginBtn">Zaloguj</button>
+  </section>
+
+  <section id="leavesView" class="card hidden">
+    <h3>Wnioski</h3>
+    <form id="newLeave">
+      <select id="type">
+        <option value="annual">Urlop</option>
+        <option value="unpaid">Bezpłatny</option>
+        <option value="sick">Chorobowe</option>
+      </select>
+      <input type="date" id="from">
+      <input type="date" id="to">
+      <input id="comment" placeholder="Komentarz">
+      <button>Dodaj</button>
+    </form>
+    <div class="toolbar">
+      <select id="filter">
+        <option value="">Wszystkie</option>
+        <option>submitted</option>
+        <option>manager_approved</option>
+        <option>approved</option>
+        <option>rejected</option>
+      </select>
+      <button id="exportCsv">CSV</button>
+      <button id="print">Drukuj</button>
+    </div>
+    <div id="leavesList"></div>
+  </section>
+</main>
+
+<script type="module">
+  import { supabase } from './supabaseClient.js'
+  import { signIn, signOut, getSessionUser } from './auth.js'
+  import { myLeaves, submitLeave, listLeaves, managerApprove, adminFinalize, managerInboxCount, adminInboxCount, meDays } from './leaves.js'
+
+  const loginView = document.querySelector('#loginView')
+  const leavesView = document.querySelector('#leavesView')
+
+  async function refreshTop(){
+    const { left, total } = await meDays()
+    document.querySelector('#days').textContent = `${left}/${total}`
+    let pending = 0
+    pending += (await managerInboxCount()).count
+    pending += (await adminInboxCount()).count
+    document.querySelector('#bell').textContent = pending
+  }
+
+  async function render(){
+    const user = await getSessionUser()
+    if (!user){ loginView.classList.remove('hidden'); leavesView.classList.add('hidden'); return }
+    loginView.classList.add('hidden'); leavesView.classList.remove('hidden')
+    await refreshTop()
+    await loadList()
+  }
+
+  async function loadList(){
+    const status = document.querySelector('#filter').value || null
+    const { data } = await listLeaves(status)
+    document.querySelector('#leavesList').innerHTML = (data||[]).map(l=>`
+      <div class="row">
+        <span>${l.type}</span>
+        <span>${l.from} → ${l.to}</span>
+        <span class="badge ${l.status}">${l.status}</span>
+        <span>${l.comment||''}</span>
+        ${l.status==='submitted' ? '<button class="mapp" data-id="'+l.id+'">Akceptuj (Mgr)</button>' : ''}
+        ${l.status==='manager_approved' ? '<button class="aapp" data-id="'+l.id+'">Finalizuj (Admin)</button>' : ''}
+      </div>
+    `).join('')
+    document.querySelectorAll('.mapp').forEach(b=>b.onclick=async()=>{await managerApprove(b.dataset.id); await render()})
+    document.querySelectorAll('.aapp').forEach(b=>b.onclick=async()=>{const ok=confirm('Zatwierdzić? OK=tak, Anuluj=odrzuć'); await adminFinalize(b.dataset.id, ok); await render()})
+  }
+
+  document.querySelector('#loginBtn').onclick = async ()=>{ try{ await signIn(email.value, pass.value); await render() }catch(e){ alert(e.message) } }
+  document.querySelector('#logoutBtn').onclick = async ()=>{ await signOut(); await render() }
+  document.querySelector('#newLeave').onsubmit = async e=>{ e.preventDefault(); await submitLeave({ type:type.value, from:from.value, to:to.value, comment:comment.value }); await render() }
+  document.querySelector('#filter').onchange = loadList
+  document.querySelector('#exportCsv').onclick = async ()=>{
+    const { data } = await listLeaves()
+    const header = Object.keys(data[0]||{id:'id'})
+    const rows = [header.join(','), ...data.map(r=>header.map(k=>JSON.stringify(r[k]??'')).join(','))]
+    const blob = new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='leaves.csv'; a.click()
+  }
+  document.querySelector('#print').onclick = ()=>window.print()
+
+  supabase.auth.onAuthStateChange(render)
+  render()
+</script>
+</body></html>
