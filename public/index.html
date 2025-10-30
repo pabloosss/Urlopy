@@ -51,30 +51,44 @@
   import { signIn, signOut, getSessionUser } from './auth.js'
   import { listLeaves, submitLeave, managerApprove, adminFinalize, managerInboxCount, adminInboxCount, meDays } from './leaves.js'
 
-  const loginView = document.querySelector('#loginView')
-  const leavesView = document.querySelector('#leavesView')
+  const $ = s => document.querySelector(s)
+  const $loginView = $('#loginView')
+  const $leavesView = $('#leavesView')
+  const $email = $('#email')
+  const $pass = $('#pass')
+  const $type = $('#type')
+  const $from = $('#from')
+  const $to = $('#to')
+  const $comment = $('#comment')
+  const $filter = $('#filter')
+  const $leavesList = $('#leavesList')
 
   async function refreshTop(){
     const { left, total } = await meDays()
-    document.querySelector('#days').textContent = `${left}/${total}`
+    $('#days').textContent = `${left}/${total}`
     let pending = 0
     pending += (await managerInboxCount()).count
     pending += (await adminInboxCount()).count
-    document.querySelector('#bell').textContent = pending
+    $('#bell').textContent = pending
   }
 
   async function render(){
     const user = await getSessionUser()
-    if (!user){ loginView.classList.remove('hidden'); leavesView.classList.add('hidden'); return }
-    loginView.classList.add('hidden'); leavesView.classList.remove('hidden')
+    if (!user){
+      $loginView.classList.remove('hidden')
+      $leavesView.classList.add('hidden')
+      return
+    }
+    $loginView.classList.add('hidden')
+    $leavesView.classList.remove('hidden')
     await refreshTop()
     await loadList()
   }
 
   async function loadList(){
-    const status = document.querySelector('#filter').value || null
+    const status = $filter.value || null
     const { data } = await listLeaves(status)
-    document.querySelector('#leavesList').innerHTML = (data||[]).map(l=>`
+    $leavesList.innerHTML = (data||[]).map(l=>`
       <div class="row">
         <span>${l.type}</span>
         <span>${l.from} → ${l.to}</span>
@@ -84,25 +98,57 @@
         ${l.status==='manager_approved' ? '<button class="aapp" data-id="'+l.id+'">Finalizuj (Admin)</button>' : ''}
       </div>
     `).join('')
-    document.querySelectorAll('.mapp').forEach(b=>b.onclick=async()=>{await managerApprove(b.dataset.id); await render()})
-    document.querySelectorAll('.aapp').forEach(b=>b.onclick=async()=>{const ok=confirm('Zatwierdzić? OK=tak, Anuluj=odrzuć'); await adminFinalize(b.dataset.id, ok); await render()})
+    document.querySelectorAll('.mapp').forEach(b=>b.onclick=async()=>{
+      await managerApprove(b.dataset.id); await render()
+    })
+    document.querySelectorAll('.aapp').forEach(b=>b.onclick=async()=>{
+      const ok=confirm('Zatwierdzić? OK=tak, Anuluj=odrzuć')
+      await adminFinalize(b.dataset.id, ok)
+      await render()
+    })
   }
 
-  document.querySelector('#loginBtn').onclick = async ()=>{ try{ await signIn(email.value, pass.value); await render() }catch(e){ alert(e.message) } }
-  document.querySelector('#logoutBtn').onclick = async ()=>{ await signOut(); await render() }
-  document.querySelector('#newLeave').onsubmit = async e=>{ e.preventDefault(); await submitLeave({ type:type.value, from:from.value, to:to.value, comment:comment.value }); await render() }
-  document.querySelector('#filter').onchange = loadList
-  document.querySelector('#exportCsv').onclick = async ()=>{
+  $('#loginBtn').onclick = async ()=>{
+    try {
+      await signIn($email.value, $pass.value)
+      await render()
+    } catch(e){
+      alert(e.message)
+    }
+  }
+
+  $('#logoutBtn').onclick = async ()=>{
+    await signOut()
+    await render()
+  }
+
+  $('#newLeave').onsubmit = async e=>{
+    e.preventDefault()
+    await submitLeave({
+      type:$type.value,
+      from:$from.value,
+      to:$to.value,
+      comment:$comment.value
+    })
+    await render()
+  }
+
+  $filter.onchange = loadList
+
+  $('#exportCsv').onclick = async ()=>{
     const { data } = await listLeaves()
     const header = Object.keys(data[0]||{id:'id'})
     const rows = [header.join(','), ...data.map(r=>header.map(k=>JSON.stringify(r[k]??'')).join(','))]
     const blob = new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='leaves.csv'; a.click()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download='leaves.csv'
+    a.click()
   }
-  document.querySelector('#print').onclick = ()=>window.print()
+
+  $('#print').onclick = ()=>window.print()
 
   supabase.auth.onAuthStateChange(render)
   render()
 </script>
 </body></html>
-
