@@ -12,3 +12,4 @@ input,select,button{padding:8px;border-radius:8px;border:1px solid #333;backgrou
 .badge.rejected{background:#3a1c1c}
 .hidden{display:none}
 .toolbar{display:flex;gap:8px;margin:8px 0}
+.err{background:#3a1c1c;border:1px solid #662222;color:#ffdede;padding:8px;border-radius:8px;margin-bottom:8px}
