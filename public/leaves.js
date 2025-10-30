@@ -1,9 +1,16 @@
 import { supabase } from './supabaseClient.js'
 
 export async function meDays(){
-  const uid = (await supabase.auth.getUser()).data.user.id
-  const { data } = await supabase.from('users').select('vacation_days,used_days').eq('id',uid).single()
-  const total = data?.vacation_days||0, used = data?.used_days||0
+  const u = await supabase.auth.getUser()
+  if (!u.data.user) return { left: 0, total: 0 }
+  const { data, error } = await supabase
+    .from('users')
+    .select('vacation_days,used_days')
+    .eq('id', u.data.user.id)
+    .single()
+  if (error) throw error
+  const total = data?.vacation_days||0
+  const used = data?.used_days||0
   return { left: total - used, total }
 }
 
@@ -14,8 +21,11 @@ export async function listLeaves(status=null){
 }
 
 export async function submitLeave(p){
-  const uid = (await supabase.auth.getUser()).data.user.id
-  return await supabase.from('leaves').insert([{ user_id: uid, type: p.type, from: p.from, to: p.to, comment: p.comment }])
+  const u = await supabase.auth.getUser()
+  const uid = u.data.user.id
+  return await supabase.from('leaves').insert([{
+    user_id: uid, type: p.type, from: p.from, to: p.to, comment: p.comment
+  }])
 }
 
 export async function managerInboxCount(){
@@ -25,13 +35,13 @@ export async function managerInboxCount(){
     .select('id, user_id, status, users!inner(manager_id)')
     .eq('status','submitted')
     .eq('users.manager_id', uid)
-  if (error) return { count: 0 }
+  if (error) return { count: 0, error }
   return { count: data.length }
 }
 
 export async function adminInboxCount(){
   const { data, error } = await supabase.from('leaves').select('id').eq('status','manager_approved')
-  if (error) return { count: 0 }
+  if (error) return { count: 0, error }
   return { count: data.length }
 }
 
