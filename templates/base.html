@@ -12,29 +12,34 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="brand">
-            <img src="{{ url_for('static', filename='emerlog-logo.png') }}" alt="EMERLOG">
+            <img src="{{ url_for('main.graphics_file', filename='logo.png') }}" alt="EMERLOG">
             <div class="brand-fallback">EMERLOG</div>
             <small>Leave Manager</small>
         </div>
 
         <nav class="menu">
+            <div class="menu-section">Ewidencja</div>
             <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
             <a href="{{ url_for('main.presence_view') }}">Obecność</a>
-            <a href="{{ url_for('main.my_leave') }}">Mój urlop</a>
-            <a href="{{ url_for('requests.requests_view') }}">Wnioski</a>
-            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
+            <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
 
-            {% if is_manager() %}
-                <a href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
-                <a href="{{ url_for('admin.reports_view') }}">Raporty zespołu</a>
-            {% endif %}
+            <div class="menu-section">Nieobecności</div>
+            <a href="{{ url_for('requests.new_leave_request') }}">Wnioskuj</a>
+            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
+            <a href="{{ url_for('requests.requests_view') }}">Zgłoszenia</a>
+            <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
+            <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
 
             {% if is_hr() %}
-                <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
+                <div class="menu-section">Pracownicy</div>
+                <a href="{{ url_for('employees.employees_view') }}">Ludzie</a>
                 <a href="{{ url_for('limits.limits_view') }}">Limity urlopowe</a>
                 <a href="{{ url_for('admin.reports_view') }}">Raporty</a>
                 <a href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
-                <a href="{{ url_for('admin.audit_view') }}">Historia działań</a>
+            {% elif is_manager() %}
+                <div class="menu-section">Zespół</div>
+                <a href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
+                <a href="{{ url_for('admin.reports_view') }}">Raporty zespołu</a>
             {% endif %}
         </nav>
     </aside>
