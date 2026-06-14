@@ -3,28 +3,108 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <p class="eyebrow">Kalendarz</p>
-        <h1>Kalendarz nieobecności</h1>
-        <p>Widok miesięczny. Pracownik widzi ogólną nieobecność, menedżer i kadry widzą typ.</p>
+        <p class="eyebrow">Nieobecności</p>
+        <h1>Kalendarz firmowy</h1>
+        <p>Kalendarz pokazuje maksymalnie 3 wpisy w kratce dnia. Reszta jest w liście pod spodem.</p>
     </div>
+    <a class="btn-secondary" href="{{ url_for('main.presence_view') }}">Lista obecności</a>
 </section>
+
+<div class="card filters-card">
+    <form method="get" class="filters-form">
+        <div>
+            <label>Rok</label>
+            <input type="number" name="year" value="{{ selected_year }}">
+        </div>
+        <div>
+            <label>Miesiąc</label>
+            <input type="number" name="month" value="{{ selected_month }}" min="1" max="12">
+        </div>
+        <div>
+            <label>Dział</label>
+            <select name="department">
+                <option value="">Wszystkie</option>
+                {% for d in departments %}
+                    <option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Pracownik</label>
+            <input name="employee" placeholder="np. Jan" value="{{ request.args.get('employee','') }}">
+        </div>
+        <div>
+            <label>Typ</label>
+            <select name="leave_type">
+                <option value="">Wszystkie typy</option>
+                {% for t in leave_types %}
+                    <option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>&nbsp;</label>
+            <button type="submit">Filtruj</button>
+        </div>
+    </form>
+</div>
 
 <div class="card calendar-card">
     <div class="calendar-grid">
         <div class="calendar-head">Pon</div><div class="calendar-head">Wt</div><div class="calendar-head">Śr</div><div class="calendar-head">Czw</div><div class="calendar-head">Pt</div><div class="calendar-head">Sob</div><div class="calendar-head">Nd</div>
         {% for week in month_days %}
             {% for day in week %}
-                <div class="calendar-day {% if day.month != selected_month %}muted-day{% endif %}">
-                    <b>{{ day.day }}</b>
-                    {% for req in requests_by_day.get(day.day, []) if day.month == selected_month %}
-                        <div class="calendar-event">
-                            {{ req.full_name }}
+                {% set day_items = requests_by_day.get(day.day, []) if day.month == selected_month else [] %}
+                <div class="calendar-day {% if day.month != selected_month %}muted-day{% endif %} {% if day_items|length > 0 %}has-events{% endif %}">
+                    <div class="calendar-day-top">
+                        <b>{{ day.day }}</b>
+                        {% if day_items|length > 0 %}<span>{{ day_items|length }}</span>{% endif %}
+                    </div>
+
+                    {% for req in day_items[:3] %}
+                        <div class="calendar-event compact-event">
+                            <b>{{ req.full_name }}</b>
                             {% if is_hr() or is_manager() %}<small>{{ req.leave_type }}</small>{% else %}<small>nieobecny</small>{% endif %}
                         </div>
                     {% endfor %}
+
+                    {% if day_items|length > 3 %}
+                        <div class="calendar-more">+{{ day_items|length - 3 }} więcej</div>
+                    {% endif %}
                 </div>
             {% endfor %}
         {% endfor %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Nieobecności w tym miesiącu</h2>
+            <p class="muted">Lista jest czytelniejsza niż upychanie wszystkiego w kratkach kalendarza.</p>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>Pracownik</th><th>Dział</th><th>Typ</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for req in requests_list %}
+                <tr>
+                    <td><b>{{ req.full_name }}</b></td>
+                    <td>{{ req.department }}</td>
+                    <td>{{ req.leave_type }}</td>
+                    <td>{{ req.date_from|pldate }}</td>
+                    <td>{{ req.date_to|pldate }}</td>
+                    <td><b>{{ req.days_count }}</b></td>
+                    <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="empty-state">Brak nieobecności dla wybranych filtrów.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}
