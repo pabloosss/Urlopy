@@ -7,6 +7,8 @@ Prosta aplikacja webowa do obsługi wniosków urlopowych w firmie.
 - logowanie użytkowników,
 - role: pracownik, kadry, admin,
 - składanie wniosków urlopowych,
+- automatyczne liczenie dni roboczych,
+- pomijanie sobót, niedziel i polskich świąt,
 - lista własnych wniosków dla pracownika,
 - lista wszystkich wniosków dla kadr/admina,
 - akceptowanie i odrzucanie wniosków,
@@ -15,7 +17,7 @@ Prosta aplikacja webowa do obsługi wniosków urlopowych w firmie.
 ## Uruchomienie lokalne na Windows
 
 ```powershell
-cd C:\projekty\urlopy_firmowe
+cd C:\projekty\Urlopy
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -42,7 +44,6 @@ Plik `database.db` nie jest wrzucany na GitHub, bo zawiera dane użytkowników i
 
 ## Plan dalszych funkcji
 
-- automatyczne liczenie dni roboczych,
 - limity urlopowe: przysługuje / wykorzystane / oczekujące / pozostało,
 - panel admina do dodawania pracowników,
 - działy i menedżerowie,
