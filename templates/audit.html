@@ -1,1 +1,5 @@
-OK
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title"><div><p class="eyebrow">Historia</p><h1>Historia działań</h1></div></section>
+<div class="card"><div class="table-wrapper"><table><thead><tr><th>Kto</th><th>Akcja</th><th>Obiekt</th><th>Data</th></tr></thead><tbody>{% for log in logs %}<tr><td>{{ log.actor_name or "system" }}</td><td>{{ log.action }}</td><td>{{ log.entity_type }} #{{ log.entity_id or "—" }}</td><td>{{ log.created_at }}</td></tr>{% else %}<tr><td colspan="4" class="empty-state">Brak wpisów.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
