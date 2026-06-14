@@ -3,36 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Urlopy Firmowe</title>
+    <title>EMERLOG Urlopy</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
-<header>
-    <h1>Urlopy Firmowe</h1>
-
-    {% if session.get("user_id") %}
-        <div class="topbar">
-            Zalogowano: <b>{{ session.get("full_name") }}</b>
-            | Rola: <b>{{ session.get("role") }}</b>
-            | <a href="{{ url_for('logout') }}">Wyloguj</a>
+{% if session.get("user_id") %}
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <img src="{{ url_for('static', filename='emerlog-logo.png') }}" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="brand-fallback">EMERLOG</div>
+            <small>Leave Manager</small>
         </div>
-    {% endif %}
-</header>
 
-<main>
+        <nav class="menu">
+            <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('main.my_leave') }}">Mój urlop</a>
+            <a href="{{ url_for('requests.requests_view') }}">Wnioski</a>
+            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
+
+            {% if is_manager() %}
+                <a href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
+                <a href="{{ url_for('admin.reports_view') }}">Raporty zespołu</a>
+            {% endif %}
+
+            {% if is_hr() %}
+                <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
+                <a href="{{ url_for('limits.limits_view') }}">Limity urlopowe</a>
+                <a href="{{ url_for('admin.reports_view') }}">Raporty</a>
+                <a href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
+                <a href="{{ url_for('admin.audit_view') }}">Historia działań</a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <div class="content-shell">
+        <header class="topbar">
+            <div>
+                <strong>{{ session.get("full_name") }}</strong>
+                <span>{{ session.get("role") }}</span>
+            </div>
+            <a class="logout" href="{{ url_for('main.logout') }}">Wyloguj</a>
+        </header>
+
+        <main>
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="msg">
+                        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% else %}
+<main class="login-main">
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             <div class="msg">
-                {% for message in messages %}
-                    <p>{{ message }}</p>
-                {% endfor %}
+                {% for message in messages %}<p>{{ message }}</p>{% endfor %}
             </div>
         {% endif %}
     {% endwith %}
-
+    {% block login_content %}{% endblock %}
     {% block content %}{% endblock %}
 </main>
+{% endif %}
 
 </body>
 </html>
