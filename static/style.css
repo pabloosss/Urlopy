@@ -1,0 +1,143 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    color: #222;
+}
+
+header {
+    background: #1f2937;
+    color: white;
+    padding: 20px;
+}
+
+header h1 {
+    margin: 0 0 8px 0;
+}
+
+header a {
+    color: #93c5fd;
+}
+
+.topbar {
+    font-size: 14px;
+}
+
+main {
+    padding: 20px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.card-small {
+    max-width: 460px;
+}
+
+form {
+    display: grid;
+    gap: 10px;
+    max-width: 420px;
+}
+
+input,
+select,
+textarea,
+button {
+    padding: 10px;
+    font-size: 15px;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    border: 0;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border-bottom: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #e5e7eb;
+}
+
+.msg {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+}
+
+.msg p {
+    margin: 0;
+}
+
+.inline-form {
+    display: inline-block;
+    margin: 0 5px 5px 0;
+}
+
+.btn-ok {
+    background: #16a34a;
+}
+
+.btn-ok:hover {
+    background: #15803d;
+}
+
+.btn-bad {
+    background: #dc2626;
+}
+
+.btn-bad:hover {
+    background: #b91c1c;
+}
+
+.status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.status-oczekuje {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-zaakceptowany {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-odrzucony {
+    background: #fee2e2;
+    color: #991b1b;
+}
