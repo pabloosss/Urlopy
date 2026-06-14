@@ -1,27 +1,44 @@
-# Urlopy Firmowe
+# EMERLOG Urlopy / Leave Manager
 
-Prosta aplikacja webowa do obsługi wniosków urlopowych w firmie.
+Nowoczesna aplikacja webowa do obsługi urlopów i nieobecności w polskiej firmie logistycznej EMERLOG.
 
-## Aktualny zakres
+## Aktualny MVP
 
 - logowanie użytkowników,
-- role: pracownik, kadry, admin,
+- role: pracownik, menedżer, kadry, admin,
+- lewy panel boczny z menu zależnym od roli,
+- dashboard z kafelkami,
 - składanie wniosków urlopowych,
 - automatyczne liczenie dni roboczych,
 - pomijanie sobót, niedziel i polskich świąt,
-- limity urlopowe: przysługuje / zaakceptowane / oczekujące / dostępne,
-- blokada składania wniosku ponad dostępny limit urlopu,
-- anulowanie oczekującego wniosku,
-- lista własnych wniosków dla pracownika,
-- lista wszystkich wniosków dla kadr/admina,
-- akceptowanie i odrzucanie wniosków,
-- odświeżony panel graficzny,
+- typy nieobecności: urlop, L4, bezpłatny, zdalna, delegacja itd.,
+- zastępstwo opcjonalne,
+- notatka o załączniku jako placeholder etapu 2,
+- lista wniosków z filtrami,
+- akceptacja, odrzucenie, anulowanie i cofnięcie do poprawy,
+- limity urlopowe: limit roczny, zaległe, wykorzystane, oczekujące, dostępne,
+- prosty kalendarz miesięczny,
+- baza pracowników,
+- raport miesięczny,
+- eksport CSV,
+- historia działań,
 - lokalna baza SQLite `database.db`.
+
+## Logo EMERLOG
+
+Aplikacja szuka logo tutaj:
+
+```text
+static/emerlog-logo.png
+```
+
+Jeżeli pliku nie ma, pokazuje tekstowy napis EMERLOG. Logo nie jest generowane ani modyfikowane.
 
 ## Uruchomienie lokalne na Windows
 
 ```powershell
 cd C:\projekty\Urlopy
+git pull
 venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
@@ -30,7 +47,9 @@ python app.py
 Jeżeli uruchamiasz pierwszy raz:
 
 ```powershell
-cd C:\projekty\Urlopy
+cd C:\projekty
+git clone https://github.com/pabloosss/Urlopy.git
+cd Urlopy
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -47,27 +66,49 @@ http://127.0.0.1:5000
 
 | Login | Hasło | Rola |
 |---|---|---|
-| admin | admin123 | admin |
-| kadry | kadry123 | kadry |
 | jan | jan123 | pracownik |
+| anna | anna123 | menedżer |
+| pawel | pawel123 | menedżer |
+| ewa | ewa123 | admin/kadry |
+| kadry | kadry123 | kadry |
+| admin | admin123 | admin |
+
+## Dane przykładowe
+
+Działy:
+
+- Spedycja,
+- Księgowość,
+- Kadry,
+- IT,
+- Zarząd.
+
+Pracownicy testowi:
+
+- Jan Kowalski — pracownik,
+- Anna Nowak — menedżer,
+- Paweł Pisarczyk — menedżer,
+- Ewa Dusińska — kadry/admin.
 
 ## Ważne
 
 Plik `database.db` nie jest wrzucany na GitHub, bo zawiera dane użytkowników i wnioski.
 
-Z puli urlopowej odejmują się obecnie tylko typy:
+Jeżeli po dużej zmianie schematu coś się wywali na testach, można usunąć lokalny plik:
 
-- Wypoczynkowy,
-- Na żądanie.
+```powershell
+Remove-Item database.db
+python app.py
+```
 
-Pozostałe typy, np. L4, Bezpłatny, Okolicznościowy, Odbiór godzin, nie zmniejszają limitu urlopu.
+Aplikacja utworzy bazę od nowa z danymi testowymi.
 
-## Plan dalszych funkcji
+## Etap 2
 
-- panel admina do dodawania pracowników,
-- działy i menedżerowie,
-- komentarz kadrowej przy odrzuceniu,
-- historia zmian statusu,
-- kalendarz nieobecności,
-- eksport do Excela,
-- powiadomienia e-mail.
+- pełne załączniki plikowe,
+- powiadomienia e-mail,
+- eksport XLSX,
+- dokładniejsza historia zmian,
+- edycja pracowników,
+- edycja typów nieobecności z panelu,
+- integracja Outlook/Teams.
