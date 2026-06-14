@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <p class="eyebrow">Limity</p>
+        <h1>Limity urlopowe</h1>
+        <p>Roczny limit, zaległe dni, wykorzystane, oczekujące i dostępne.</p>
+    </div>
+</section>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr><th>Pracownik</th><th>Limit</th><th>Zaległe</th><th>Wykorzystane</th><th>Oczekujące</th><th>Dostępne</th></tr>
+            </thead>
+            <tbody>
+                {% for row in summaries %}
+                <tr>
+                    <td><b>{{ row.user.full_name }}</b><br><small>{{ row.user.department }}</small></td>
+                    <td>{{ row.summary.base }}</td>
+                    <td>{{ row.summary.carryover }}</td>
+                    <td>{{ row.summary.accepted }}</td>
+                    <td>{{ row.summary.pending }}</td>
+                    <td><b>{{ row.summary.available }}</b></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Ręczna korekta limitu</h2>
+    <form method="post" class="filters-form">
+        <select name="user_id" required>
+            {% for row in summaries %}<option value="{{ row.user.id }}">{{ row.user.full_name }}</option>{% endfor %}
+        </select>
+        <input type="number" name="vacation_days" placeholder="Limit roczny" required>
+        <input type="number" name="carryover_days" placeholder="Zaległe" value="0">
+        <input name="reason" placeholder="Powód korekty">
+        <button>Zapisz</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Historia korekt</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Pracownik</th><th>Kto</th><th>Limit</th><th>Zaległe</th><th>Powód</th><th>Data</th></tr></thead>
+            <tbody>
+            {% for a in adjustments %}
+                <tr><td>{{ a.employee_name }}</td><td>{{ a.actor_name or "—" }}</td><td>{{ a.old_vacation_days }} → {{ a.new_vacation_days }}</td><td>{{ a.old_carryover_days }} → {{ a.new_carryover_days }}</td><td>{{ a.reason or "—" }}</td><td>{{ a.created_at }}</td></tr>
+            {% else %}
+                <tr><td colspan="6" class="empty-state">Brak korekt.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
