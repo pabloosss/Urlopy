@@ -34,8 +34,9 @@
         <label>Data do</label>
         <input type="date" name="date_to" required>
 
-        <label>Liczba dni</label>
-        <input type="number" name="days_count" min="1" required>
+        <p class="hint">
+            Liczba dni zostanie policzona automatycznie. System nie liczy sobót, niedziel i polskich świąt.
+        </p>
 
         <label>Komentarz</label>
         <textarea name="comment" rows="3"></textarea>
@@ -62,7 +63,7 @@
                     <th>Typ</th>
                     <th>Od</th>
                     <th>Do</th>
-                    <th>Dni</th>
+                    <th>Dni robocze</th>
                     <th>Status</th>
                     <th>Komentarz</th>
                     {% if session.get("role") in ["admin", "kadry"] %}
