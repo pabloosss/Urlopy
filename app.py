@@ -1,3 +1,4 @@
+from datetime import date, datetime, timedelta
 from functools import wraps
 import sqlite3
 
@@ -105,6 +106,71 @@ def hr_required(func):
     return wrapper
 
 
+def parse_date(value):
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def calculate_easter(year):
+    """Zwraca datę Wielkanocy dla podanego roku."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return date(year, month, day)
+
+
+def polish_holidays(year):
+    easter = calculate_easter(year)
+
+    return {
+        date(year, 1, 1),   # Nowy Rok
+        date(year, 1, 6),   # Trzech Króli
+        easter + timedelta(days=1),   # Poniedziałek Wielkanocny
+        date(year, 5, 1),   # Święto Pracy
+        date(year, 5, 3),   # Konstytucja 3 Maja
+        easter + timedelta(days=60),  # Boże Ciało
+        date(year, 8, 15),  # Wniebowzięcie NMP
+        date(year, 11, 1),  # Wszystkich Świętych
+        date(year, 11, 11), # Święto Niepodległości
+        date(year, 12, 25), # Boże Narodzenie
+        date(year, 12, 26), # Drugi dzień Bożego Narodzenia
+    }
+
+
+def count_workdays(start_date, end_date):
+    """Liczy dni robocze od start_date do end_date włącznie."""
+    if end_date < start_date:
+        raise ValueError("Data do nie może być wcześniejsza niż data od.")
+
+    holidays = set()
+    for year in range(start_date.year, end_date.year + 1):
+        holidays.update(polish_holidays(year))
+
+    days = 0
+    current = start_date
+
+    while current <= end_date:
+        is_weekend = current.weekday() >= 5
+        is_holiday = current in holidays
+
+        if not is_weekend and not is_holiday:
+            days += 1
+
+        current += timedelta(days=1)
+
+    return days
+
+
 # -------------------------
 # Widoki
 # -------------------------
@@ -182,11 +248,22 @@ def new_request():
     leave_type = request.form.get("leave_type")
     date_from = request.form.get("date_from")
     date_to = request.form.get("date_to")
-    days_count = request.form.get("days_count")
     comment = request.form.get("comment")
 
-    if not leave_type or not date_from or not date_to or not days_count:
+    if not leave_type or not date_from or not date_to:
         flash("Uzupełnij wymagane pola.")
+        return redirect(url_for("dashboard"))
+
+    try:
+        start_date = parse_date(date_from)
+        end_date = parse_date(date_to)
+        days_count = count_workdays(start_date, end_date)
+    except ValueError as error:
+        flash(str(error))
+        return redirect(url_for("dashboard"))
+
+    if days_count <= 0:
+        flash("Wybrany zakres nie zawiera dni roboczych.")
         return redirect(url_for("dashboard"))
 
     conn = get_db()
@@ -201,14 +278,14 @@ def new_request():
             leave_type,
             date_from,
             date_to,
-            int(days_count),
+            days_count,
             comment,
         ),
     )
     conn.commit()
     conn.close()
 
-    flash("Wniosek został wysłany.")
+    flash(f"Wniosek został wysłany. System policzył: {days_count} dni roboczych.")
     return redirect(url_for("dashboard"))
 
 
