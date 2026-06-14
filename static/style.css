@@ -16,16 +16,17 @@
 body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--ink); }
 a { color: inherit; }
 
-.app-shell { display: grid; grid-template-columns: 270px 1fr; min-height: 100vh; }
-.sidebar { background: var(--black); color: var(--white); padding: 24px 18px; position: sticky; top: 0; height: 100vh; }
-.brand { padding: 4px 8px 24px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 18px; }
-.brand img { max-width: 170px; max-height: 60px; display: block; margin-bottom: 8px; }
+.app-shell { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+.sidebar { background: var(--black); color: var(--white); padding: 22px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.brand { padding: 4px 8px 22px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 18px; }
+.brand img { max-width: 180px; max-height: 72px; display: block; margin-bottom: 8px; object-fit: contain; }
 .brand-fallback { display: none; font-size: 28px; font-weight: 900; color: var(--white); letter-spacing: .04em; }
 .brand small { color: #c9c9c9; }
-.menu { display: grid; gap: 6px; }
-.menu a { text-decoration: none; color: #f2f2f2; padding: 12px 14px; border-radius: 12px; font-weight: 700; }
-.menu a:hover { background: rgba(255,255,255,.08); }
-.menu a:focus, .menu a:active { background: var(--red); }
+.menu { display: grid; gap: 4px; }
+.menu-section { color: #9ca3af; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 900; margin: 18px 10px 6px; }
+.menu a { text-decoration: none; color: #f2f2f2; padding: 11px 13px; border-radius: 12px; font-weight: 700; border-left: 3px solid transparent; }
+.menu a:hover { background: rgba(255,255,255,.08); border-left-color: var(--red); }
+.menu a:focus, .menu a:active { background: rgba(215,25,32,.18); border-left-color: var(--red); }
 
 .content-shell { min-width: 0; }
 .topbar { height: 72px; background: var(--white); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; }
@@ -37,7 +38,7 @@ main { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48
 .login-main { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: min(460px, 100%); background: var(--white); border-radius: 24px; padding: 34px; box-shadow: var(--shadow); }
 .login-brand { margin-bottom: 18px; }
-.login-brand img { max-width: 190px; max-height: 70px; }
+.login-brand img { max-width: 220px; max-height: 90px; object-fit: contain; }
 .login-fallback { display: block; color: var(--red); }
 .demo-box { background: #f8f8f8; border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 16px; color: var(--muted); }
 
@@ -48,6 +49,7 @@ main { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48
 .muted { color: var(--muted); }
 
 .card { background: var(--white); border: 1px solid var(--line); border-radius: 20px; padding: 22px; box-shadow: var(--shadow); margin-bottom: 18px; }
+.filters-card { border-left: 5px solid var(--red); }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
 .stat-card { background: var(--white); border: 1px solid var(--line); border-radius: 20px; padding: 20px; box-shadow: var(--shadow); }
 .stat-card span { color: var(--muted); font-weight: 800; font-size: 13px; }
@@ -73,7 +75,7 @@ button:hover, .btn-primary:hover { background: var(--red-dark); }
 .inline-form { display: inline-block; margin: 0 4px 4px 0; }
 .inline-form button { width: auto; font-size: 13px; padding: 8px 10px; }
 .date-grid, .filters-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.filters-form { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; }
+.filters-form { grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; }
 .hint { background: #fff5f5; border-left: 4px solid var(--red); padding: 12px; border-radius: 12px; color: #7f1d1d; }
 
 .table-wrapper { overflow-x: auto; }
@@ -105,12 +107,18 @@ tr:hover td { background: #fafafa; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chips span, .chip { background: #f3f4f6; border: 1px solid var(--line); border-radius: 999px; padding: 8px 11px; }
 
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.calendar-card { overflow: hidden; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(130px, 1fr)); gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .calendar-head { font-weight: 900; color: var(--muted); padding: 8px; }
-.calendar-day { min-height: 130px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.calendar-day { min-height: 132px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.calendar-day.has-events { border-color: #fecaca; background: #fffafa; }
+.calendar-day-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.calendar-day-top span { background: var(--red); color: white; border-radius: 999px; min-width: 24px; height: 24px; display: inline-grid; place-items: center; font-size: 12px; font-weight: 900; }
 .muted-day { opacity: .35; }
 .calendar-event { background: #fff1f2; border-left: 4px solid var(--red); border-radius: 10px; padding: 7px; margin-top: 7px; font-size: 13px; }
-.calendar-event small { display: block; color: var(--muted); }
+.compact-event { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calendar-event small { display: block; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-more { margin-top: 8px; color: var(--red); font-size: 13px; font-weight: 900; }
 .simple-page { padding: 28px; }
 
 @media (max-width: 1000px) {
@@ -119,6 +127,7 @@ tr:hover td { background: #fafafa; }
     .menu { grid-template-columns: repeat(2, 1fr); }
     .stats-grid, .two-columns, .layout-grid { grid-template-columns: 1fr; }
     .form-card { position: static; }
+    .filters-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 650px) {
     main { width: min(100% - 20px, 1500px); padding-top: 16px; }
