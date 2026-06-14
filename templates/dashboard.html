@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="card">
+    <h2>Panel użytkownika</h2>
+
+    <p><b>Imię i nazwisko:</b> {{ user.full_name }}</p>
+    <p><b>E-mail:</b> {{ user.email }}</p>
+    <p><b>Rola:</b> {{ user.role }}</p>
+    <p><b>Pula urlopu:</b> {{ user.vacation_days }} dni</p>
+</div>
+
+{% if session.get("role") == "pracownik" %}
+<div class="card">
+    <h2>Nowy wniosek urlopowy</h2>
+
+    <form method="post" action="{{ url_for('new_request') }}">
+        <label>Typ urlopu</label>
+        <select name="leave_type" required>
+            <option value="Wypoczynkowy">Wypoczynkowy</option>
+            <option value="Na żądanie">Na żądanie</option>
+            <option value="Okolicznościowy">Okolicznościowy</option>
+            <option value="L4">L4</option>
+            <option value="Bezpłatny">Bezpłatny</option>
+            <option value="Odbiór godzin">Odbiór godzin</option>
+            <option value="Opieka">Opieka</option>
+            <option value="Inne">Inne</option>
+        </select>
+
+        <label>Data od</label>
+        <input type="date" name="date_from" required>
+
+        <label>Data do</label>
+        <input type="date" name="date_to" required>
+
+        <label>Liczba dni</label>
+        <input type="number" name="days_count" min="1" required>
+
+        <label>Komentarz</label>
+        <textarea name="comment" rows="3"></textarea>
+
+        <button type="submit">Wyślij wniosek</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>
+        {% if session.get("role") in ["admin", "kadry"] %}
+            Wszystkie wnioski
+        {% else %}
+            Moje wnioski
+        {% endif %}
+    </h2>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Pracownik</th>
+                    <th>Typ</th>
+                    <th>Od</th>
+                    <th>Do</th>
+                    <th>Dni</th>
+                    <th>Status</th>
+                    <th>Komentarz</th>
+                    {% if session.get("role") in ["admin", "kadry"] %}
+                        <th>Akcje</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests_list %}
+                <tr>
+                    <td>{{ req.full_name }}</td>
+                    <td>{{ req.leave_type }}</td>
+                    <td>{{ req.date_from }}</td>
+                    <td>{{ req.date_to }}</td>
+                    <td>{{ req.days_count }}</td>
+                    <td>
+                        <span class="status status-{{ req.status }}">{{ req.status }}</span>
+                    </td>
+                    <td>{{ req.comment }}</td>
+
+                    {% if session.get("role") in ["admin", "kadry"] %}
+                    <td>
+                        {% if req.status == "oczekuje" %}
+                            <form method="post" action="{{ url_for('accept_request', request_id=req.id) }}" class="inline-form">
+                                <button type="submit" class="btn-ok">Akceptuj</button>
+                            </form>
+
+                            <form method="post" action="{{ url_for('reject_request', request_id=req.id) }}" class="inline-form">
+                                <button type="submit" class="btn-bad">Odrzuć</button>
+                            </form>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">Brak wniosków.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
