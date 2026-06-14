@@ -88,6 +88,10 @@ tr:hover td { background: #fafafa; }
 .status-zaakceptowany { background: #dcfce7; color: #166534; }
 .status-odrzucony { background: #fee2e2; color: #991b1b; }
 .status-anulowany, .status-cofniety { background: #e5e7eb; color: #374151; }
+.status-day-obecny { background: #dcfce7; color: #166534; }
+.status-day-nieobecny { background: #fee2e2; color: #991b1b; }
+.status-day-praca-zdalna { background: #e0f2fe; color: #075985; }
+.status-day-delegacja { background: #fef3c7; color: #92400e; }
 .msg { background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; padding: 12px 14px; border-radius: 14px; margin-bottom: 18px; }
 .msg p { margin: 0; }
 
