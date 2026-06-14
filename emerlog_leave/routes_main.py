@@ -88,6 +88,85 @@ def my_leave():
     return render_template("my_leave.html", user=user, vacation_summary=summary, requests_list=rows)
 
 
+@bp.route("/presence")
+@login_required
+def presence_view():
+    selected_date = request.args.get("date") or date.today().isoformat()
+    department = request.args.get("department", "").strip()
+    employee = request.args.get("employee", "").strip()
+    leave_type = request.args.get("leave_type", "").strip()
+    day_status = request.args.get("day_status", "").strip()
+
+    conn = get_db()
+    ids = visible_user_ids(conn)
+    employees = []
+    stats = {"all": 0, "present": 0, "absent": 0, "remote": 0, "delegation": 0}
+
+    if ids:
+        placeholders = ",".join("?" for _ in ids)
+        filters = [f"u.id IN ({placeholders})", "u.active = 1"]
+        params = list(ids)
+        if department:
+            filters.append("u.department = ?")
+            params.append(department)
+        if employee:
+            filters.append("u.full_name LIKE ?")
+            params.append(f"%{employee}%")
+
+        people = conn.execute(
+            f"""
+            SELECT u.*, m.full_name AS manager_name
+            FROM users u
+            LEFT JOIN users m ON u.manager_id = m.id
+            WHERE {' AND '.join(filters)}
+            ORDER BY u.department, u.full_name
+            """,
+            params,
+        ).fetchall()
+
+        for person in people:
+            absence = conn.execute(
+                """
+                SELECT * FROM leave_requests
+                WHERE user_id = ?
+                  AND status = 'zaakceptowany'
+                  AND date_from <= ?
+                  AND date_to >= ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (person["id"], selected_date, selected_date),
+            ).fetchone()
+
+            current_status = "obecny"
+            current_type = "—"
+            if absence:
+                current_type = absence["leave_type"]
+                if absence["leave_type"] == "Praca zdalna":
+                    current_status = "praca zdalna"
+                    stats["remote"] += 1
+                elif absence["leave_type"] == "Delegacja":
+                    current_status = "delegacja"
+                    stats["delegation"] += 1
+                else:
+                    current_status = "nieobecny"
+                    stats["absent"] += 1
+            else:
+                stats["present"] += 1
+
+            if leave_type and current_type != leave_type:
+                continue
+            if day_status and current_status != day_status:
+                continue
+
+            employees.append({"user": person, "absence": absence, "day_status": current_status, "type": current_type})
+
+    stats["all"] = len(employees)
+    departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
+    conn.close()
+    return render_template("presence.html", selected_date=selected_date, employees=employees, stats=stats, departments=departments)
+
+
 @bp.route("/calendar")
 @login_required
 def calendar_view():
