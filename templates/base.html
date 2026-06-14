@@ -12,7 +12,7 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="brand">
-            <img src="{{ url_for('static', filename='emerlog-logo.png') }}" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <img src="{{ url_for('static', filename='emerlog-logo.png') }}" alt="EMERLOG">
             <div class="brand-fallback">EMERLOG</div>
             <small>Leave Manager</small>
         </div>
@@ -46,8 +46,11 @@
             </div>
             <a class="logout" href="{{ url_for('main.logout') }}">Wyloguj</a>
         </header>
-
         <main>
+{% else %}
+<main class="login-main">
+{% endif %}
+
             {% with messages = get_flashed_messages() %}
                 {% if messages %}
                     <div class="msg">
@@ -55,21 +58,14 @@
                     </div>
                 {% endif %}
             {% endwith %}
+
             {% block content %}{% endblock %}
+
+{% if session.get("user_id") %}
         </main>
     </div>
 </div>
 {% else %}
-<main class="login-main">
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <div class="msg">
-                {% for message in messages %}<p>{{ message }}</p>{% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-    {% block login_content %}{% endblock %}
-    {% block content %}{% endblock %}
 </main>
 {% endif %}
 
