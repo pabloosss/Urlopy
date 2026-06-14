@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <p class="eyebrow">Nowy wniosek</p>
+        <h1>Złóż wniosek</h1>
+        <p>Wybierz typ nieobecności i zakres dat. System policzy dni robocze automatycznie.</p>
+    </div>
+</section>
+
+<div class="layout-grid">
+    <div class="card form-card">
+        <form method="post">
+            <label>Typ nieobecności</label>
+            <select name="leave_type" required>
+                {% for type in leave_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
+            </select>
+
+            <div class="date-grid">
+                <div><label>Data od</label><input type="date" name="date_from" required></div>
+                <div><label>Data do</label><input type="date" name="date_to" required></div>
+            </div>
+
+            <label>Zastępstwo opcjonalne</label>
+            <select name="replacement_user_id">
+                <option value="">Brak / nie dotyczy</option>
+                {% for employee in employees %}<option value="{{ employee.id }}">{{ employee.full_name }}</option>{% endfor %}
+            </select>
+
+            <label>Komentarz</label>
+            <textarea name="comment" rows="4" placeholder="Opcjonalny komentarz do wniosku"></textarea>
+
+            <label>Załącznik opcjonalny</label>
+            <input type="text" name="attachment_note" placeholder="Na razie wpisz nazwę/dopis, pliki będą w etapie 2">
+
+            <p class="hint">System pomija soboty, niedziele i polskie święta. Z limitu odejmują się tylko urlop wypoczynkowy i urlop na żądanie.</p>
+            <button type="submit">Wyślij wniosek</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Po wysłaniu zostanie</h2>
+        <div class="mini-summary">
+            <div><span>Dostępne teraz</span><strong>{{ vacation_summary.available }}</strong></div>
+            <div><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong></div>
+            <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
