@@ -1,177 +1,61 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-<section class="page-hero">
+<section class="page-title">
     <div>
-        <p class="eyebrow">Panel urlopowy</p>
-        <h2>Cześć, {{ user.full_name }}</h2>
-        <p class="muted">Rola: <b>{{ user.role }}</b> · E-mail: <b>{{ user.email }}</b></p>
+        <p class="eyebrow">EMERLOG Urlopy</p>
+        <h1>Dashboard</h1>
+        <p>Najważniejsze informacje o urlopach i nieobecnościach.</p>
     </div>
+    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card">
-        <span>Przysługuje</span>
-        <strong>{{ vacation_summary.total }}</strong>
-        <small>dni urlopu</small>
+    <div class="stat-card accent"><span>Dostępne dni</span><strong>{{ vacation_summary.available }}</strong><small>po oczekujących</small></div>
+    <div class="stat-card"><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong><small>zaakceptowane</small></div>
+    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>w trakcie akceptacji</small></div>
+    <div class="stat-card"><span>Nieobecni dziś</span><strong>{{ stats.absent_today }}</strong><small>w widocznym zakresie</small></div>
+</section>
+
+<section class="two-columns">
+    <div class="card">
+        <div class="section-heading"><h2>Najbliższe urlopy</h2></div>
+        <div class="list-stack">
+            {% for req in stats.upcoming %}
+                <div class="list-item">
+                    <b>{{ req.full_name }}</b>
+                    <span>{{ req.date_from|pldate }} – {{ req.date_to|pldate }} · {{ req.department }}</span>
+                </div>
+            {% else %}
+                <p class="empty-state">Brak najbliższych urlopów.</p>
+            {% endfor %}
+        </div>
     </div>
-    <div class="stat-card">
-        <span>Zaakceptowane</span>
-        <strong>{{ vacation_summary.accepted }}</strong>
-        <small>dni wykorzystane / zaplanowane</small>
-    </div>
-    <div class="stat-card">
-        <span>Oczekujące</span>
-        <strong>{{ vacation_summary.pending }}</strong>
-        <small>dni w trakcie akceptacji</small>
-    </div>
-    <div class="stat-card stat-card-primary">
-        <span>Dostępne</span>
-        <strong>{{ vacation_summary.available }}</strong>
-        <small>po odjęciu oczekujących</small>
+
+    <div class="card">
+        <div class="section-heading"><h2>Ostatnie moje wnioski</h2></div>
+        <div class="list-stack">
+            {% for req in stats.latest %}
+                <div class="list-item">
+                    <b>{{ req.leave_type }}</b>
+                    <span>{{ req.date_from|pldate }} – {{ req.date_to|pldate }} · <span class="status status-{{ req.status }}">{{ req.status }}</span></span>
+                </div>
+            {% else %}
+                <p class="empty-state">Nie masz jeszcze wniosków.</p>
+            {% endfor %}
+        </div>
     </div>
 </section>
 
-{% if hr_stats %}
-<section class="stats-grid compact-grid">
-    <div class="stat-card soft">
-        <span>Wszystkie wnioski</span>
-        <strong>{{ hr_stats.total }}</strong>
-    </div>
-    <div class="stat-card soft warning">
-        <span>Do obsługi</span>
-        <strong>{{ hr_stats.pending }}</strong>
-    </div>
-    <div class="stat-card soft success">
-        <span>Zaakceptowane</span>
-        <strong>{{ hr_stats.accepted }}</strong>
-    </div>
-    <div class="stat-card soft danger">
-        <span>Odrzucone</span>
-        <strong>{{ hr_stats.rejected }}</strong>
+{% if is_manager() or is_hr() %}
+<section class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Wnioski do akceptacji</h2>
+            <p class="muted">Liczba oczekujących wniosków w Twoim zakresie: <b>{{ stats.pending }}</b></p>
+        </div>
+        <a class="btn-secondary" href="{{ url_for('requests.requests_view', status='oczekuje') }}">Przejdź do listy</a>
     </div>
 </section>
 {% endif %}
-
-<div class="layout-grid">
-    {% if session.get("role") == "pracownik" %}
-    <div class="card form-card">
-        <div class="section-heading">
-            <div>
-                <p class="eyebrow">Nowy wniosek</p>
-                <h2>Złóż wniosek urlopowy</h2>
-            </div>
-        </div>
-
-        <form method="post" action="{{ url_for('new_request') }}">
-            <label>Typ urlopu</label>
-            <select name="leave_type" required>
-                <option value="Wypoczynkowy">Wypoczynkowy</option>
-                <option value="Na żądanie">Na żądanie</option>
-                <option value="Okolicznościowy">Okolicznościowy</option>
-                <option value="L4">L4</option>
-                <option value="Bezpłatny">Bezpłatny</option>
-                <option value="Odbiór godzin">Odbiór godzin</option>
-                <option value="Opieka">Opieka</option>
-                <option value="Inne">Inne</option>
-            </select>
-
-            <div class="date-grid">
-                <div>
-                    <label>Data od</label>
-                    <input type="date" name="date_from" required>
-                </div>
-                <div>
-                    <label>Data do</label>
-                    <input type="date" name="date_to" required>
-                </div>
-            </div>
-
-            <p class="hint">
-                System sam policzy dni robocze. Nie liczy sobót, niedziel i polskich świąt.
-                Z puli odejmują się tylko: <b>Wypoczynkowy</b> i <b>Na żądanie</b>.
-            </p>
-
-            <label>Komentarz</label>
-            <textarea name="comment" rows="4" placeholder="Opcjonalnie, np. wyjazd rodzinny"></textarea>
-
-            <button type="submit">Wyślij wniosek</button>
-        </form>
-    </div>
-    {% endif %}
-
-    <div class="card table-card {% if session.get('role') != 'pracownik' %}full-width{% endif %}">
-        <div class="section-heading">
-            <div>
-                <p class="eyebrow">Lista wniosków</p>
-                <h2>
-                    {% if session.get("role") in ["admin", "kadry"] %}
-                        Wszystkie wnioski
-                    {% else %}
-                        Moje wnioski
-                    {% endif %}
-                </h2>
-            </div>
-        </div>
-
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Pracownik</th>
-                        <th>Typ</th>
-                        <th>Od</th>
-                        <th>Do</th>
-                        <th>Dni</th>
-                        <th>Status</th>
-                        <th>Komentarz</th>
-                        <th>Akcje</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for req in requests_list %}
-                    <tr>
-                        <td><b>{{ req.full_name }}</b></td>
-                        <td>{{ req.leave_type }}</td>
-                        <td>{{ req.date_from }}</td>
-                        <td>{{ req.date_to }}</td>
-                        <td><b>{{ req.days_count }}</b></td>
-                        <td>
-                            <span class="status status-{{ req.status }}">{{ req.status }}</span>
-                        </td>
-                        <td>{{ req.comment or "—" }}</td>
-                        <td>
-                            {% if req.status == "oczekuje" and session.get("role") in ["admin", "kadry"] %}
-                                <form method="post" action="{{ url_for('accept_request', request_id=req.id) }}" class="inline-form">
-                                    <button type="submit" class="btn-ok">Akceptuj</button>
-                                </form>
-
-                                <form method="post" action="{{ url_for('reject_request', request_id=req.id) }}" class="inline-form">
-                                    <button type="submit" class="btn-bad">Odrzuć</button>
-                                </form>
-
-                                <form method="post" action="{{ url_for('cancel_request', request_id=req.id) }}" class="inline-form">
-                                    <button type="submit" class="btn-muted">Anuluj</button>
-                                </form>
-                            {% elif req.status == "oczekuje" and req.user_id == session.get("user_id") %}
-                                <form method="post" action="{{ url_for('cancel_request', request_id=req.id) }}" class="inline-form">
-                                    <button type="submit" class="btn-muted">Anuluj</button>
-                                </form>
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="8" class="empty-state">Brak wniosków.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
