@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title"><div><p class="eyebrow">Raporty</p><h1>Raport miesięczny</h1><p>Podstawowe zestawienie nieobecności.</p></div></section>
+<div class="card filters-card"><form method="get" class="filters-form"><input type="number" name="year" value="{{ selected_year }}"><input type="number" name="month" value="{{ selected_month }}" min="1" max="12"><button>Odśwież</button></form></div>
+<div class="card"><h2>Według działu</h2><div class="table-wrapper"><table><thead><tr><th>Dział</th><th>Wnioski</th><th>Dni</th></tr></thead><tbody>{% for r in by_department %}<tr><td>{{ r.department }}</td><td>{{ r.requests_count }}</td><td><b>{{ r.days }}</b></td></tr>{% else %}<tr><td colspan="3" class="empty-state">Brak danych.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="card"><h2>Według typu</h2><div class="table-wrapper"><table><thead><tr><th>Typ</th><th>Wnioski</th><th>Dni</th></tr></thead><tbody>{% for r in by_type %}<tr><td>{{ r.leave_type }}</td><td>{{ r.requests_count }}</td><td><b>{{ r.days }}</b></td></tr>{% else %}<tr><td colspan="3" class="empty-state">Brak danych.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
