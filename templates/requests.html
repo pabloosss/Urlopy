@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <p class="eyebrow">Wnioski</p>
+        <h1>Lista wniosków</h1>
+        <p>Filtruj, akceptuj, odrzucaj i anuluj wnioski urlopowe.</p>
+    </div>
+    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
+</section>
+
+<div class="card filters-card">
+    <form method="get" class="filters-form">
+        <input name="employee" placeholder="Pracownik" value="{{ request.args.get('employee','') }}">
+        <select name="department"><option value="">Dział</option>{% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+        <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+        <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+        <input type="date" name="date_from" value="{{ request.args.get('date_from','') }}">
+        <input type="date" name="date_to" value="{{ request.args.get('date_to','') }}">
+        <button type="submit">Filtruj</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Pracownik</th><th>Dział</th><th>Typ</th><th>Zakres</th><th>Dni</th><th>Status</th><th>Akceptujący</th><th>Akcje</th></tr></thead>
+            <tbody>
+            {% for req in requests_list %}
+                <tr>
+                    <td><b>{{ req.full_name }}</b></td>
+                    <td>{{ req.department }}</td>
+                    <td>{{ req.leave_type }}</td>
+                    <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
+                    <td><b>{{ req.days_count }}</b></td>
+                    <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
+                    <td>{{ req.decider_name or req.manager_name or "—" }}</td>
+                    <td>
+                        {% if req.status == "oczekuje" %}
+                            {% if is_hr() or is_manager() %}
+                                <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='accept') }}"><button class="btn-ok">Akceptuj</button></form>
+                                <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='reject') }}"><button class="btn-bad">Odrzuć</button></form>
+                                <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='return') }}"><button class="btn-muted">Do poprawy</button></form>
+                            {% endif %}
+                            {% if req.user_id == session.get('user_id') or is_hr() %}
+                                <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}"><button class="btn-muted">Anuluj</button></form>
+                            {% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="empty-state">Brak wniosków.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
