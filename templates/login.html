@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="card card-small">
+    <h2>Logowanie</h2>
+
+    <form method="post">
+        <label>Login</label>
+        <input type="text" name="login" required autofocus>
+
+        <label>Hasło</label>
+        <input type="password" name="password" required>
+
+        <button type="submit">Zaloguj</button>
+    </form>
+</div>
+
+<div class="card card-small">
+    <h3>Konta testowe</h3>
+    <p><b>admin</b> / admin123</p>
+    <p><b>kadry</b> / kadry123</p>
+    <p><b>jan</b> / jan123</p>
+</div>
+
+{% endblock %}
