@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urlopy Firmowe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header>
+    <h1>Urlopy Firmowe</h1>
+
+    {% if session.get("user_id") %}
+        <div class="topbar">
+            Zalogowano: <b>{{ session.get("full_name") }}</b>
+            | Rola: <b>{{ session.get("role") }}</b>
+            | <a href="{{ url_for('logout') }}">Wyloguj</a>
+        </div>
+    {% endif %}
+</header>
+
+<main>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="msg">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>
