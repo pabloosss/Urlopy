@@ -1,0 +1,263 @@
+from functools import wraps
+import sqlite3
+
+from flask import Flask, flash, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
+
+app = Flask(__name__)
+app.secret_key = "dev-secret-change-before-production"
+
+DATABASE = "database.db"
+
+
+# -------------------------
+# Baza danych
+# -------------------------
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            login TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            email TEXT,
+            role TEXT NOT NULL,
+            vacation_days INTEGER DEFAULT 20,
+            active INTEGER DEFAULT 1
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS leave_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            leave_type TEXT NOT NULL,
+            date_from TEXT NOT NULL,
+            date_to TEXT NOT NULL,
+            days_count INTEGER NOT NULL,
+            comment TEXT,
+            status TEXT DEFAULT 'oczekuje',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    conn.commit()
+
+    demo_users = [
+        ("admin", "admin123", "Administrator", "admin@firma.pl", "admin", 26),
+        ("kadry", "kadry123", "Kadrowa", "kadry@firma.pl", "kadry", 26),
+        ("jan", "jan123", "Jan Kowalski", "jan.kowalski@firma.pl", "pracownik", 20),
+    ]
+
+    for login, password, full_name, email, role, vacation_days in demo_users:
+        exists = cur.execute("SELECT id FROM users WHERE login = ?", (login,)).fetchone()
+        if not exists:
+            cur.execute(
+                """
+                INSERT INTO users (login, password_hash, full_name, email, role, vacation_days)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    login,
+                    generate_password_hash(password),
+                    full_name,
+                    email,
+                    role,
+                    vacation_days,
+                ),
+            )
+
+    conn.commit()
+    conn.close()
+
+
+# -------------------------
+# Pomocnicze
+# -------------------------
+def login_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def hr_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if session.get("role") not in ["admin", "kadry"]:
+            flash("Brak uprawnień.")
+            return redirect(url_for("dashboard"))
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+# -------------------------
+# Widoki
+# -------------------------
+@app.route("/")
+def index():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        login_value = request.form.get("login", "").strip()
+        password = request.form.get("password", "")
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE login = ? AND active = 1",
+            (login_value,),
+        ).fetchone()
+        conn.close()
+
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_id"] = user["id"]
+            session["login"] = user["login"]
+            session["full_name"] = user["full_name"]
+            session["role"] = user["role"]
+            return redirect(url_for("dashboard"))
+
+        flash("Błędny login albo hasło.")
+
+    return render_template("login.html")
+
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    conn = get_db()
+
+    user = conn.execute(
+        "SELECT * FROM users WHERE id = ?",
+        (session["user_id"],),
+    ).fetchone()
+
+    if session["role"] in ["admin", "kadry"]:
+        requests_list = conn.execute(
+            """
+            SELECT lr.*, u.full_name
+            FROM leave_requests lr
+            JOIN users u ON lr.user_id = u.id
+            ORDER BY lr.created_at DESC
+            """
+        ).fetchall()
+    else:
+        requests_list = conn.execute(
+            """
+            SELECT lr.*, u.full_name
+            FROM leave_requests lr
+            JOIN users u ON lr.user_id = u.id
+            WHERE lr.user_id = ?
+            ORDER BY lr.created_at DESC
+            """,
+            (session["user_id"],),
+        ).fetchall()
+
+    conn.close()
+
+    return render_template("dashboard.html", user=user, requests_list=requests_list)
+
+
+@app.route("/new-request", methods=["POST"])
+@login_required
+def new_request():
+    leave_type = request.form.get("leave_type")
+    date_from = request.form.get("date_from")
+    date_to = request.form.get("date_to")
+    days_count = request.form.get("days_count")
+    comment = request.form.get("comment")
+
+    if not leave_type or not date_from or not date_to or not days_count:
+        flash("Uzupełnij wymagane pola.")
+        return redirect(url_for("dashboard"))
+
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO leave_requests
+        (user_id, leave_type, date_from, date_to, days_count, comment)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            session["user_id"],
+            leave_type,
+            date_from,
+            date_to,
+            int(days_count),
+            comment,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Wniosek został wysłany.")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/request/<int:request_id>/accept", methods=["POST"])
+@login_required
+@hr_required
+def accept_request(request_id):
+    conn = get_db()
+    conn.execute(
+        """
+        UPDATE leave_requests
+        SET status = 'zaakceptowany'
+        WHERE id = ? AND status = 'oczekuje'
+        """,
+        (request_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Wniosek został zaakceptowany.")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/request/<int:request_id>/reject", methods=["POST"])
+@login_required
+@hr_required
+def reject_request(request_id):
+    conn = get_db()
+    conn.execute(
+        """
+        UPDATE leave_requests
+        SET status = 'odrzucony'
+        WHERE id = ? AND status = 'oczekuje'
+        """,
+        (request_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Wniosek został odrzucony.")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)
