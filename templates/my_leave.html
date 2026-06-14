@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <p class="eyebrow">Mój urlop</p>
+        <h1>Moje limity i historia</h1>
+        <p>Podsumowanie Twojego urlopu oraz wszystkie złożone wnioski.</p>
+    </div>
+    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
+</section>
+
+<section class="stats-grid">
+    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni</small></div>
+    <div class="stat-card"><span>Limit roczny</span><strong>{{ vacation_summary.base }}</strong><small>dni</small></div>
+    <div class="stat-card"><span>Zaległe</span><strong>{{ vacation_summary.carryover }}</strong><small>dni</small></div>
+    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>dni</small></div>
+</section>
+
+<div class="card">
+    <h2>Moje wnioski</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Typ</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th>Decyzja</th></tr></thead>
+            <tbody>
+            {% for req in requests_list %}
+                <tr>
+                    <td>{{ req.leave_type }}</td>
+                    <td>{{ req.date_from|pldate }}</td>
+                    <td>{{ req.date_to|pldate }}</td>
+                    <td><b>{{ req.days_count }}</b></td>
+                    <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
+                    <td>{{ req.decider_name or "—" }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" class="empty-state">Brak wniosków.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
