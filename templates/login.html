@@ -1,9 +1,15 @@
 {% extends "base.html" %}
 
-{% block content %}
+{% block login_content %}
+<div class="login-card">
+    <div class="login-brand">
+        <img src="{{ url_for('static', filename='emerlog-logo.png') }}" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <div class="brand-fallback login-fallback">EMERLOG</div>
+        <p>Leave Manager</p>
+    </div>
 
-<div class="card card-small">
-    <h2>Logowanie</h2>
+    <h1>Logowanie</h1>
+    <p class="muted">System urlopów i nieobecności EMERLOG</p>
 
     <form method="post">
         <label>Login</label>
@@ -14,13 +20,10 @@
 
         <button type="submit">Zaloguj</button>
     </form>
-</div>
 
-<div class="card card-small">
-    <h3>Konta testowe</h3>
-    <p><b>admin</b> / admin123</p>
-    <p><b>kadry</b> / kadry123</p>
-    <p><b>jan</b> / jan123</p>
+    <div class="demo-box">
+        <b>Konta testowe</b><br>
+        jan / jan123 · anna / anna123 · ewa / ewa123 · kadry / kadry123
+    </div>
 </div>
-
 {% endblock %}
