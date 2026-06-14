@@ -9,6 +9,7 @@ app = Flask(__name__)
 app.secret_key = "dev-secret-change-before-production"
 
 DATABASE = "database.db"
+VACATION_LIMIT_TYPES = {"Wypoczynkowy", "Na żądanie"}
 
 
 # -------------------------
@@ -171,6 +172,63 @@ def count_workdays(start_date, end_date):
     return days
 
 
+def get_vacation_summary(conn, user_id, total_days):
+    """Podsumowanie limitu urlopu dla typów odejmujących pulę."""
+    rows = conn.execute(
+        """
+        SELECT status, COALESCE(SUM(days_count), 0) AS days
+        FROM leave_requests
+        WHERE user_id = ?
+          AND leave_type IN (?, ?)
+          AND status IN ('oczekuje', 'zaakceptowany')
+        GROUP BY status
+        """,
+        (user_id, "Wypoczynkowy", "Na żądanie"),
+    ).fetchall()
+
+    accepted = 0
+    pending = 0
+
+    for row in rows:
+        if row["status"] == "zaakceptowany":
+            accepted = row["days"] or 0
+        elif row["status"] == "oczekuje":
+            pending = row["days"] or 0
+
+    remaining_without_pending = total_days - accepted
+    available = total_days - accepted - pending
+
+    return {
+        "total": total_days,
+        "accepted": accepted,
+        "pending": pending,
+        "remaining_without_pending": remaining_without_pending,
+        "available": available,
+    }
+
+
+def get_hr_stats(conn):
+    row = conn.execute(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status = 'oczekuje' THEN 1 ELSE 0 END) AS pending,
+            SUM(CASE WHEN status = 'zaakceptowany' THEN 1 ELSE 0 END) AS accepted,
+            SUM(CASE WHEN status = 'odrzucony' THEN 1 ELSE 0 END) AS rejected,
+            SUM(CASE WHEN status = 'anulowany' THEN 1 ELSE 0 END) AS cancelled
+        FROM leave_requests
+        """
+    ).fetchone()
+
+    return {
+        "total": row["total"] or 0,
+        "pending": row["pending"] or 0,
+        "accepted": row["accepted"] or 0,
+        "rejected": row["rejected"] or 0,
+        "cancelled": row["cancelled"] or 0,
+    }
+
+
 # -------------------------
 # Widoki
 # -------------------------
@@ -216,6 +274,9 @@ def dashboard():
         (session["user_id"],),
     ).fetchone()
 
+    vacation_summary = get_vacation_summary(conn, user["id"], user["vacation_days"])
+    hr_stats = None
+
     if session["role"] in ["admin", "kadry"]:
         requests_list = conn.execute(
             """
@@ -225,6 +286,7 @@ def dashboard():
             ORDER BY lr.created_at DESC
             """
         ).fetchall()
+        hr_stats = get_hr_stats(conn)
     else:
         requests_list = conn.execute(
             """
@@ -239,7 +301,14 @@ def dashboard():
 
     conn.close()
 
-    return render_template("dashboard.html", user=user, requests_list=requests_list)
+    return render_template(
+        "dashboard.html",
+        user=user,
+        requests_list=requests_list,
+        vacation_summary=vacation_summary,
+        hr_stats=hr_stats,
+        vacation_limit_types=VACATION_LIMIT_TYPES,
+    )
 
 
 @app.route("/new-request", methods=["POST"])
@@ -267,6 +336,21 @@ def new_request():
         return redirect(url_for("dashboard"))
 
     conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE id = ?",
+        (session["user_id"],),
+    ).fetchone()
+
+    if leave_type in VACATION_LIMIT_TYPES:
+        vacation_summary = get_vacation_summary(conn, user["id"], user["vacation_days"])
+        if days_count > vacation_summary["available"]:
+            conn.close()
+            flash(
+                f"Nie można złożyć wniosku. Dostępne po oczekujących wnioskach: "
+                f"{vacation_summary['available']} dni, a wybrano {days_count} dni."
+            )
+            return redirect(url_for("dashboard"))
+
     conn.execute(
         """
         INSERT INTO leave_requests
@@ -326,6 +410,43 @@ def reject_request(request_id):
     conn.close()
 
     flash("Wniosek został odrzucony.")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/request/<int:request_id>/cancel", methods=["POST"])
+@login_required
+def cancel_request(request_id):
+    conn = get_db()
+    leave_request = conn.execute(
+        "SELECT * FROM leave_requests WHERE id = ?",
+        (request_id,),
+    ).fetchone()
+
+    if not leave_request:
+        conn.close()
+        flash("Nie znaleziono wniosku.")
+        return redirect(url_for("dashboard"))
+
+    can_cancel = leave_request["user_id"] == session["user_id"] and leave_request["status"] == "oczekuje"
+    can_cancel_as_hr = session.get("role") in ["admin", "kadry"] and leave_request["status"] == "oczekuje"
+
+    if not can_cancel and not can_cancel_as_hr:
+        conn.close()
+        flash("Nie można anulować tego wniosku.")
+        return redirect(url_for("dashboard"))
+
+    conn.execute(
+        """
+        UPDATE leave_requests
+        SET status = 'anulowany'
+        WHERE id = ? AND status = 'oczekuje'
+        """,
+        (request_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    flash("Wniosek został anulowany.")
     return redirect(url_for("dashboard"))
 
 
