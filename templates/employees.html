@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div><p class="eyebrow">Pracownicy</p><h1>Baza pracowników</h1><p>Dodawanie, role, działy, menedżerowie i status aktywności.</p></div>
+</section>
+
+<div class="layout-grid">
+    <div class="card form-card">
+        <h2>Dodaj pracownika</h2>
+        <form method="post">
+            <label>Login</label><input name="login" required>
+            <label>Hasło startowe</label><input name="password" placeholder="domyślnie Start123!">
+            <label>Imię i nazwisko</label><input name="full_name" required>
+            <label>E-mail</label><input name="email" type="email">
+            <label>Rola</label><select name="role"><option value="pracownik">Pracownik</option><option value="menedzer">Menedżer</option><option value="kadry">Kadry</option><option value="admin">Admin</option></select>
+            <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
+            <label>Stanowisko</label><input name="job_title">
+            <label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}">{{ m.full_name }}</option>{% endfor %}</select>
+            <label>Typ umowy</label><input name="contract_type" value="Umowa o pracę">
+            <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
+            <button>Dodaj</button>
+        </form>
+    </div>
+
+    <div class="card table-card">
+        <h2>Lista pracowników</h2>
+        <div class="table-wrapper"><table>
+            <thead><tr><th>Pracownik</th><th>Dział</th><th>Stanowisko</th><th>E-mail</th><th>Menedżer</th><th>Limit</th><th>Status</th><th>Akcje</th></tr></thead>
+            <tbody>{% for u in users %}<tr><td><b>{{ u.full_name }}</b><br><small>{{ u.login }} · {{ u.role }}</small></td><td>{{ u.department }}</td><td>{{ u.job_title }}</td><td>{{ u.email }}</td><td>{{ u.manager_name or "—" }}</td><td>{{ u.vacation_days + u.carryover_days }}</td><td>{% if u.active %}<span class="status status-zaakceptowany">aktywny</span>{% else %}<span class="status status-anulowany">nieaktywny</span>{% endif %}</td><td><form method="post" action="{{ url_for('employees.toggle_employee', user_id=u.id) }}"><button class="btn-muted">Zmień status</button></form></td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+</div>
+{% endblock %}
