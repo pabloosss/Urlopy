@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 import calendar
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for, send_from_directory
 from werkzeug.security import check_password_hash
 
 from .database import get_db
@@ -14,6 +14,11 @@ def index():
     if "user_id" in session:
         return redirect(url_for("main.dashboard"))
     return redirect(url_for("main.login"))
+
+
+@bp.route("/graphics/<path:filename>")
+def graphics_file(filename):
+    return send_from_directory("grafiki", filename)
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -144,15 +149,10 @@ def presence_view():
                 current_type = absence["leave_type"]
                 if absence["leave_type"] == "Praca zdalna":
                     current_status = "praca zdalna"
-                    stats["remote"] += 1
                 elif absence["leave_type"] == "Delegacja":
                     current_status = "delegacja"
-                    stats["delegation"] += 1
                 else:
                     current_status = "nieobecny"
-                    stats["absent"] += 1
-            else:
-                stats["present"] += 1
 
             if leave_type and current_type != leave_type:
                 continue
@@ -160,6 +160,15 @@ def presence_view():
                 continue
 
             employees.append({"user": person, "absence": absence, "day_status": current_status, "type": current_type})
+
+            if current_status == "obecny":
+                stats["present"] += 1
+            elif current_status == "praca zdalna":
+                stats["remote"] += 1
+            elif current_status == "delegacja":
+                stats["delegation"] += 1
+            else:
+                stats["absent"] += 1
 
     stats["all"] = len(employees)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
@@ -172,26 +181,57 @@ def presence_view():
 def calendar_view():
     year = int(request.args.get("year", date.today().year))
     month = int(request.args.get("month", date.today().month))
+    department = request.args.get("department", "").strip()
+    employee = request.args.get("employee", "").strip()
+    leave_type = request.args.get("leave_type", "").strip()
+
     first = date(year, month, 1)
     last = date(year, month, calendar.monthrange(year, month)[1])
     conn = get_db()
     ids = visible_user_ids(conn)
     by_day = {}
+    rows = []
+
     if ids:
         placeholders = ",".join("?" for _ in ids)
+        filters = ["lr.status = 'zaakceptowany'", "lr.date_from <= ?", "lr.date_to >= ?", f"lr.user_id IN ({placeholders})"]
+        params = [last.isoformat(), first.isoformat(), *ids]
+        if department:
+            filters.append("u.department = ?")
+            params.append(department)
+        if employee:
+            filters.append("u.full_name LIKE ?")
+            params.append(f"%{employee}%")
+        if leave_type:
+            filters.append("lr.leave_type = ?")
+            params.append(leave_type)
+
         rows = conn.execute(
             f"""
             SELECT lr.*, u.full_name, u.department
-            FROM leave_requests lr JOIN users u ON u.id=lr.user_id
-            WHERE lr.status='zaakceptowany' AND lr.date_from<=? AND lr.date_to>=? AND lr.user_id IN ({placeholders})
+            FROM leave_requests lr
+            JOIN users u ON u.id = lr.user_id
+            WHERE {' AND '.join(filters)}
+            ORDER BY lr.date_from, u.full_name
             """,
-            (last.isoformat(), first.isoformat(), *ids),
+            params,
         ).fetchall()
+
         for row in rows:
             current = max(parse_date(row["date_from"]), first)
             end = min(parse_date(row["date_to"]), last)
             while current <= end:
                 by_day.setdefault(current.day, []).append(row)
                 current += timedelta(days=1)
+
+    departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     conn.close()
-    return render_template("calendar.html", selected_year=year, selected_month=month, month_days=calendar.Calendar(firstweekday=0).monthdatescalendar(year, month), requests_by_day=by_day)
+    return render_template(
+        "calendar.html",
+        selected_year=year,
+        selected_month=month,
+        month_days=calendar.Calendar(firstweekday=0).monthdatescalendar(year, month),
+        requests_by_day=by_day,
+        requests_list=rows,
+        departments=departments,
+    )
