@@ -34,7 +34,7 @@
             </div>
 
             <a class="home-request-priority" href="{{ url_for('requests.new_leave_request') }}">
-                <span>Nowa nieobecność</span>
+                <span>Nowy wniosek</span>
                 <strong>Złóż wniosek</strong>
             </a>
         </section>
@@ -69,10 +69,6 @@
             <a href="{{ url_for('main.calendar_view') }}">
                 <span>{% if is_manager() %}Urlopy zespołu{% else %}Nieobecności{% endif %}</span>
                 <strong>{% if is_manager() %}Kto i kiedy{% else %}Kalendarz{% endif %}</strong>
-            </a>
-            <a href="{{ url_for('admin.reports_view') }}">
-                <span>Zestawienia</span>
-                <strong>{% if is_manager() %}Raporty zespołu{% else %}Raporty{% endif %}</strong>
             </a>
         </section>
         {% endif %}
