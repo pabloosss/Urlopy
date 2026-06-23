@@ -1,51 +1,296 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-title">
+<section class="page-title request-hero">
     <div>
         <p class="eyebrow">Nowy wniosek</p>
-        <h1>Złóż wniosek</h1>
-        <p>Wybierz typ nieobecności i zakres dat. System policzy dni robocze automatycznie.</p>
+        <h1>Złóż wniosek o nieobecność</h1>
+        <p>Wybierz typ, daty i zastępstwo. System pokaże liczbę dni roboczych jeszcze przed wysłaniem.</p>
+    </div>
+    <div class="request-hero-status">
+        <span>Dostępne</span>
+        <strong>{{ vacation_summary.available }}</strong>
+        <small>dni urlopu</small>
     </div>
 </section>
 
-<div class="layout-grid">
-    <div class="card form-card">
-        <form method="post">
-            <label>Typ nieobecności</label>
-            <select name="leave_type" required>
-                {% for type in leave_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
-            </select>
+<div class="leave-form-grid">
+    <div class="card request-form-card">
+        <form method="post" id="leaveRequestForm" class="request-form">
+            <section class="form-step">
+                <div class="step-head">
+                    <span>1</span>
+                    <div>
+                        <h2>Typ nieobecności</h2>
+                        <p>Urlop wypoczynkowy i urlop na żądanie schodzą z limitu.</p>
+                    </div>
+                </div>
 
-            <div class="date-grid">
-                <div><label>Data od</label><input type="date" name="date_from" required></div>
-                <div><label>Data do</label><input type="date" name="date_to" required></div>
+                <div class="leave-type-grid">
+                    {% for type in leave_types %}
+                    <label class="leave-type-card">
+                        <input type="radio" name="leave_type" value="{{ type }}" {% if form_data.leave_type == type %}checked{% endif %} required>
+                        <span>{{ type }}</span>
+                        <small>{{ leave_type_descriptions.get(type, "") }}</small>
+                    </label>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="form-step">
+                <div class="step-head">
+                    <span>2</span>
+                    <div>
+                        <h2>Termin</h2>
+                        <p>Weekendy i polskie święta nie liczą się jako dni robocze.</p>
+                    </div>
+                </div>
+
+                <div class="date-grid request-date-grid">
+                    <div>
+                        <label>Data od</label>
+                        <input type="date" name="date_from" id="dateFrom" value="{{ form_data.date_from }}" required>
+                    </div>
+                    <div>
+                        <label>Data do</label>
+                        <input type="date" name="date_to" id="dateTo" value="{{ form_data.date_to }}" required>
+                    </div>
+                </div>
+
+                <div class="quick-date-buttons">
+                    <button type="button" data-range="today">Dzisiaj</button>
+                    <button type="button" data-range="tomorrow">Jutro</button>
+                    <button type="button" data-range="week">Ten tydzień</button>
+                    <button type="button" data-range="next-week">Przyszły tydzień</button>
+                </div>
+            </section>
+
+            <section class="form-step">
+                <div class="step-head">
+                    <span>3</span>
+                    <div>
+                        <h2>Szczegóły</h2>
+                        <p>Dodaj zastępstwo i krótki komentarz, jeżeli trzeba.</p>
+                    </div>
+                </div>
+
+                <label>Zastępstwo</label>
+                <select name="replacement_user_id">
+                    <option value="">Brak / nie dotyczy</option>
+                    {% for employee in employees %}
+                    <option value="{{ employee.id }}" {% if form_data.replacement_user_id|string == employee.id|string %}selected{% endif %}>{{ employee.full_name }}</option>
+                    {% endfor %}
+                </select>
+
+                <label>Komentarz</label>
+                <textarea name="comment" rows="4" maxlength="1000" placeholder="Np. pilny urlop rodzinny, odbiór dnia wolnego, informacja dla przełożonego">{{ form_data.comment }}</textarea>
+
+                <label>Załącznik / informacja opcjonalna</label>
+                <input type="text" name="attachment_note" maxlength="255" value="{{ form_data.attachment_note }}" placeholder="Np. L4, dokument, ustalenie z przełożonym">
+            </section>
+
+            <div class="request-submit-bar">
+                <button type="submit" id="submitRequestBtn">Wyślij wniosek</button>
+                <a class="btn-secondary" href="{{ url_for('requests.requests_view') }}">Wróć do wniosków</a>
             </div>
-
-            <label>Zastępstwo opcjonalne</label>
-            <select name="replacement_user_id">
-                <option value="">Brak / nie dotyczy</option>
-                {% for employee in employees %}<option value="{{ employee.id }}">{{ employee.full_name }}</option>{% endfor %}
-            </select>
-
-            <label>Komentarz</label>
-            <textarea name="comment" rows="4" placeholder="Opcjonalny komentarz do wniosku"></textarea>
-
-            <label>Załącznik opcjonalny</label>
-            <input type="text" name="attachment_note" placeholder="Na razie wpisz nazwę/dopis, pliki będą w etapie 2">
-
-            <p class="hint">System pomija soboty, niedziele i polskie święta. Z limitu odejmują się tylko urlop wypoczynkowy i urlop na żądanie.</p>
-            <button type="submit">Wyślij wniosek</button>
         </form>
     </div>
 
-    <div class="card">
-        <h2>Po wysłaniu zostanie</h2>
-        <div class="mini-summary">
-            <div><span>Dostępne teraz</span><strong>{{ vacation_summary.available }}</strong></div>
-            <div><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong></div>
-            <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
+    <aside class="request-side-panel">
+        <div class="card live-summary-card">
+            <p class="eyebrow">Podsumowanie</p>
+            <h2 id="summaryTitle">Wybierz daty</h2>
+            <div class="live-days-number" id="liveDays">0</div>
+            <p id="liveDaysText">dni roboczych do wysłania</p>
+            <div class="summary-line"><span>Dostępne teraz</span><strong>{{ vacation_summary.available }}</strong></div>
+            <div class="summary-line"><span>Po tym wniosku</span><strong id="afterRequestDays">{{ vacation_summary.available }}</strong></div>
+            <div class="summary-alert" id="summaryAlert">Wybierz zakres dat.</div>
         </div>
-    </div>
+
+        <div class="card request-info-card">
+            <h2>Ścieżka akceptacji</h2>
+            <div class="approval-path">
+                <div><span>1</span><strong>Pracownik</strong><small>składa wniosek</small></div>
+                <div><span>2</span><strong>{{ manager_name }}</strong><small>sprawdza / akceptuje</small></div>
+                <div><span>3</span><strong>Kadry</strong><small>widzą status w systemie</small></div>
+            </div>
+        </div>
+
+        <div class="card request-info-card">
+            <h2>Twoje limity</h2>
+            <div class="mini-summary compact-summary">
+                <div><span>Limit razem</span><strong>{{ vacation_summary.total }}</strong></div>
+                <div><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong></div>
+                <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
+            </div>
+        </div>
+    </aside>
 </div>
+
+<script>
+(function () {
+    const availableDays = Number({{ vacation_summary.available|default(0) }});
+    const limitTypes = {{ limit_types|tojson }};
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    const liveDays = document.getElementById('liveDays');
+    const liveDaysText = document.getElementById('liveDaysText');
+    const afterRequestDays = document.getElementById('afterRequestDays');
+    const summaryAlert = document.getElementById('summaryAlert');
+    const summaryTitle = document.getElementById('summaryTitle');
+    const submitBtn = document.getElementById('submitRequestBtn');
+    const typeInputs = Array.from(document.querySelectorAll('input[name="leave_type"]'));
+
+    function parseDate(value) {
+        if (!value) return null;
+        const parts = value.split('-').map(Number);
+        if (parts.length !== 3) return null;
+        return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+    }
+
+    function formatDate(date) {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function easter(year) {
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31);
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(year, month - 1, day, 12, 0, 0);
+    }
+
+    function addDays(date, days) {
+        const copy = new Date(date);
+        copy.setDate(copy.getDate() + days);
+        return copy;
+    }
+
+    function holidaySet(year) {
+        const e = easter(year);
+        const dates = [
+            new Date(year, 0, 1, 12),
+            new Date(year, 0, 6, 12),
+            addDays(e, 1),
+            new Date(year, 4, 1, 12),
+            new Date(year, 4, 3, 12),
+            addDays(e, 60),
+            new Date(year, 7, 15, 12),
+            new Date(year, 10, 1, 12),
+            new Date(year, 10, 11, 12),
+            new Date(year, 11, 25, 12),
+            new Date(year, 11, 26, 12)
+        ];
+        return new Set(dates.map(formatDate));
+    }
+
+    function selectedType() {
+        const checked = typeInputs.find(input => input.checked);
+        return checked ? checked.value : '';
+    }
+
+    function countWorkdays(start, end) {
+        if (!start || !end || end < start) return null;
+        let holidays = new Set();
+        for (let year = start.getFullYear(); year <= end.getFullYear(); year++) {
+            holidaySet(year).forEach(day => holidays.add(day));
+        }
+        let days = 0;
+        const current = new Date(start);
+        while (current <= end) {
+            const day = current.getDay();
+            if (day !== 0 && day !== 6 && !holidays.has(formatDate(current))) days++;
+            current.setDate(current.getDate() + 1);
+        }
+        return days;
+    }
+
+    function updateSummary() {
+        const start = parseDate(dateFrom.value);
+        const end = parseDate(dateTo.value);
+        const days = countWorkdays(start, end);
+        const type = selectedType();
+        const usesLimit = limitTypes.includes(type);
+
+        if (days === null) {
+            liveDays.textContent = '0';
+            liveDaysText.textContent = 'dni roboczych do wysłania';
+            afterRequestDays.textContent = availableDays;
+            summaryTitle.textContent = 'Wybierz poprawne daty';
+            summaryAlert.textContent = 'Data do nie może być wcześniejsza niż data od.';
+            summaryAlert.className = 'summary-alert is-bad';
+            submitBtn.disabled = false;
+            return;
+        }
+
+        const after = usesLimit ? availableDays - days : availableDays;
+        liveDays.textContent = days;
+        liveDaysText.textContent = days === 1 ? 'dzień roboczy do wysłania' : 'dni roboczych do wysłania';
+        afterRequestDays.textContent = after;
+        summaryTitle.textContent = type || 'Wniosek';
+
+        if (days <= 0) {
+            summaryAlert.textContent = 'Ten zakres nie zawiera dni roboczych.';
+            summaryAlert.className = 'summary-alert is-bad';
+            submitBtn.disabled = true;
+        } else if (usesLimit && after < 0) {
+            summaryAlert.textContent = `Brak limitu. Brakuje ${Math.abs(after)} dni.`;
+            summaryAlert.className = 'summary-alert is-bad';
+            submitBtn.disabled = true;
+        } else if (usesLimit) {
+            summaryAlert.textContent = `Po wysłaniu zostanie ${after} dni urlopu.`;
+            summaryAlert.className = 'summary-alert is-ok';
+            submitBtn.disabled = false;
+        } else {
+            summaryAlert.textContent = 'Ten typ nieobecności nie schodzi z limitu urlopu.';
+            summaryAlert.className = 'summary-alert is-neutral';
+            submitBtn.disabled = false;
+        }
+    }
+
+    document.querySelectorAll('[data-range]').forEach(button => {
+        button.addEventListener('click', () => {
+            const today = parseDate('{{ today }}');
+            const day = today.getDay();
+            let start = new Date(today);
+            let end = new Date(today);
+
+            if (button.dataset.range === 'tomorrow') {
+                start = addDays(today, 1);
+                end = addDays(today, 1);
+            }
+            if (button.dataset.range === 'week') {
+                const mondayOffset = day === 0 ? -6 : 1 - day;
+                start = addDays(today, mondayOffset);
+                end = addDays(start, 4);
+            }
+            if (button.dataset.range === 'next-week') {
+                const mondayOffset = day === 0 ? 1 : 8 - day;
+                start = addDays(today, mondayOffset);
+                end = addDays(start, 4);
+            }
+
+            dateFrom.value = formatDate(start);
+            dateTo.value = formatDate(end);
+            updateSummary();
+        });
+    });
+
+    [dateFrom, dateTo, ...typeInputs].forEach(element => element.addEventListener('change', updateSummary));
+    updateSummary();
+})();
+</script>
 {% endblock %}
