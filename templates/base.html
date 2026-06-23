@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EMERLOG Urlopy</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=53">
-    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=5">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=54">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=2">
 </head>
@@ -15,10 +17,10 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="brand">
-            <div class="brand-logo" aria-label="EMERLOG">
-                <span class="brand-logo-short">E</span>
-                <span class="brand-logo-full">EMERLOG</span>
-            </div>
+            <a class="brand-logo" href="{{ url_for('main.dashboard') }}" aria-label="EMERLOG">
+                <img class="brand-logo-mark" src="{{ url_for('static', filename='img/favicon.svg') }}?v=1" alt="">
+                <img class="brand-logo-full" src="{{ url_for('static', filename='img/logo.svg') }}?v=2" alt="EMERLOG">
+            </a>
             <small>Panel urlopów</small>
         </div>
 
