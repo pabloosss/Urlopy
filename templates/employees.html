@@ -5,7 +5,6 @@
     <div>
         <p class="eyebrow">Pracownicy</p>
         <h1>Baza pracowników</h1>
-        <p>Dodawanie, wyszukiwanie, edycja danych, role, menedżerowie, limity urlopowe i hasła.</p>
     </div>
     <a class="btn-secondary" href="#addEmployee">+ Dodaj pracownika</a>
 </section>
@@ -14,7 +13,7 @@
     <div class="stat-card accent"><span>Wszyscy</span><strong>{{ stats.total or 0 }}</strong><small>w bazie</small></div>
     <div class="stat-card"><span>Aktywni</span><strong>{{ stats.active_count or 0 }}</strong><small>mogą się logować</small></div>
     <div class="stat-card"><span>Nieaktywni</span><strong>{{ stats.inactive_count or 0 }}</strong><small>wyłączeni</small></div>
-    <div class="stat-card"><span>Menedżerowie</span><strong>{{ stats.managers_count or 0 }}</strong><small>prowadzą zespoły</small></div>
+    <div class="stat-card"><span>Menedżerowie</span><strong>{{ stats.managers_count or 0 }}</strong><small>zespoły</small></div>
 </section>
 
 <div class="card employee-search-card">
@@ -60,7 +59,6 @@
 <div class="employees-grid">
     <div class="card form-card" id="addEmployee">
         <h2>Dodaj pracownika</h2>
-        <p class="muted">Hasło startowe domyślnie: <b>Start123!</b></p>
         <form method="post" class="employee-form-grid">
             <label>Login</label><input name="login" required>
             <label>Hasło startowe</label><input name="password" placeholder="Start123!">
@@ -80,7 +78,6 @@
         <div class="section-head-row">
             <div>
                 <h2>Lista pracowników</h2>
-                <p class="muted">Kliknij „Edytuj”, aby rozwinąć szczegóły użytkownika.</p>
             </div>
             <span class="chip">wyniki: {{ users|length }}</span>
         </div>
@@ -102,7 +99,7 @@
                 </div>
 
                 <details class="employee-details">
-                    <summary>Edytuj dane / hasło / usuń</summary>
+                    <summary>Edytuj</summary>
                     <div class="employee-edit-layout">
                         <form method="post" action="{{ url_for('employees.edit_employee', user_id=u.id) }}" class="employee-edit-form">
                             <div><label>Login</label><input name="login" value="{{ u.login }}" required></div>
@@ -116,7 +113,7 @@
                             <div><label>Limit</label><input name="vacation_days" type="number" value="{{ u.vacation_days or 0 }}"></div>
                             <div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ u.carryover_days or 0 }}"></div>
                             <div><label>Status</label><select name="active"><option value="1" {% if u.active %}selected{% endif %}>Aktywny</option><option value="0" {% if not u.active %}selected{% endif %}>Nieaktywny</option></select></div>
-                            <button type="submit">Zapisz zmiany</button>
+                            <button type="submit">Zapisz</button>
                         </form>
 
                         <div class="employee-side-actions">
@@ -128,8 +125,8 @@
                             <form method="post" action="{{ url_for('employees.toggle_employee', user_id=u.id) }}">
                                 <button type="submit" class="btn-muted">Zmień aktywność</button>
                             </form>
-                            <form method="post" action="{{ url_for('employees.delete_employee', user_id=u.id) }}" onsubmit="return confirm('Na pewno usunąć albo dezaktywować tego pracownika?');">
-                                <button type="submit" class="btn-bad">Usuń / dezaktywuj</button>
+                            <form method="post" action="{{ url_for('employees.delete_employee', user_id=u.id) }}" onsubmit="return confirm('Na pewno usunąć tego pracownika?');">
+                                <button type="submit" class="btn-bad">Usuń</button>
                             </form>
                         </div>
                     </div>
