@@ -84,11 +84,62 @@ def settings_view():
 @role_required("admin", "kadry")
 def audit_view():
     conn = get_db()
-    logs = conn.execute("""
-        SELECT al.*, u.full_name AS actor_name
+    q = request.args.get("q", "").strip()
+    actor_id = request.args.get("actor_id", "").strip()
+    entity_type = request.args.get("entity_type", "").strip()
+    action = request.args.get("action", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+
+    filters = ["1=1"]
+    params = []
+    if q:
+        filters.append("(al.action LIKE ? OR al.details LIKE ? OR actor.full_name LIKE ? OR target_user.full_name LIKE ? OR CAST(al.entity_id AS TEXT) LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+    if actor_id:
+        filters.append("al.actor_user_id = ?")
+        params.append(actor_id)
+    if entity_type:
+        filters.append("al.entity_type = ?")
+        params.append(entity_type)
+    if action:
+        filters.append("al.action = ?")
+        params.append(action)
+    if date_from:
+        filters.append("substr(al.created_at, 1, 10) >= ?")
+        params.append(date_from)
+    if date_to:
+        filters.append("substr(al.created_at, 1, 10) <= ?")
+        params.append(date_to)
+
+    logs = conn.execute(f"""
+        SELECT al.*, actor.full_name AS actor_name,
+               target_user.full_name AS target_user_name,
+               lr.leave_type AS leave_type,
+               lr.date_from AS leave_from,
+               lr.date_to AS leave_to,
+               CASE
+                   WHEN al.entity_type = 'user' THEN COALESCE(target_user.full_name, 'Użytkownik #' || COALESCE(al.entity_id, '—'))
+                   WHEN al.entity_type = 'leave_request' THEN 'Wniosek #' || COALESCE(al.entity_id, '—') || COALESCE(' · ' || lr.leave_type || ' · ' || lr.date_from || ' - ' || lr.date_to, '')
+                   WHEN al.entity_type = 'department' THEN 'Dział'
+                   ELSE al.entity_type || ' #' || COALESCE(al.entity_id, '—')
+               END AS object_label
         FROM audit_logs al
-        LEFT JOIN users u ON al.actor_user_id = u.id
-        ORDER BY al.created_at DESC LIMIT 200
+        LEFT JOIN users actor ON al.actor_user_id = actor.id
+        LEFT JOIN users target_user ON al.entity_type = 'user' AND al.entity_id = target_user.id
+        LEFT JOIN leave_requests lr ON al.entity_type = 'leave_request' AND al.entity_id = lr.id
+        WHERE {' AND '.join(filters)}
+        ORDER BY al.created_at DESC
+        LIMIT 500
+    """, params).fetchall()
+
+    actors = conn.execute("""
+        SELECT DISTINCT u.id, u.full_name
+        FROM audit_logs al
+        JOIN users u ON u.id = al.actor_user_id
+        ORDER BY u.full_name
     """).fetchall()
+    entity_types = conn.execute("SELECT DISTINCT entity_type FROM audit_logs ORDER BY entity_type").fetchall()
+    actions = conn.execute("SELECT DISTINCT action FROM audit_logs ORDER BY action").fetchall()
     conn.close()
-    return render_template("audit.html", logs=logs)
+    return render_template("audit.html", logs=logs, actors=actors, entity_types=entity_types, actions=actions)
