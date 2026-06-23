@@ -1,34 +1,144 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-title">
-    <div><p class="eyebrow">Pracownicy</p><h1>Baza pracowników</h1><p>Dodawanie, role, działy, menedżerowie i status aktywności.</p></div>
+<section class="page-title employees-hero">
+    <div>
+        <p class="eyebrow">Pracownicy</p>
+        <h1>Baza pracowników</h1>
+        <p>Dodawanie, wyszukiwanie, edycja danych, role, menedżerowie, limity urlopowe i hasła.</p>
+    </div>
+    <a class="btn-secondary" href="#addEmployee">+ Dodaj pracownika</a>
 </section>
 
-<div class="layout-grid">
-    <div class="card form-card">
+<section class="stats-grid">
+    <div class="stat-card accent"><span>Wszyscy</span><strong>{{ stats.total or 0 }}</strong><small>w bazie</small></div>
+    <div class="stat-card"><span>Aktywni</span><strong>{{ stats.active_count or 0 }}</strong><small>mogą się logować</small></div>
+    <div class="stat-card"><span>Nieaktywni</span><strong>{{ stats.inactive_count or 0 }}</strong><small>wyłączeni</small></div>
+    <div class="stat-card"><span>Menedżerowie</span><strong>{{ stats.managers_count or 0 }}</strong><small>prowadzą zespoły</small></div>
+</section>
+
+<div class="card employee-search-card">
+    <form method="get" class="employee-filter-form">
+        <div class="filter-wide">
+            <label>Szukaj</label>
+            <input name="q" placeholder="imię, nazwisko, login, e-mail, stanowisko" value="{{ request.args.get('q','') }}">
+        </div>
+        <div>
+            <label>Rola</label>
+            <select name="role">
+                <option value="">Wszystkie</option>
+                {% for value, label in roles %}<option value="{{ value }}" {% if request.args.get('role') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Dział</label>
+            <select name="department">
+                <option value="">Wszystkie</option>
+                {% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Status</label>
+            <select name="status">
+                <option value="">Wszyscy</option>
+                <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Aktywni</option>
+                <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Nieaktywni</option>
+            </select>
+        </div>
+        <div>
+            <label>Menedżer</label>
+            <select name="manager_id">
+                <option value="">Wszyscy</option>
+                {% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <button type="submit">Szukaj</button>
+        <a class="btn-secondary" href="{{ url_for('employees.employees_view') }}">Wyczyść</a>
+    </form>
+</div>
+
+<div class="employees-grid">
+    <div class="card form-card" id="addEmployee">
         <h2>Dodaj pracownika</h2>
-        <form method="post">
+        <p class="muted">Hasło startowe domyślnie: <b>Start123!</b></p>
+        <form method="post" class="employee-form-grid">
             <label>Login</label><input name="login" required>
-            <label>Hasło startowe</label><input name="password" placeholder="domyślnie Start123!">
+            <label>Hasło startowe</label><input name="password" placeholder="Start123!">
             <label>Imię i nazwisko</label><input name="full_name" required>
             <label>E-mail</label><input name="email" type="email">
-            <label>Rola</label><select name="role"><option value="pracownik">Pracownik</option><option value="menedzer">Menedżer</option><option value="kadry">Kadry</option><option value="admin">Admin</option></select>
+            <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
             <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
             <label>Stanowisko</label><input name="job_title">
             <label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}">{{ m.full_name }}</option>{% endfor %}</select>
             <label>Typ umowy</label><input name="contract_type" value="Umowa o pracę">
             <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
-            <button>Dodaj</button>
+            <button>Dodaj pracownika</button>
         </form>
     </div>
 
-    <div class="card table-card">
-        <h2>Lista pracowników</h2>
-        <div class="table-wrapper"><table>
-            <thead><tr><th>Pracownik</th><th>Dział</th><th>Stanowisko</th><th>E-mail</th><th>Menedżer</th><th>Limit</th><th>Status</th><th>Akcje</th></tr></thead>
-            <tbody>{% for u in users %}<tr><td><b>{{ u.full_name }}</b><br><small>{{ u.login }} · {{ u.role }}</small></td><td>{{ u.department }}</td><td>{{ u.job_title }}</td><td>{{ u.email }}</td><td>{{ u.manager_name or "—" }}</td><td>{{ u.vacation_days + u.carryover_days }}</td><td>{% if u.active %}<span class="status status-zaakceptowany">aktywny</span>{% else %}<span class="status status-anulowany">nieaktywny</span>{% endif %}</td><td><form method="post" action="{{ url_for('employees.toggle_employee', user_id=u.id) }}"><button class="btn-muted">Zmień status</button></form></td></tr>{% endfor %}</tbody>
-        </table></div>
+    <div class="card employees-list-card">
+        <div class="section-head-row">
+            <div>
+                <h2>Lista pracowników</h2>
+                <p class="muted">Kliknij „Edytuj”, aby rozwinąć szczegóły użytkownika.</p>
+            </div>
+            <span class="chip">wyniki: {{ users|length }}</span>
+        </div>
+
+        <div class="employee-cards">
+            {% for u in users %}
+            <article class="employee-card {% if not u.active %}is-inactive{% endif %}">
+                <div class="employee-card-main">
+                    <div class="employee-avatar">{{ u.full_name[:1] }}</div>
+                    <div>
+                        <h3>{{ u.full_name }}</h3>
+                        <p>{{ u.login }} · {{ u.role }} · {{ u.department or "brak działu" }}</p>
+                        <small>{{ u.job_title or "brak stanowiska" }}{% if u.manager_name %} · menedżer: {{ u.manager_name }}{% endif %}</small>
+                    </div>
+                    <div class="employee-card-status">
+                        {% if u.active %}<span class="status status-zaakceptowany">aktywny</span>{% else %}<span class="status status-anulowany">nieaktywny</span>{% endif %}
+                        <small>{{ u.requests_count }} wniosków</small>
+                    </div>
+                </div>
+
+                <details class="employee-details">
+                    <summary>Edytuj dane / hasło / usuń</summary>
+                    <div class="employee-edit-layout">
+                        <form method="post" action="{{ url_for('employees.edit_employee', user_id=u.id) }}" class="employee-edit-form">
+                            <div><label>Login</label><input name="login" value="{{ u.login }}" required></div>
+                            <div><label>Imię i nazwisko</label><input name="full_name" value="{{ u.full_name }}" required></div>
+                            <div><label>E-mail</label><input type="email" name="email" value="{{ u.email or '' }}"></div>
+                            <div><label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}" {% if u.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                            <div><label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}" {% if u.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+                            <div><label>Stanowisko</label><input name="job_title" value="{{ u.job_title or '' }}"></div>
+                            <div><label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}{% if m.id != u.id %}<option value="{{ m.id }}" {% if u.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}</option>{% endif %}{% endfor %}</select></div>
+                            <div><label>Typ umowy</label><input name="contract_type" value="{{ u.contract_type or '' }}"></div>
+                            <div><label>Limit</label><input name="vacation_days" type="number" value="{{ u.vacation_days or 0 }}"></div>
+                            <div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ u.carryover_days or 0 }}"></div>
+                            <div><label>Status</label><select name="active"><option value="1" {% if u.active %}selected{% endif %}>Aktywny</option><option value="0" {% if not u.active %}selected{% endif %}>Nieaktywny</option></select></div>
+                            <button type="submit">Zapisz zmiany</button>
+                        </form>
+
+                        <div class="employee-side-actions">
+                            <form method="post" action="{{ url_for('employees.change_employee_password', user_id=u.id) }}">
+                                <label>Nowe hasło</label>
+                                <input name="new_password" type="password" minlength="6" placeholder="min. 6 znaków" required>
+                                <button type="submit" class="btn-secondary">Zmień hasło</button>
+                            </form>
+                            <form method="post" action="{{ url_for('employees.toggle_employee', user_id=u.id) }}">
+                                <button type="submit" class="btn-muted">Zmień aktywność</button>
+                            </form>
+                            <form method="post" action="{{ url_for('employees.delete_employee', user_id=u.id) }}" onsubmit="return confirm('Na pewno usunąć albo dezaktywować tego pracownika?');">
+                                <button type="submit" class="btn-bad">Usuń / dezaktywuj</button>
+                            </form>
+                        </div>
+                    </div>
+                </details>
+            </article>
+            {% else %}
+            <div class="empty-state">Brak pracowników dla wybranych filtrów.</div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endblock %}
