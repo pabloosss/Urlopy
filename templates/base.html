@@ -26,11 +26,11 @@
 
             <div class="menu-section">Nieobecności</div>
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
+            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
             <a href="{{ url_for('requests.requests_view') }}">Moje wnioski</a>
 
             {% if is_hr() %}
                 <div class="menu-section">Kadry</div>
-                <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
                 <a href="{{ url_for('main.presence_view') }}">Obecność</a>
                 <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
                 <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
@@ -41,7 +41,6 @@
                 <a href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
             {% elif is_manager() %}
                 <div class="menu-section">Zespół</div>
-                <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
                 <a href="{{ url_for('main.presence_view') }}">Obecność</a>
                 <a href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
                 <a href="{{ url_for('admin.reports_view') }}">Raporty zespołu</a>
