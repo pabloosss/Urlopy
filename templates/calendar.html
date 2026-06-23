@@ -5,16 +5,15 @@
     <div>
         <p class="eyebrow">Nieobecności</p>
         <h1>{{ calendar_title or "Kalendarz" }}</h1>
-        <p>{{ calendar_description or "Kalendarz pokazuje zaakceptowane urlopy i nieobecności." }}</p>
     </div>
     <a class="btn-secondary" href="{{ url_for('main.presence_view') }}">Lista obecności</a>
 </section>
 
 <section class="stats-grid calendar-stats-grid">
-    <div class="stat-card accent"><span>Osoby w zakresie</span><strong>{{ team_stats.employees }}</strong><small>{% if is_manager() %}podopieczni{% else %}pracownicy{% endif %}</small></div>
-    <div class="stat-card"><span>Wnioski w miesiącu</span><strong>{{ team_stats.requests }}</strong><small>zaakceptowane</small></div>
-    <div class="stat-card"><span>Dni nieobecności</span><strong>{{ team_stats.days }}</strong><small>łącznie</small></div>
-    <div class="stat-card"><span>Widok</span><strong>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</strong><small>zakres danych</small></div>
+    <div class="stat-card accent"><span>Osoby</span><strong>{{ team_stats.employees }}</strong><small>{% if is_manager() %}podopieczni{% else %}pracownicy{% endif %}</small></div>
+    <div class="stat-card"><span>Wnioski</span><strong>{{ team_stats.requests }}</strong><small>zaakceptowane</small></div>
+    <div class="stat-card"><span>Dni</span><strong>{{ team_stats.days }}</strong><small>łącznie</small></div>
+    <div class="stat-card"><span>Widok</span><strong>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</strong><small>zakres</small></div>
 </section>
 
 <div class="card filters-card">
@@ -38,12 +37,12 @@
         </div>
         <div>
             <label>Pracownik</label>
-            <input name="employee" placeholder="np. Jan" value="{{ request.args.get('employee','') }}">
+            <input name="employee" value="{{ request.args.get('employee','') }}">
         </div>
         <div>
             <label>Typ</label>
             <select name="leave_type">
-                <option value="">Wszystkie typy</option>
+                <option value="">Wszystkie</option>
                 {% for t in leave_types %}
                     <option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>
                 {% endfor %}
@@ -86,10 +85,7 @@
 
 <div class="card">
     <div class="section-heading">
-        <div>
-            <h2>{{ list_title or "Nieobecności w tym miesiącu" }}</h2>
-            <p class="muted">Ta lista pokazuje dokładnie, kto i kiedy miał zaakceptowany urlop lub inną nieobecność.</p>
-        </div>
+        <div><h2>{{ list_title or "Nieobecności w tym miesiącu" }}</h2></div>
     </div>
     <div class="table-wrapper">
         <table>
@@ -108,7 +104,7 @@
                     <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
                 </tr>
                 {% else %}
-                <tr><td colspan="7" class="empty-state">Brak nieobecności dla wybranych filtrów.</td></tr>
+                <tr><td colspan="7" class="empty-state">Brak nieobecności.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
