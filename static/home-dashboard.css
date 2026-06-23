@@ -47,8 +47,8 @@ body {
     transition: width .22s var(--ease), padding .22s var(--ease), border-radius .22s var(--ease);
 }
 
-.brand-logo-short {
-    display: inline-block;
+.brand-logo-mark {
+    display: block;
 }
 
 .brand-logo-full {
@@ -56,17 +56,17 @@ body {
 }
 
 .sidebar:hover .brand-logo {
-    width: 180px;
-    padding: 0 14px !important;
+    width: 205px;
+    padding: 0 10px !important;
     justify-content: flex-start;
 }
 
-.sidebar:hover .brand-logo-short {
+.sidebar:hover .brand-logo-mark {
     display: none;
 }
 
 .sidebar:hover .brand-logo-full {
-    display: inline-block;
+    display: block;
 }
 
 .brand small,
@@ -315,8 +315,8 @@ body {
     .sidebar { position: static !important; width: 100% !important; height: auto !important; }
     .content-shell { margin-left: 0 !important; }
     .brand-logo { width: auto; min-width: 0; padding: 0 14px !important; justify-content: flex-start; }
-    .brand-logo-short { display: none; }
-    .brand-logo-full { display: inline-block; }
+    .brand-logo-mark { display: none; }
+    .brand-logo-full { display: block; }
     .menu a { color: #f2f2f2 !important; }
     .menu a::before { display: none; }
     .brand small, .menu-section { opacity: 1; }
