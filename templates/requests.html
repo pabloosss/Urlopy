@@ -46,6 +46,8 @@
                             {% if req.user_id == session.get('user_id') or is_hr() %}
                                 <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}"><button class="btn-muted">Anuluj</button></form>
                             {% endif %}
+                        {% elif req.status == "zaakceptowany" %}
+                            <a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('requests.leave_request_pdf', request_id=req.id) }}">PDF</a>
                         {% else %}—{% endif %}
                     </td>
                 </tr>
