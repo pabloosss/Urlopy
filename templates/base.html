@@ -28,14 +28,14 @@
 
             <div class="menu-section">Wnioski i urlopy</div>
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
-            <a href="{{ url_for('requests.requests_view') }}">Moje wnioski</a>
+            <a href="{{ url_for('main.my_leave') }}">Moje wnioski</a>
             {% if is_manager() or is_hr() %}
                 <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
             {% endif %}
 
-            <div class="menu-section">Planowanie</div>
-            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
             {% if is_manager() or is_hr() %}
+                <div class="menu-section">Planowanie</div>
+                <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
                 <a href="{{ url_for('main.presence_view') }}">Obecność</a>
             {% endif %}
             {% if is_hr() %}
