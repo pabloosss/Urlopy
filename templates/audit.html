@@ -1,5 +1,75 @@
 {% extends "base.html" %}
+
 {% block content %}
-<section class="page-title"><div><p class="eyebrow">Historia</p><h1>Historia działań</h1></div></section>
-<div class="card"><div class="table-wrapper"><table><thead><tr><th>Kto</th><th>Akcja</th><th>Obiekt</th><th>Data</th></tr></thead><tbody>{% for log in logs %}<tr><td>{{ log.actor_name or "system" }}</td><td>{{ log.action }}</td><td>{{ log.entity_type }} #{{ log.entity_id or "—" }}</td><td>{{ log.created_at }}</td></tr>{% else %}<tr><td colspan="4" class="empty-state">Brak wpisów.</td></tr>{% endfor %}</tbody></table></div></div>
+<section class="page-title">
+    <div>
+        <p class="eyebrow">Historia zmian</p>
+        <h1>Historia działań w systemie</h1>
+        <p>Wyszukuj kto, co i kiedy zmienił. Obiekt pokazuje teraz normalną nazwę, a nie tylko techniczne ID.</p>
+    </div>
+</section>
+
+<div class="card filters-card">
+    <form method="get" class="audit-filter-form">
+        <div class="filter-wide">
+            <label>Szukaj</label>
+            <input name="q" placeholder="akcja, pracownik, szczegóły, numer obiektu" value="{{ request.args.get('q','') }}">
+        </div>
+        <div>
+            <label>Kto</label>
+            <select name="actor_id">
+                <option value="">Wszyscy</option>
+                {% for actor in actors %}<option value="{{ actor.id }}" {% if request.args.get('actor_id') == actor.id|string %}selected{% endif %}>{{ actor.full_name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Akcja</label>
+            <select name="action">
+                <option value="">Wszystkie</option>
+                {% for item in actions %}<option value="{{ item.action }}" {% if request.args.get('action') == item.action %}selected{% endif %}>{{ item.action }}</option>{% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Obiekt</label>
+            <select name="entity_type">
+                <option value="">Wszystkie</option>
+                {% for item in entity_types %}<option value="{{ item.entity_type }}" {% if request.args.get('entity_type') == item.entity_type %}selected{% endif %}>{{ item.entity_type }}</option>{% endfor %}
+            </select>
+        </div>
+        <div><label>Od</label><input type="date" name="date_from" value="{{ request.args.get('date_from','') }}"></div>
+        <div><label>Do</label><input type="date" name="date_to" value="{{ request.args.get('date_to','') }}"></div>
+        <button type="submit">Filtruj</button>
+        <a class="btn-secondary" href="{{ url_for('reports.audit_view') }}">Wyczyść</a>
+    </form>
+</div>
+
+<div class="card audit-card">
+    <div class="section-head-row">
+        <div>
+            <h2>Zdarzenia</h2>
+            <p class="muted">Pokazuję maksymalnie 500 najnowszych wyników.</p>
+        </div>
+        <span class="chip">wyniki: {{ logs|length }}</span>
+    </div>
+
+    <div class="audit-list">
+        {% for log in logs %}
+        <article class="audit-item">
+            <div class="audit-icon">{{ (log.actor_name or 'S')[:1] }}</div>
+            <div class="audit-content">
+                <div class="audit-topline">
+                    <strong>{{ log.actor_name or "system" }}</strong>
+                    <span>{{ log.created_at }}</span>
+                </div>
+                <h3>{{ log.action }}</h3>
+                <p><b>Obiekt:</b> {{ log.object_label }}</p>
+                {% if log.details %}<p class="audit-details">{{ log.details }}</p>{% endif %}
+                <small>Typ techniczny: {{ log.entity_type }} · ID: {{ log.entity_id or "—" }}</small>
+            </div>
+        </article>
+        {% else %}
+        <div class="empty-state">Brak wpisów dla wybranych filtrów.</div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
