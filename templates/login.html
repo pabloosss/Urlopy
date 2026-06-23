@@ -3,7 +3,7 @@
 {% block content %}
 <div class="login-card">
     <div class="login-brand">
-        <img src="{{ url_for('main.graphics_file', filename='logo.png') }}" alt="EMERLOG">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}?v=101" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
         <div class="brand-fallback login-fallback">EMERLOG</div>
         <p>Leave Manager</p>
     </div>
@@ -20,10 +20,5 @@
 
         <button type="submit">Zaloguj</button>
     </form>
-
-    <div class="demo-box">
-        <b>Konta testowe</b><br>
-        jan / jan123 · anna / anna123 · ewa / ewa123 · kadry / kadry123
-    </div>
 </div>
 {% endblock %}
