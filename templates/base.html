@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EMERLOG Urlopy</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=51">
-    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=4">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
@@ -13,27 +13,27 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="brand">
-            <img src="{{ url_for('main.graphics_file', filename='logo.png') }}" alt="EMERLOG">
+            <img src="{{ url_for('static', filename='img/logo.png') }}?v=100" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
             <div class="brand-fallback">EMERLOG</div>
             <small>Panel urlopów</small>
         </div>
 
         <nav class="menu">
-            <div class="menu-section">Ewidencja</div>
+            <div class="menu-section">Start</div>
             <a href="{{ url_for('main.dashboard') }}">Mój panel</a>
-            <a href="{{ url_for('main.presence_view') }}">Obecność</a>
-            <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
 
             <div class="menu-section">Nieobecności</div>
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
             <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
             <a href="{{ url_for('requests.requests_view') }}">Moje wnioski</a>
-            <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
-            <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
 
             {% if is_hr() %}
-                <div class="menu-section">Pracownicy</div>
-                <a href="{{ url_for('employees.employees_view') }}">Ludzie</a>
+                <div class="menu-section">Kadry</div>
+                <a href="{{ url_for('main.presence_view') }}">Obecność</a>
+                <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
+                <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
+                <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
+                <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
                 <a href="{{ url_for('limits.limits_view') }}">Limity urlopowe</a>
                 <a href="{{ url_for('admin.reports_view') }}">Raporty</a>
                 <a href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
