@@ -3,7 +3,9 @@
 {% block content %}
 <div class="login-card">
     <div class="login-brand">
-        <div class="login-logo" aria-label="EMERLOG">EMERLOG</div>
+        <div class="login-logo" aria-label="EMERLOG">
+            <img src="{{ url_for('static', filename='img/logo.svg') }}?v=2" alt="EMERLOG">
+        </div>
         <p>Leave Manager</p>
     </div>
 
