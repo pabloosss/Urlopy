@@ -4,8 +4,7 @@
 <section class="page-title">
     <div>
         <p class="eyebrow">Historia zmian</p>
-        <h1>Historia działań w systemie</h1>
-        <p>Wyszukuj kto, co i kiedy zmienił. Obiekt pokazuje teraz normalną nazwę, a nie tylko techniczne ID.</p>
+        <h1>Historia działań</h1>
     </div>
 </section>
 
@@ -13,7 +12,7 @@
     <form method="get" class="audit-filter-form">
         <div class="filter-wide">
             <label>Szukaj</label>
-            <input name="q" placeholder="akcja, pracownik, szczegóły, numer obiektu" value="{{ request.args.get('q','') }}">
+            <input name="q" value="{{ request.args.get('q','') }}">
         </div>
         <div>
             <label>Kto</label>
@@ -45,10 +44,7 @@
 
 <div class="card audit-card">
     <div class="section-head-row">
-        <div>
-            <h2>Zdarzenia</h2>
-            <p class="muted">Pokazuję maksymalnie 500 najnowszych wyników.</p>
-        </div>
+        <div><h2>Zdarzenia</h2></div>
         <span class="chip">wyniki: {{ logs|length }}</span>
     </div>
 
@@ -64,11 +60,10 @@
                 <h3>{{ log.action }}</h3>
                 <p><b>Obiekt:</b> {{ log.object_label }}</p>
                 {% if log.details %}<p class="audit-details">{{ log.details }}</p>{% endif %}
-                <small>Typ techniczny: {{ log.entity_type }} · ID: {{ log.entity_id or "—" }}</small>
             </div>
         </article>
         {% else %}
-        <div class="empty-state">Brak wpisów dla wybranych filtrów.</div>
+        <div class="empty-state">Brak wpisów.</div>
         {% endfor %}
     </div>
 </div>
