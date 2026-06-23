@@ -1,61 +1,79 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-title">
-    <div>
-        <p class="eyebrow">EMERLOG Urlopy</p>
-        <h1>Dashboard</h1>
-        <p>Najważniejsze informacje o urlopach i nieobecnościach.</p>
-    </div>
-    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
-</section>
+<section class="home-panel-layout">
+    <aside class="home-user-panel">
+        <p class="panel-label">Mój panel</p>
+        <h1>{{ user.full_name }}</h1>
 
-<section class="stats-grid">
-    <div class="stat-card accent"><span>Dostępne dni</span><strong>{{ vacation_summary.available }}</strong><small>po oczekujących</small></div>
-    <div class="stat-card"><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong><small>zaakceptowane</small></div>
-    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>w trakcie akceptacji</small></div>
-    <div class="stat-card"><span>Nieobecni dziś</span><strong>{{ stats.absent_today }}</strong><small>w widocznym zakresie</small></div>
-</section>
-
-<section class="two-columns">
-    <div class="card">
-        <div class="section-heading"><h2>Najbliższe urlopy</h2></div>
-        <div class="list-stack">
-            {% for req in stats.upcoming %}
-                <div class="list-item">
-                    <b>{{ req.full_name }}</b>
-                    <span>{{ req.date_from|pldate }} – {{ req.date_to|pldate }} · {{ req.department }}</span>
-                </div>
-            {% else %}
-                <p class="empty-state">Brak najbliższych urlopów.</p>
-            {% endfor %}
+        <div class="panel-info-list">
+            <div>
+                <span>Stanowisko</span>
+                <strong>{{ user.job_title or "Pracownik" }}</strong>
+            </div>
+            <div>
+                <span>Dział</span>
+                <strong>{{ user.department or "Brak działu" }}</strong>
+            </div>
+            <div>
+                <span>Typ umowy</span>
+                <strong>{{ user.contract_type or "Nie podano" }}</strong>
+            </div>
+            <div>
+                <span>Rola</span>
+                <strong>{{ session.get("role", "") }}</strong>
+            </div>
         </div>
-    </div>
+    </aside>
 
-    <div class="card">
-        <div class="section-heading"><h2>Ostatnie moje wnioski</h2></div>
-        <div class="list-stack">
-            {% for req in stats.latest %}
-                <div class="list-item">
-                    <b>{{ req.leave_type }}</b>
-                    <span>{{ req.date_from|pldate }} – {{ req.date_to|pldate }} · <span class="status status-{{ req.status }}">{{ req.status }}</span></span>
-                </div>
-            {% else %}
-                <p class="empty-state">Nie masz jeszcze wniosków.</p>
-            {% endfor %}
-        </div>
+    <div class="home-work-area">
+        <section class="home-priority-cards">
+            <div class="home-days-priority">
+                <span>Dostępne dni</span>
+                <strong>{{ vacation_summary.available }}</strong>
+            </div>
+
+            <a class="home-request-priority" href="{{ url_for('requests.new_leave_request') }}">
+                <span>Nowa nieobecność</span>
+                <strong>Złóż wniosek</strong>
+            </a>
+        </section>
+
+        <section class="home-quick-stats">
+            <div>
+                <span>Wykorzystane</span>
+                <strong>{{ vacation_summary.accepted }}</strong>
+            </div>
+            <div>
+                <span>Oczekujące</span>
+                <strong>{{ vacation_summary.pending }}</strong>
+            </div>
+            <a href="{{ url_for('main.my_leave') }}">
+                <span>Historia</span>
+                <strong>Moje wnioski</strong>
+            </a>
+            <a href="{{ url_for('main.calendar_view') }}">
+                <span>Podgląd</span>
+                <strong>Kalendarz</strong>
+            </a>
+        </section>
+
+        {% if is_manager() or is_hr() %}
+        <section class="home-manager-tools">
+            <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">
+                <span>Kadry / menedżer</span>
+                <strong>Do akceptacji: {{ stats.pending }}</strong>
+            </a>
+            <a href="{{ url_for('main.presence_view') }}">
+                <span>Zespół</span>
+                <strong>Obecność</strong>
+            </a>
+            <a href="{{ url_for('admin.reports_view') }}">
+                <span>Zestawienia</span>
+                <strong>Raporty</strong>
+            </a>
+        </section>
+        {% endif %}
     </div>
 </section>
-
-{% if is_manager() or is_hr() %}
-<section class="card">
-    <div class="section-heading">
-        <div>
-            <h2>Wnioski do akceptacji</h2>
-            <p class="muted">Liczba oczekujących wniosków w Twoim zakresie: <b>{{ stats.pending }}</b></p>
-        </div>
-        <a class="btn-secondary" href="{{ url_for('requests.requests_view', status='oczekuje') }}">Przejdź do listy</a>
-    </div>
-</section>
-{% endif %}
 {% endblock %}
