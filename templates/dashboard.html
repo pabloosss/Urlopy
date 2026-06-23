@@ -54,8 +54,8 @@
             </a>
             {% if is_manager() or is_hr() %}
             <a href="{{ url_for('main.calendar_view') }}">
-                <span>Podgląd</span>
-                <strong>Kalendarz</strong>
+                <span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span>
+                <strong>{% if is_manager() %}Kalendarz zespołu{% else %}Kalendarz firmowy{% endif %}</strong>
             </a>
             {% endif %}
         </section>
@@ -63,16 +63,16 @@
         {% if is_manager() or is_hr() %}
         <section class="home-manager-tools">
             <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">
-                <span>Kadry / menedżer</span>
+                <span>{% if is_manager() %}Podopieczni{% else %}Kadry{% endif %}</span>
                 <strong>Do akceptacji: {{ stats.pending }}</strong>
             </a>
-            <a href="{{ url_for('main.presence_view') }}">
-                <span>Zespół</span>
-                <strong>Obecność</strong>
+            <a href="{{ url_for('main.calendar_view') }}">
+                <span>{% if is_manager() %}Urlopy zespołu{% else %}Nieobecności{% endif %}</span>
+                <strong>{% if is_manager() %}Kto i kiedy{% else %}Kalendarz{% endif %}</strong>
             </a>
             <a href="{{ url_for('admin.reports_view') }}">
                 <span>Zestawienia</span>
-                <strong>Raporty</strong>
+                <strong>{% if is_manager() %}Raporty zespołu{% else %}Raporty{% endif %}</strong>
             </a>
         </section>
         {% endif %}
