@@ -1,0 +1,198 @@
+/* Homepage employee panel */
+.home-panel-layout {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 24px;
+    align-items: stretch;
+}
+
+.home-user-panel {
+    min-height: 560px;
+    padding: 34px;
+    border-radius: 32px;
+    color: #ffffff;
+    background: radial-gradient(circle at top right, rgba(215, 25, 32, .35), transparent 34%), linear-gradient(160deg, #111111, #1e1e1e);
+    border-left: 12px solid var(--red);
+    box-shadow: 0 22px 52px rgba(0, 0, 0, .18);
+}
+
+.panel-label {
+    margin: 0 0 18px;
+    color: #ffb4b4;
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+}
+
+.home-user-panel h1 {
+    margin: 0 0 28px;
+    color: #ffffff;
+    font-size: 38px;
+    line-height: 1.08;
+}
+
+.panel-info-list {
+    display: grid;
+    gap: 12px;
+}
+
+.panel-info-list div {
+    padding: 15px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .15);
+}
+
+.panel-info-list span {
+    display: block;
+    margin-bottom: 6px;
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.panel-info-list strong {
+    display: block;
+    color: #ffffff;
+    font-size: 17px;
+    line-height: 1.25;
+}
+
+.home-work-area {
+    min-width: 0;
+}
+
+.home-priority-cards {
+    display: grid;
+    grid-template-columns: .9fr 1.25fr;
+    gap: 22px;
+    margin-bottom: 22px;
+}
+
+.home-days-priority,
+.home-request-priority {
+    min-height: 255px;
+    border-radius: 32px;
+    padding: 34px;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, .12);
+}
+
+.home-days-priority {
+    display: grid;
+    place-items: center;
+    text-align: center;
+    background: #ffffff;
+    border: 3px solid #111111;
+}
+
+.home-days-priority span,
+.home-request-priority span,
+.home-quick-stats span,
+.home-manager-tools span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.home-days-priority strong {
+    color: var(--red);
+    font-size: 112px;
+    line-height: .9;
+}
+
+.home-request-priority {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    color: #ffffff;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--red), var(--red-dark));
+    transition: .15s ease;
+}
+
+.home-request-priority:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 28px 62px rgba(215, 25, 32, .28);
+}
+
+.home-request-priority span {
+    margin-bottom: 12px;
+    color: rgba(255, 255, 255, .78);
+}
+
+.home-request-priority strong {
+    color: #ffffff;
+    font-size: 60px;
+    line-height: 1;
+}
+
+.home-quick-stats,
+.home-manager-tools {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.home-manager-tools {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-quick-stats div,
+.home-quick-stats a,
+.home-manager-tools a {
+    min-height: 118px;
+    padding: 22px;
+    border-radius: 22px;
+    background: #ffffff;
+    border: 1px solid var(--line);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .07);
+    text-decoration: none;
+    transition: .15s ease;
+}
+
+.home-quick-stats a:hover,
+.home-manager-tools a:hover {
+    border-color: var(--red);
+    transform: translateY(-2px);
+}
+
+.home-quick-stats strong,
+.home-manager-tools strong {
+    display: block;
+    margin-top: 10px;
+    color: #111111;
+    font-size: 25px;
+    line-height: 1.1;
+}
+
+@media (max-width: 1050px) {
+    .home-panel-layout,
+    .home-priority-cards,
+    .home-quick-stats,
+    .home-manager-tools {
+        grid-template-columns: 1fr;
+    }
+
+    .home-user-panel {
+        min-height: auto;
+    }
+
+    .home-user-panel h1 {
+        font-size: 32px;
+    }
+
+    .home-days-priority strong {
+        font-size: 78px;
+    }
+
+    .home-request-priority strong {
+        font-size: 42px;
+    }
+}
