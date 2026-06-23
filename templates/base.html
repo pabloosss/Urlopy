@@ -6,11 +6,11 @@
     <title>EMERLOG Urlopy</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
     <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=54">
-    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=6">
-    <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=1">
-    <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='admin-panels.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=55">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin-panels.css') }}?v=2">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
@@ -29,7 +29,7 @@
             <div class="menu-section">Start</div>
             <a href="{{ url_for('main.dashboard') }}">Mój panel</a>
 
-            <div class="menu-section">Wnioski i urlopy</div>
+            <div class="menu-section">Wnioski</div>
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
             <a href="{{ url_for('main.my_leave') }}">Moje wnioski</a>
             {% if is_manager() or is_hr() %}
@@ -40,7 +40,6 @@
                 <div class="menu-section">Zespół</div>
                 <a href="{{ url_for('main.calendar_view') }}">Kalendarz zespołu</a>
                 <a href="{{ url_for('requests.requests_view') }}">Urlopy zespołu</a>
-                <a href="{{ url_for('admin.reports_view') }}">Raporty zespołu</a>
             {% elif is_hr() %}
                 <div class="menu-section">Planowanie</div>
                 <a href="{{ url_for('main.calendar_view') }}">Kalendarz firmowy</a>
@@ -49,8 +48,6 @@
 
                 <div class="menu-section">Administracja</div>
                 <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
-                <a href="{{ url_for('limits.limits_view') }}">Limity urlopowe</a>
-                <a href="{{ url_for('admin.reports_view') }}">Raporty</a>
                 <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
             {% endif %}
         </nav>
