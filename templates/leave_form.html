@@ -19,9 +19,7 @@
             <section class="form-step">
                 <div class="step-head">
                     <span>1</span>
-                    <div>
-                        <h2>Typ nieobecności</h2>
-                    </div>
+                    <div><h2>Typ nieobecności</h2></div>
                 </div>
 
                 <div class="leave-type-grid">
@@ -29,6 +27,7 @@
                     <label class="leave-type-card">
                         <input type="radio" name="leave_type" value="{{ type }}" {% if form_data.leave_type == type %}checked{% endif %} required>
                         <span>{{ type }}</span>
+                        <small>{{ leave_type_descriptions.get(type, "") }}</small>
                     </label>
                     {% endfor %}
                 </div>
@@ -37,9 +36,7 @@
             <section class="form-step">
                 <div class="step-head">
                     <span>2</span>
-                    <div>
-                        <h2>Termin</h2>
-                    </div>
+                    <div><h2>Termin</h2></div>
                 </div>
 
                 <div class="date-grid request-date-grid">
@@ -64,9 +61,7 @@
             <section class="form-step">
                 <div class="step-head">
                     <span>3</span>
-                    <div>
-                        <h2>Szczegóły</h2>
-                    </div>
+                    <div><h2>Szczegóły</h2></div>
                 </div>
 
                 <label>Zastępstwo</label>
