@@ -4,10 +4,17 @@
 <section class="page-title">
     <div>
         <p class="eyebrow">Nieobecności</p>
-        <h1>Kalendarz firmowy</h1>
-        <p>Kalendarz pokazuje maksymalnie 3 wpisy w kratce dnia. Reszta jest w liście pod spodem.</p>
+        <h1>{{ calendar_title or "Kalendarz" }}</h1>
+        <p>{{ calendar_description or "Kalendarz pokazuje zaakceptowane urlopy i nieobecności." }}</p>
     </div>
     <a class="btn-secondary" href="{{ url_for('main.presence_view') }}">Lista obecności</a>
+</section>
+
+<section class="stats-grid calendar-stats-grid">
+    <div class="stat-card accent"><span>Osoby w zakresie</span><strong>{{ team_stats.employees }}</strong><small>{% if is_manager() %}podopieczni{% else %}pracownicy{% endif %}</small></div>
+    <div class="stat-card"><span>Wnioski w miesiącu</span><strong>{{ team_stats.requests }}</strong><small>zaakceptowane</small></div>
+    <div class="stat-card"><span>Dni nieobecności</span><strong>{{ team_stats.days }}</strong><small>łącznie</small></div>
+    <div class="stat-card"><span>Widok</span><strong>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</strong><small>zakres danych</small></div>
 </section>
 
 <div class="card filters-card">
@@ -64,7 +71,7 @@
                     {% for req in day_items[:3] %}
                         <div class="calendar-event compact-event">
                             <b>{{ req.full_name }}</b>
-                            {% if is_hr() or is_manager() %}<small>{{ req.leave_type }}</small>{% else %}<small>nieobecny</small>{% endif %}
+                            <small>{{ req.leave_type }}</small>
                         </div>
                     {% endfor %}
 
@@ -80,8 +87,8 @@
 <div class="card">
     <div class="section-heading">
         <div>
-            <h2>Nieobecności w tym miesiącu</h2>
-            <p class="muted">Lista jest czytelniejsza niż upychanie wszystkiego w kratkach kalendarza.</p>
+            <h2>{{ list_title or "Nieobecności w tym miesiącu" }}</h2>
+            <p class="muted">Ta lista pokazuje dokładnie, kto i kiedy miał zaakceptowany urlop lub inną nieobecność.</p>
         </div>
     </div>
     <div class="table-wrapper">
