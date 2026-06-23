@@ -179,7 +179,6 @@ def presence_view():
 
 @bp.route("/calendar")
 @login_required
-@role_required("admin", "kadry", "menedzer")
 def calendar_view():
     year = int(request.args.get("year", date.today().year))
     month = int(request.args.get("month", date.today().month))
