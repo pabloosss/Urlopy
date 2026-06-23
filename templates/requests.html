@@ -47,7 +47,7 @@
                                 <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}"><button class="btn-muted">Anuluj</button></form>
                             {% endif %}
                         {% elif req.status == "zaakceptowany" %}
-                            <a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('requests.leave_request_pdf', request_id=req.id) }}">PDF</a>
+                            <button type="button" class="btn-secondary btn-mini print-request-btn" data-request-id="{{ req.id }}">PDF</button>
                         {% else %}—{% endif %}
                     </td>
                 </tr>
@@ -58,4 +58,55 @@
         </table>
     </div>
 </div>
+
+{% for req in requests_list %}
+    {% if req.status == "zaakceptowany" %}
+    <template id="print-request-{{ req.id }}">
+        <main class="sheet">
+            <div class="top-date"><strong>{{ req.decided_at|pldate if req.decided_at else req.created_at|pldate }}</strong><span>data wystawienia</span></div>
+            <div class="employee-line"><strong>{{ req.full_name }}</strong><span>imię i nazwisko pracownika</span></div>
+            <div class="company-line"><strong>EMERLOG SP. Z O. O.</strong><span>nazwa firmy</span></div>
+            <h1>Wniosek urlopowy</h1>
+            <p class="request-print-text">Proszę o udzielenie {% if req.leave_type in ['Urlop wypoczynkowy', 'Urlop na żądanie'] %}urlopu wypoczynkowego{% else %}nieobecności: {{ req.leave_type }}{% endif %} w liczbie <b>{{ req.days_count }}</b> dni, w terminie od <b>{{ req.date_from|pldate }}</b> do <b>{{ req.date_to|pldate }}</b>.</p>
+            <div class="signatures-print"><div><span></span><small>pracownik</small></div><div><span></span><small>osoba akceptująca</small></div></div>
+            <p class="accept-line">Zgoda na wskazany termin ........................................................</p>
+            <p class="print-meta">Status: zaakceptowany<br>Akceptujący: {{ req.decider_name or req.manager_name or "—" }}<br>Numer: {{ req.id }} | Typ: {{ req.leave_type }}</p>
+        </main>
+    </template>
+    {% endif %}
+{% endfor %}
+
+<script>
+(function () {
+    const printStyle = `
+        body { margin: 0; padding: 36px; font-family: Arial, sans-serif; color: #111; background: #f3f4f6; }
+        .sheet { width: 760px; min-height: 1040px; margin: 0 auto; padding: 72px 70px; background: #fff; box-shadow: 0 18px 50px rgba(0,0,0,.16); }
+        .top-date { text-align: right; margin-bottom: 42px; }
+        .top-date strong { display: inline-block; width: 260px; min-height: 24px; border-bottom: 1px dotted #111; text-align: center; }
+        .top-date span, .employee-line span, .company-line span { display: block; margin-top: 4px; font-size: 12px; color: #333; }
+        .employee-line { margin: 42px 0 26px; width: 330px; text-align: center; }
+        .employee-line strong { display: block; min-height: 24px; border-bottom: 1px dotted #111; }
+        .company-line { margin: 26px 0 34px; }
+        h1 { margin: 34px 0 38px; text-align: center; font-size: 22px; }
+        .request-print-text { margin: 0 0 70px; font-size: 17px; line-height: 1.75; }
+        .signatures-print { display: flex; justify-content: space-between; gap: 42px; margin-top: 80px; }
+        .signatures-print div { flex: 1; text-align: center; }
+        .signatures-print span { display: block; border-bottom: 1px dotted #111; height: 26px; }
+        .signatures-print small { display: block; margin-top: 4px; }
+        .accept-line { margin-top: 70px; font-size: 16px; }
+        .print-meta { margin-top: 44px; color: #555; font-size: 12px; line-height: 1.5; }
+        @media print { body { padding: 0; background: #fff; } .sheet { width: auto; min-height: auto; margin: 0; padding: 38mm 28mm; box-shadow: none; } }
+    `;
+
+    document.querySelectorAll('.print-request-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const source = document.getElementById('print-request-' + button.dataset.requestId);
+            if (!source) return;
+            const win = window.open('', '_blank');
+            win.document.write('<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"><title>Wniosek</title><style>' + printStyle + '</style></head><body>' + source.innerHTML + '<script>window.onload=function(){window.print();}<\/script></body></html>');
+            win.document.close();
+        });
+    });
+})();
+</script>
 {% endblock %}
