@@ -52,10 +52,12 @@
                 <span>Historia</span>
                 <strong>Moje wnioski</strong>
             </a>
+            {% if is_manager() or is_hr() %}
             <a href="{{ url_for('main.calendar_view') }}">
                 <span>Podgląd</span>
                 <strong>Kalendarz</strong>
             </a>
+            {% endif %}
         </section>
 
         {% if is_manager() or is_hr() %}
