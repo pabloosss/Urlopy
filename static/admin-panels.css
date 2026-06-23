@@ -1,0 +1,202 @@
+.employees-grid {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.employee-search-card,
+.audit-card,
+.employees-list-card {
+    border-radius: 26px;
+}
+
+.employee-filter-form,
+.audit-filter-form {
+    display: grid;
+    grid-template-columns: 1.4fr repeat(5, minmax(130px, 1fr)) auto auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.audit-filter-form {
+    grid-template-columns: 1.4fr repeat(5, minmax(130px, 1fr)) auto auto;
+}
+
+.filter-wide {
+    min-width: 220px;
+}
+
+.employee-form-grid {
+    gap: 10px;
+}
+
+.employee-cards {
+    display: grid;
+    gap: 14px;
+}
+
+.employee-card {
+    border: 1px solid #e5e7eb;
+    border-left: 7px solid var(--red);
+    border-radius: 22px;
+    padding: 16px;
+    background: #ffffff;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .06);
+}
+
+.employee-card.is-inactive {
+    opacity: .72;
+    border-left-color: #6b7280;
+}
+
+.employee-card-main {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+}
+
+.employee-avatar,
+.audit-icon {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    background: #111111;
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 1000;
+    text-transform: uppercase;
+    box-shadow: 0 12px 28px rgba(0,0,0,.14);
+}
+
+.employee-card h3 {
+    margin: 0 0 5px;
+    font-size: 21px;
+}
+
+.employee-card p,
+.employee-card small {
+    margin: 0;
+    color: var(--muted);
+}
+
+.employee-card-status {
+    display: grid;
+    gap: 6px;
+    justify-items: end;
+}
+
+.employee-details {
+    margin-top: 14px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 12px;
+}
+
+.employee-details summary {
+    cursor: pointer;
+    color: var(--red);
+    font-weight: 1000;
+}
+
+.employee-edit-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 16px;
+    margin-top: 14px;
+}
+
+.employee-edit-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.employee-edit-form button {
+    grid-column: 1 / -1;
+}
+
+.employee-side-actions {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.employee-side-actions form {
+    padding: 12px;
+    border-radius: 16px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+}
+
+.audit-list {
+    display: grid;
+    gap: 12px;
+}
+
+.audit-item {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .05);
+}
+
+.audit-topline {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.audit-content h3 {
+    margin: 5px 0 8px;
+    font-size: 20px;
+}
+
+.audit-content p {
+    margin: 0 0 6px;
+}
+
+.audit-details {
+    padding: 10px;
+    border-radius: 14px;
+    background: #f9fafb;
+    border-left: 4px solid var(--red);
+}
+
+.audit-content small {
+    color: var(--muted);
+}
+
+@media (max-width: 1200px) {
+    .employees-grid,
+    .employee-edit-layout {
+        grid-template-columns: 1fr;
+    }
+    .employee-filter-form,
+    .audit-filter-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .employee-card-main,
+    .audit-item,
+    .employee-edit-form {
+        grid-template-columns: 1fr;
+    }
+    .employee-card-status {
+        justify-items: start;
+    }
+    .employee-filter-form,
+    .audit-filter-form {
+        grid-template-columns: 1fr;
+    }
+}
