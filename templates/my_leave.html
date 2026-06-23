@@ -3,40 +3,74 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <p class="eyebrow">Mój urlop</p>
-        <h1>Moje limity i historia</h1>
-        <p>Podsumowanie Twojego urlopu oraz wszystkie złożone wnioski.</p>
+        <p class="eyebrow">Moje wnioski</p>
+        <h1>Historia moich wniosków</h1>
+        <p>Tu widzisz swoje wnioski, statusy, decyzje oraz wykorzystany limit urlopu.</p>
     </div>
-    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
+    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż nowy wniosek</a>
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni</small></div>
+    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni do wykorzystania</small></div>
     <div class="stat-card"><span>Limit roczny</span><strong>{{ vacation_summary.base }}</strong><small>dni</small></div>
     <div class="stat-card"><span>Zaległe</span><strong>{{ vacation_summary.carryover }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>dni</small></div>
+    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>dni w akceptacji</small></div>
 </section>
 
-<div class="card">
-    <h2>Moje wnioski</h2>
-    <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Typ</th><th>Od</th><th>Do</th><th>Dni</th><th>Status</th><th>Decyzja</th></tr></thead>
-            <tbody>
-            {% for req in requests_list %}
-                <tr>
-                    <td>{{ req.leave_type }}</td>
-                    <td>{{ req.date_from|pldate }}</td>
-                    <td>{{ req.date_to|pldate }}</td>
-                    <td><b>{{ req.days_count }}</b></td>
-                    <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
-                    <td>{{ req.decider_name or "—" }}</td>
-                </tr>
-            {% else %}
-                <tr><td colspan="6" class="empty-state">Brak wniosków.</td></tr>
-            {% endfor %}
-            </tbody>
-        </table>
+<div class="card my-requests-card">
+    <div class="section-head-row">
+        <div>
+            <h2>Moje wnioski</h2>
+            <p class="muted">Najświeższe wnioski są na górze.</p>
+        </div>
+        <a class="btn-secondary" href="{{ url_for('requests.new_leave_request') }}">+ Nowy</a>
+    </div>
+
+    <div class="my-request-list">
+        {% for req in requests_list %}
+        <article class="my-request-item status-border-{{ req.status }}">
+            <div class="my-request-main">
+                <div>
+                    <span class="request-type">{{ req.leave_type }}</span>
+                    <h3>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</h3>
+                    <p>
+                        <b>{{ req.days_count }}</b> dni roboczych
+                        {% if req.replacement_name %} · zastępstwo: {{ req.replacement_name }}{% endif %}
+                    </p>
+                    {% if req.comment %}<p class="request-comment">Komentarz: {{ req.comment }}</p>{% endif %}
+                </div>
+                <span class="status status-{{ req.status }}">{{ req.status }}</span>
+            </div>
+
+            <div class="my-request-footer">
+                <div>
+                    <span>Decyzja</span>
+                    <strong>{{ req.decider_name or "—" }}</strong>
+                </div>
+                <div>
+                    <span>Data złożenia</span>
+                    <strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong>
+                </div>
+                <div>
+                    <span>Uwagi decyzji</span>
+                    <strong>{{ req.decision_comment or "—" }}</strong>
+                </div>
+                <div class="request-actions">
+                    {% if req.status == "oczekuje" %}
+                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}">
+                            <button class="btn-muted">Anuluj</button>
+                        </form>
+                    {% elif req.status == "zaakceptowany" %}
+                        <span class="chip">zaakceptowany</span>
+                    {% else %}
+                        <span class="chip">zamknięty</span>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+        {% else %}
+            <div class="empty-state">Nie masz jeszcze żadnych wniosków.</div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}
