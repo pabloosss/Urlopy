@@ -5,7 +5,6 @@
     <div>
         <p class="eyebrow">Wnioski</p>
         <h1>Lista wniosków</h1>
-        <p>Filtruj, akceptuj, odrzucaj i anuluj wnioski urlopowe.</p>
     </div>
     <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
 </section>
@@ -63,7 +62,7 @@
     {% if req.status == "zaakceptowany" %}
     <template id="print-request-{{ req.id }}">
         <main class="sheet">
-            <div class="top-date"><strong>{{ req.decided_at|pldate if req.decided_at else req.created_at|pldate }}</strong><span>data wystawienia</span></div>
+            <div class="top-date"><strong>{% if req.decided_at %}{{ req.decided_at[:10]|pldate }}{% else %}{{ req.created_at[:10]|pldate }}{% endif %}</strong><span>data wystawienia</span></div>
             <div class="employee-line"><strong>{{ req.full_name }}</strong><span>imię i nazwisko pracownika</span></div>
             <div class="company-line"><strong>EMERLOG SP. Z O. O.</strong><span>nazwa firmy</span></div>
             <h1>Wniosek urlopowy</h1>
