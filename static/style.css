@@ -19,9 +19,9 @@ a { color: inherit; }
 .app-shell { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
 .sidebar { background: var(--black); color: var(--white); padding: 22px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .brand { padding: 4px 8px 22px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 18px; }
-.brand-logo { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 48px; padding: 0 14px; border-radius: 14px; background: #ffffff; color: var(--red); border-left: 6px solid var(--red); font-weight: 1000; font-size: 25px; line-height: 1; letter-spacing: .04em; box-shadow: 0 8px 22px rgba(0,0,0,.18); margin-bottom: 10px; }
-.brand-logo-short { display: none; }
-.brand-logo-full { display: inline-block; }
+.brand-logo { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 48px; padding: 0; border-radius: 14px; background: #ffffff; box-shadow: 0 8px 22px rgba(0,0,0,.18); margin-bottom: 10px; overflow: hidden; text-decoration: none; }
+.brand-logo-mark { display: none; width: 40px; height: 40px; object-fit: contain; }
+.brand-logo-full { display: block; width: 170px; max-width: 100%; height: 34px; object-fit: contain; }
 .brand small { color: #c9c9c9; }
 .menu { display: grid; gap: 4px; }
 .menu-section { color: #9ca3af; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 900; margin: 18px 10px 6px; }
@@ -40,6 +40,7 @@ main { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48
 .login-card { width: min(460px, 100%); background: var(--white); border-radius: 24px; padding: 34px; box-shadow: var(--shadow); }
 .login-brand { margin-bottom: 18px; }
 .login-logo { display: inline-flex; align-items: center; min-height: 58px; padding: 0 18px; border-radius: 16px; background: var(--black); color: #ffffff; border-left: 8px solid var(--red); font-size: 34px; font-weight: 1000; letter-spacing: .05em; line-height: 1; box-shadow: 0 12px 30px rgba(0,0,0,.16); }
+.login-logo img { display: block; width: 270px; max-width: 100%; height: auto; object-fit: contain; }
 .login-brand p { margin: 12px 0 0; color: var(--muted); font-weight: 900; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
 .demo-box { background: #f8f8f8; border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 16px; color: var(--muted); }
 
@@ -129,6 +130,8 @@ tr:hover td { background: #fafafa; }
     .stats-grid, .two-columns, .layout-grid { grid-template-columns: 1fr; }
     .form-card { position: static; }
     .filters-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .brand-logo-mark { display: none; }
+    .brand-logo-full { display: block; }
 }
 @media (max-width: 650px) {
     main { width: min(100% - 20px, 1500px); padding-top: 16px; }
