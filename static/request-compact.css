@@ -82,8 +82,129 @@
     line-height: 1;
 }
 
+.section-head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.section-head-row h2 {
+    margin: 0 0 4px;
+}
+
+.my-request-list {
+    display: grid;
+    gap: 14px;
+}
+
+.my-request-item {
+    border: 1px solid #e5e7eb;
+    border-left: 7px solid #9ca3af;
+    border-radius: 20px;
+    padding: 16px;
+    background: #ffffff;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, .06);
+}
+
+.status-border-oczekuje {
+    border-left-color: #b45309;
+}
+
+.status-border-zaakceptowany {
+    border-left-color: #15803d;
+}
+
+.status-border-odrzucony,
+.status-border-anulowany,
+.status-border-cofniety {
+    border-left-color: #6b7280;
+}
+
+.my-request-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.request-type {
+    display: inline-block;
+    margin-bottom: 8px;
+    color: var(--red);
+    font-size: 12px;
+    font-weight: 1000;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.my-request-main h3 {
+    margin: 0 0 6px;
+    font-size: 22px;
+}
+
+.my-request-main p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.request-comment {
+    margin-top: 8px !important;
+    padding: 10px;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+.my-request-footer {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.my-request-footer div {
+    padding: 10px;
+    border-radius: 14px;
+    background: #f9fafb;
+}
+
+.my-request-footer span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.my-request-footer strong {
+    color: #111827;
+}
+
+.request-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
 @media (max-width: 1180px) {
     .leave-form-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 800px) {
+    .section-head-row,
+    .my-request-main {
+        display: block;
+    }
+    .my-request-footer {
+        grid-template-columns: 1fr;
+    }
+    .request-actions {
+        justify-content: flex-start;
     }
 }
