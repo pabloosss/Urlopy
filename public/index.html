@@ -1,172 +1,66 @@
-<!doctype html><html lang="pl"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Urlopy v2</title>
-<link rel="stylesheet" href="./styles.css">
-</head><body>
-<header class="topbar">
-  <div>Urlopy v2</div>
-  <div>Pozostało: <span id="days">--/--</span></div>
-  <button id="bell" title="Do decyzji">0</button>
-  <button id="logoutBtn">Wyloguj</button>
-</header>
-
-<main class="wrap">
-  <section id="loginView" class="card">
-    <h3>Logowanie</h3>
-    <div id="err" class="err hidden"></div>
-    <input id="email" placeholder="email" autocomplete="username">
-    <input id="pass" type="password" placeholder="hasło" autocomplete="current-password">
-    <button id="loginBtn">Zaloguj</button>
-  </section>
-
-  <section id="leavesView" class="card hidden">
-    <h3>Wnioski</h3>
-    <form id="newLeave">
-      <select id="type">
-        <option value="annual">Urlop</option>
-        <option value="unpaid">Bezpłatny</option>
-        <option value="sick">Chorobowe</option>
-      </select>
-      <input type="date" id="from">
-      <input type="date" id="to">
-      <input id="comment" placeholder="Komentarz">
-      <button>Dodaj</button>
-    </form>
-    <div class="toolbar">
-      <select id="filter">
-        <option value="">Wszystkie</option>
-        <option>submitted</option>
-        <option>manager_approved</option>
-        <option>approved</option>
-        <option>rejected</option>
-      </select>
-      <button id="exportCsv">CSV</button>
-      <button id="print">Drukuj</button>
-    </div>
-    <div id="leavesList"></div>
-  </section>
-</main>
-
-<script type="module">
-  import { supabase } from './supabaseClient.js'
-  import { signIn, signOut, getSessionUser } from './auth.js'
-  import { listLeaves, submitLeave, managerApprove, adminFinalize, managerInboxCount, adminInboxCount, meDays } from './leaves.js'
-
-  const $ = s => document.querySelector(s)
-  const $loginView = $('#loginView')
-  const $leavesView = $('#leavesView')
-  const $email = $('#email')
-  const $pass = $('#pass')
-  const $type = $('#type')
-  const $from = $('#from')
-  const $to = $('#to')
-  const $comment = $('#comment')
-  const $filter = $('#filter')
-  const $leavesList = $('#leavesList')
-  const $err = $('#err')
-
-  function showErr(msg){
-    $err.textContent = msg || ''
-    $err.classList.toggle('hidden', !msg)
-    console.error(msg)
-  }
-
-  async function refreshTop(){
-    try{
-      const { left, total } = await meDays()
-      $('#days').textContent = `${left}/${total}`
-      let pending = 0
-      pending += (await managerInboxCount()).count
-      pending += (await adminInboxCount()).count
-      $('#bell').textContent = pending
-    }catch(e){
-      // brak uprawnień do users przy nielogowanym – ignoruj
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EMERLOG Urlopy - stary frontend wyłączony</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #111111, #2a0507);
+      color: #1f2933;
+      padding: 24px;
     }
-  }
-
-  async function render(){
-    const user = await getSessionUser()
-    if (!user){
-      $loginView.classList.remove('hidden')
-      $leavesView.classList.add('hidden')
-      return
+    .card {
+      width: min(620px, 100%);
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 18px 45px rgba(0,0,0,.22);
+      border-left: 10px solid #d71920;
     }
-    $loginView.classList.add('hidden')
-    $leavesView.classList.remove('hidden')
-    await refreshTop()
-    await loadList()
-  }
-
-  async function loadList(){
-    const status = $filter.value || null
-    const { data, error } = await listLeaves(status)
-    if (error){ showErr(error.message); return }
-    $leavesList.innerHTML = (data||[]).map(l=>`
-      <div class="row">
-        <span>${l.type}</span>
-        <span>${l.from} → ${l.to}</span>
-        <span class="badge ${l.status}">${l.status}</span>
-        <span>${l.comment||''}</span>
-        ${l.status==='submitted' ? '<button class="mapp" data-id="'+l.id+'">Akceptuj (Mgr)</button>' : ''}
-        ${l.status==='manager_approved' ? '<button class="aapp" data-id="'+l.id+'">Finalizuj (Admin)</button>' : ''}
-      </div>
-    `).join('')
-    document.querySelectorAll('.mapp').forEach(b=>b.onclick=async()=>{
-      const { error } = await managerApprove(b.dataset.id)
-      if (error) showErr(error.message); else await render()
-    })
-    document.querySelectorAll('.aapp').forEach(b=>b.onclick=async()=>{
-      const ok=confirm('Zatwierdzić? OK=tak, Anuluj=odrzuć')
-      const { error } = await adminFinalize(b.dataset.id, ok)
-      if (error) showErr(error.message); else await render()
-    })
-  }
-
-  $('#loginBtn').onclick = async ()=>{
-    showErr('')
-    try {
-      await signIn($email.value, $pass.value)
-      await render()
-    } catch(e){
-      showErr(e.message || String(e))
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      min-height: 54px;
+      padding: 0 18px;
+      border-radius: 14px;
+      background: #111111;
+      color: #ffffff;
+      border-left: 8px solid #d71920;
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: .05em;
+      margin-bottom: 18px;
     }
-  }
-
-  $('#logoutBtn').onclick = async ()=>{
-    await signOut()
-    await render()
-  }
-
-  $('#newLeave').onsubmit = async e=>{
-    e.preventDefault()
-    showErr('')
-    const { error } = await submitLeave({
-      type:$type.value,
-      from:$from.value,
-      to:$to.value,
-      comment:$comment.value
-    })
-    if (error) showErr(error.message)
-    await render()
-  }
-
-  $filter.onchange = loadList
-
-  $('#exportCsv').onclick = async ()=>{
-    const { data, error } = await listLeaves()
-    if (error){ showErr(error.message); return }
-    const header = Object.keys(data[0]||{id:'id'})
-    const rows = [header.join(','), ...data.map(r=>header.map(k=>JSON.stringify(r[k]??'')).join(','))]
-    const blob = new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download='leaves.csv'
-    a.click()
-  }
-
-  $('#print').onclick = ()=>window.print()
-
-  supabase.auth.onAuthStateChange(render)
-  render()
-</script>
-</body></html>
+    h1 { margin: 0 0 12px; font-size: 28px; }
+    p { margin: 0 0 12px; line-height: 1.5; color: #4b5563; }
+    code {
+      display: block;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      padding: 12px;
+      border-radius: 12px;
+      margin-top: 14px;
+      color: #111111;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">EMERLOG</div>
+    <h1>Stary frontend został wyłączony</h1>
+    <p>Ten plik <b>public/index.html</b> był starą wersją aplikacji i mógł pokazywać błędne opcje pracownikowi.</p>
+    <p>Aktualna aplikacja urlopowa działa przez Flask, czyli przez plik <b>app.py</b> i szablony w folderze <b>templates</b>.</p>
+    <code>git pull
+python app.py
+http://127.0.0.1:5000</code>
+  </main>
+</body>
+</html>
