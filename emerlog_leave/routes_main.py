@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 from werkzeug.security import check_password_hash
 
 from .database import get_db
-from .services import login_required, role_required, current_user, visible_user_ids, vacation_summary, parse_date
+from .services import login_required, role_required, current_user, visible_user_ids, vacation_summary, parse_date, is_hr, is_manager
 
 bp = Blueprint("main", __name__)
 
@@ -193,6 +193,7 @@ def calendar_view():
     ids = visible_user_ids(conn)
     by_day = {}
     rows = []
+    team_stats = {"employees": len(ids), "requests": 0, "days": 0}
 
     if ids:
         placeholders = ",".join("?" for _ in ids)
@@ -219,6 +220,9 @@ def calendar_view():
             params,
         ).fetchall()
 
+        team_stats["requests"] = len(rows)
+        team_stats["days"] = sum(row["days_count"] for row in rows)
+
         for row in rows:
             current = max(parse_date(row["date_from"]), first)
             end = min(parse_date(row["date_to"]), last)
@@ -226,7 +230,20 @@ def calendar_view():
                 by_day.setdefault(current.day, []).append(row)
                 current += timedelta(days=1)
 
-    departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
+    if is_manager():
+        departments = conn.execute(
+            "SELECT DISTINCT department AS name FROM users WHERE manager_id=? AND department IS NOT NULL ORDER BY department",
+            (session["user_id"],),
+        ).fetchall()
+        calendar_title = "Kalendarz zespołu"
+        calendar_description = "Widzisz tylko swoich podopiecznych: kto i kiedy ma zaakceptowany urlop albo nieobecność."
+        list_title = "Urlopy podopiecznych w tym miesiącu"
+    else:
+        departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
+        calendar_title = "Kalendarz firmowy"
+        calendar_description = "Admin i kadry widzą firmowy kalendarz zaakceptowanych urlopów i nieobecności."
+        list_title = "Nieobecności w tym miesiącu"
+
     conn.close()
     return render_template(
         "calendar.html",
@@ -236,4 +253,8 @@ def calendar_view():
         requests_by_day=by_day,
         requests_list=rows,
         departments=departments,
+        calendar_title=calendar_title,
+        calendar_description=calendar_description,
+        list_title=list_title,
+        team_stats=team_stats,
     )
