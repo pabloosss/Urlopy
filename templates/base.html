@@ -6,6 +6,7 @@
     <title>EMERLOG Urlopy</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=53">
     <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=1">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
