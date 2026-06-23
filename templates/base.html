@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EMERLOG Urlopy</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=51">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=1">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
@@ -14,19 +15,19 @@
         <div class="brand">
             <img src="{{ url_for('main.graphics_file', filename='logo.png') }}" alt="EMERLOG">
             <div class="brand-fallback">EMERLOG</div>
-            <small>Leave Manager</small>
+            <small>Panel urlopów</small>
         </div>
 
         <nav class="menu">
             <div class="menu-section">Ewidencja</div>
-            <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('main.dashboard') }}">Mój panel</a>
             <a href="{{ url_for('main.presence_view') }}">Obecność</a>
             <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
 
             <div class="menu-section">Nieobecności</div>
-            <a href="{{ url_for('requests.new_leave_request') }}">Wnioskuj</a>
+            <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
             <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
-            <a href="{{ url_for('requests.requests_view') }}">Zgłoszenia</a>
+            <a href="{{ url_for('requests.requests_view') }}">Moje wnioski</a>
             <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
             <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
 
