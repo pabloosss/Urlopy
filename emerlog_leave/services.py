@@ -83,7 +83,7 @@ def visible_user_ids(conn):
     if is_hr():
         return [row["id"] for row in conn.execute("SELECT id FROM users")]
     if is_manager():
-        return [row["id"] for row in conn.execute("SELECT id FROM users WHERE manager_id = ? OR id = ?", (session["user_id"], session["user_id"]))]
+        return [row["id"] for row in conn.execute("SELECT id FROM users WHERE manager_id = ?", (session["user_id"],))]
     return [session["user_id"]]
 
 
