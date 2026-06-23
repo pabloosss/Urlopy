@@ -21,10 +21,6 @@ def _to_int(value, default=0):
         return default
 
 
-def _employee_redirect():
-    return redirect(url_for("employees.employees_view", **request.args))
-
-
 @bp.route("/employees", methods=["GET", "POST"])
 @login_required
 @role_required("admin", "kadry")
@@ -114,14 +110,7 @@ def employees_view():
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     managers = conn.execute("SELECT id, full_name FROM users WHERE role IN ('menedzer','admin','kadry') AND active=1 ORDER BY full_name").fetchall()
     conn.close()
-    return render_template(
-        "employees.html",
-        users=users,
-        departments=departments,
-        managers=managers,
-        roles=ROLES,
-        stats=stats,
-    )
+    return render_template("employees.html", users=users, departments=departments, managers=managers, roles=ROLES, stats=stats)
 
 
 @bp.route("/employees/<int:user_id>/edit", methods=["POST"])
@@ -231,18 +220,21 @@ def delete_employee(user_id):
         flash("Nie znaleziono pracownika.")
         return redirect(url_for("employees.employees_view"))
 
-    requests_count = conn.execute("SELECT COUNT(*) AS c FROM leave_requests WHERE user_id = ?", (user_id,)).fetchone()["c"] or 0
-    conn.execute("UPDATE users SET manager_id = NULL WHERE manager_id = ?", (user_id,))
-
-    if requests_count > 0:
-        conn.execute("UPDATE users SET active = 0 WHERE id = ?", (user_id,))
-        log_action(conn, "dezaktywowano pracownika zamiast usunięcia", "user", user_id, f"{user['full_name']} ma historię wniosków: {requests_count}")
-        flash("Pracownik ma historię wniosków, więc został dezaktywowany zamiast usunięcia.")
-    else:
+    try:
+        name = user["full_name"]
+        conn.execute("UPDATE users SET manager_id = NULL WHERE manager_id = ?", (user_id,))
+        conn.execute("UPDATE leave_requests SET decided_by = NULL WHERE decided_by = ?", (user_id,))
+        conn.execute("UPDATE leave_requests SET replacement_user_id = NULL WHERE replacement_user_id = ?", (user_id,))
+        conn.execute("DELETE FROM leave_requests WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM limit_adjustments WHERE user_id = ?", (user_id,))
+        conn.execute("UPDATE limit_adjustments SET changed_by = NULL WHERE changed_by = ?", (user_id,))
+        conn.execute("UPDATE audit_logs SET actor_user_id = NULL WHERE actor_user_id = ?", (user_id,))
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        log_action(conn, "usunięto pracownika", "user", user_id, user["full_name"])
+        log_action(conn, "usunięto pracownika", "user", user_id, name)
+        conn.commit()
         flash("Pracownik został usunięty.")
-
-    conn.commit()
+    except Exception as error:
+        conn.rollback()
+        flash(f"Nie udało się usunąć pracownika. Błąd: {error}")
     conn.close()
     return redirect(url_for("employees.employees_view"))
