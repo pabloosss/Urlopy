@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 130" role="img" aria-labelledby="title desc">
+  <title id="title">EMERLOG</title>
+  <desc id="desc">Tekstowe logo EMERLOG dla systemu urlopowego</desc>
+  <rect width="520" height="130" rx="18" fill="#111111"/>
+  <path d="M36 28h58v18H58v20h32v17H58v21h38v18H36V28Zm79 0h25l24 46 24-46h25v94h-21V64l-21 39h-14l-21-39v58h-21V28Zm124 0h61v18h-39v19h35v17h-35v22h41v18h-63V28Zm84 0h38c21 0 35 12 35 31 0 13-6 23-18 28l22 35h-25l-19-31h-12v31h-21V28Zm21 18v28h16c9 0 15-5 15-14s-6-14-15-14h-16Zm77-18h22v75h39v19h-61V28Z" fill="#ffffff"/>
+  <path d="M36 111h446v6H36v-6Z" fill="#d71920"/>
+  <text x="490" y="122" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#d71920">URLOPY</text>
+</svg>
