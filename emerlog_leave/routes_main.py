@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 from werkzeug.security import check_password_hash
 
 from .database import get_db
-from .services import login_required, current_user, visible_user_ids, vacation_summary, parse_date
+from .services import login_required, role_required, current_user, visible_user_ids, vacation_summary, parse_date
 
 bp = Blueprint("main", __name__)
 
@@ -95,6 +95,7 @@ def my_leave():
 
 @bp.route("/presence")
 @login_required
+@role_required("admin", "kadry", "menedzer")
 def presence_view():
     selected_date = request.args.get("date") or date.today().isoformat()
     department = request.args.get("department", "").strip()
@@ -178,6 +179,7 @@ def presence_view():
 
 @bp.route("/calendar")
 @login_required
+@role_required("admin", "kadry", "menedzer")
 def calendar_view():
     year = int(request.args.get("year", date.today().year))
     month = int(request.args.get("month", date.today().month))
