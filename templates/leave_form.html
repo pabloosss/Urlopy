@@ -5,7 +5,6 @@
     <div>
         <p class="eyebrow">Nowy wniosek</p>
         <h1>Złóż wniosek o nieobecność</h1>
-        <p>Wybierz typ, daty i zastępstwo. System pokaże liczbę dni roboczych jeszcze przed wysłaniem.</p>
     </div>
     <div class="request-hero-status">
         <span>Dostępne</span>
@@ -22,7 +21,6 @@
                     <span>1</span>
                     <div>
                         <h2>Typ nieobecności</h2>
-                        <p>Urlop wypoczynkowy i urlop na żądanie schodzą z limitu.</p>
                     </div>
                 </div>
 
@@ -31,7 +29,6 @@
                     <label class="leave-type-card">
                         <input type="radio" name="leave_type" value="{{ type }}" {% if form_data.leave_type == type %}checked{% endif %} required>
                         <span>{{ type }}</span>
-                        <small>{{ leave_type_descriptions.get(type, "") }}</small>
                     </label>
                     {% endfor %}
                 </div>
@@ -42,7 +39,6 @@
                     <span>2</span>
                     <div>
                         <h2>Termin</h2>
-                        <p>Weekendy i polskie święta nie liczą się jako dni robocze.</p>
                     </div>
                 </div>
 
@@ -70,7 +66,6 @@
                     <span>3</span>
                     <div>
                         <h2>Szczegóły</h2>
-                        <p>Dodaj zastępstwo i krótki komentarz, jeżeli trzeba.</p>
                     </div>
                 </div>
 
@@ -83,10 +78,10 @@
                 </select>
 
                 <label>Komentarz</label>
-                <textarea name="comment" rows="4" maxlength="1000" placeholder="Np. pilny urlop rodzinny, odbiór dnia wolnego, informacja dla przełożonego">{{ form_data.comment }}</textarea>
+                <textarea name="comment" rows="4" maxlength="1000">{{ form_data.comment }}</textarea>
 
                 <label>Załącznik / informacja opcjonalna</label>
-                <input type="text" name="attachment_note" maxlength="255" value="{{ form_data.attachment_note }}" placeholder="Np. L4, dokument, ustalenie z przełożonym">
+                <input type="text" name="attachment_note" maxlength="255" value="{{ form_data.attachment_note }}">
             </section>
 
             <div class="request-submit-bar">
@@ -99,27 +94,27 @@
     <aside class="request-side-panel">
         <div class="card live-summary-card">
             <p class="eyebrow">Podsumowanie</p>
-            <h2 id="summaryTitle">Wybierz daty</h2>
+            <h2 id="summaryTitle">Daty</h2>
             <div class="live-days-number" id="liveDays">0</div>
-            <p id="liveDaysText">dni roboczych do wysłania</p>
-            <div class="summary-line"><span>Dostępne teraz</span><strong>{{ vacation_summary.available }}</strong></div>
-            <div class="summary-line"><span>Po tym wniosku</span><strong id="afterRequestDays">{{ vacation_summary.available }}</strong></div>
-            <div class="summary-alert" id="summaryAlert">Wybierz zakres dat.</div>
+            <p id="liveDaysText">dni roboczych</p>
+            <div class="summary-line"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong></div>
+            <div class="summary-line"><span>Po wniosku</span><strong id="afterRequestDays">{{ vacation_summary.available }}</strong></div>
+            <div class="summary-alert" id="summaryAlert">Wybierz daty.</div>
         </div>
 
         <div class="card request-info-card">
-            <h2>Ścieżka akceptacji</h2>
+            <h2>Akceptacja</h2>
             <div class="approval-path">
-                <div><span>1</span><strong>Pracownik</strong><small>składa wniosek</small></div>
-                <div><span>2</span><strong>{{ manager_name }}</strong><small>sprawdza / akceptuje</small></div>
-                <div><span>3</span><strong>Kadry</strong><small>widzą status w systemie</small></div>
+                <div><span>1</span><strong>Pracownik</strong></div>
+                <div><span>2</span><strong>{{ manager_name }}</strong></div>
+                <div><span>3</span><strong>Kadry</strong></div>
             </div>
         </div>
 
         <div class="card request-info-card">
-            <h2>Twoje limity</h2>
+            <h2>Limity</h2>
             <div class="mini-summary compact-summary">
-                <div><span>Limit razem</span><strong>{{ vacation_summary.total }}</strong></div>
+                <div><span>Limit</span><strong>{{ vacation_summary.total }}</strong></div>
                 <div><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong></div>
                 <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
             </div>
@@ -227,10 +222,10 @@
 
         if (days === null) {
             liveDays.textContent = '0';
-            liveDaysText.textContent = 'dni roboczych do wysłania';
+            liveDaysText.textContent = 'dni roboczych';
             afterRequestDays.textContent = availableDays;
-            summaryTitle.textContent = 'Wybierz poprawne daty';
-            summaryAlert.textContent = 'Data do nie może być wcześniejsza niż data od.';
+            summaryTitle.textContent = 'Daty';
+            summaryAlert.textContent = 'Sprawdź daty.';
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = false;
             return;
@@ -238,24 +233,24 @@
 
         const after = usesLimit ? availableDays - days : availableDays;
         liveDays.textContent = days;
-        liveDaysText.textContent = days === 1 ? 'dzień roboczy do wysłania' : 'dni roboczych do wysłania';
+        liveDaysText.textContent = days === 1 ? 'dzień roboczy' : 'dni roboczych';
         afterRequestDays.textContent = after;
         summaryTitle.textContent = type || 'Wniosek';
 
         if (days <= 0) {
-            summaryAlert.textContent = 'Ten zakres nie zawiera dni roboczych.';
+            summaryAlert.textContent = 'Brak dni roboczych.';
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = true;
         } else if (usesLimit && after < 0) {
-            summaryAlert.textContent = `Brak limitu. Brakuje ${Math.abs(after)} dni.`;
+            summaryAlert.textContent = `Brakuje ${Math.abs(after)} dni.`;
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = true;
         } else if (usesLimit) {
-            summaryAlert.textContent = `Po wysłaniu zostanie ${after} dni urlopu.`;
+            summaryAlert.textContent = `Zostanie ${after} dni.`;
             summaryAlert.className = 'summary-alert is-ok';
             submitBtn.disabled = false;
         } else {
-            summaryAlert.textContent = 'Ten typ nieobecności nie schodzi z limitu urlopu.';
+            summaryAlert.textContent = 'Bez limitu urlopu.';
             summaryAlert.className = 'summary-alert is-neutral';
             submitBtn.disabled = false;
         }
