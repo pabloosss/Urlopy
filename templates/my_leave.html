@@ -4,25 +4,21 @@
 <section class="page-title">
     <div>
         <p class="eyebrow">Moje wnioski</p>
-        <h1>Historia moich wniosków</h1>
-        <p>Tu widzisz swoje wnioski, statusy, decyzje oraz wykorzystany limit urlopu.</p>
+        <h1>Historia wniosków</h1>
     </div>
     <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż nowy wniosek</a>
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni do wykorzystania</small></div>
+    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni</small></div>
     <div class="stat-card"><span>Limit roczny</span><strong>{{ vacation_summary.base }}</strong><small>dni</small></div>
     <div class="stat-card"><span>Zaległe</span><strong>{{ vacation_summary.carryover }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>dni w akceptacji</small></div>
+    <div class="stat-card"><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong><small>dni</small></div>
 </section>
 
 <div class="card my-requests-card">
     <div class="section-head-row">
-        <div>
-            <h2>Moje wnioski</h2>
-            <p class="muted">Najświeższe wnioski są na górze.</p>
-        </div>
+        <div><h2>Moje wnioski</h2></div>
         <a class="btn-secondary" href="{{ url_for('requests.new_leave_request') }}">+ Nowy</a>
     </div>
 
@@ -37,7 +33,7 @@
                         <b>{{ req.days_count }}</b> dni roboczych
                         {% if req.replacement_name %} · zastępstwo: {{ req.replacement_name }}{% endif %}
                     </p>
-                    {% if req.comment %}<p class="request-comment">Komentarz: {{ req.comment }}</p>{% endif %}
+                    {% if req.comment %}<p class="request-comment">{{ req.comment }}</p>{% endif %}
                 </div>
                 <span class="status status-{{ req.status }}">{{ req.status }}</span>
             </div>
@@ -52,7 +48,7 @@
                     <strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong>
                 </div>
                 <div>
-                    <span>Uwagi decyzji</span>
+                    <span>Uwagi</span>
                     <strong>{{ req.decision_comment or "—" }}</strong>
                 </div>
                 <div class="request-actions">
@@ -69,7 +65,7 @@
             </div>
         </article>
         {% else %}
-            <div class="empty-state">Nie masz jeszcze żadnych wniosków.</div>
+            <div class="empty-state">Brak wniosków.</div>
         {% endfor %}
     </div>
 </div>
