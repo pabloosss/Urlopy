@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EMERLOG Urlopy</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=51">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=52">
     <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=4">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
@@ -13,7 +13,7 @@
 <div class="app-shell">
     <aside class="sidebar">
         <div class="brand">
-            <img src="{{ url_for('static', filename='img/logo.png') }}?v=100" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <img src="{{ url_for('static', filename='img/logo.svg') }}?v=101" alt="EMERLOG" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
             <div class="brand-fallback">EMERLOG</div>
             <small>Panel urlopów</small>
         </div>
