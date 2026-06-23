@@ -38,8 +38,8 @@ main { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48
 .login-main { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: min(460px, 100%); background: var(--white); border-radius: 24px; padding: 34px; box-shadow: var(--shadow); }
 .login-brand { margin-bottom: 18px; }
-.login-brand img { max-width: 220px; max-height: 90px; object-fit: contain; }
-.login-fallback { display: block; color: var(--red); }
+.login-brand img { max-width: 220px; max-height: 90px; object-fit: contain; display: block; }
+.login-fallback { display: none; color: var(--red); }
 .demo-box { background: #f8f8f8; border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 16px; color: var(--muted); }
 
 .page-title { display: flex; justify-content: space-between; gap: 18px; align-items: center; background: var(--white); border-radius: 22px; padding: 24px; margin-bottom: 18px; border: 1px solid var(--line); box-shadow: var(--shadow); }
