@@ -26,25 +26,30 @@
             <div class="menu-section">Start</div>
             <a href="{{ url_for('main.dashboard') }}">Mój panel</a>
 
-            <div class="menu-section">Nieobecności</div>
+            <div class="menu-section">Wnioski i urlopy</div>
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
-            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
             <a href="{{ url_for('requests.requests_view') }}">Moje wnioski</a>
+            {% if is_manager() or is_hr() %}
+                <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
+            {% endif %}
+
+            <div class="menu-section">Planowanie</div>
+            <a href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
+            {% if is_manager() or is_hr() %}
+                <a href="{{ url_for('main.presence_view') }}">Obecność</a>
+            {% endif %}
+            {% if is_hr() %}
+                <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
+            {% endif %}
 
             {% if is_hr() %}
-                <div class="menu-section">Kadry</div>
-                <a href="{{ url_for('main.presence_view') }}">Obecność</a>
-                <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
-                <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
-                <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
+                <div class="menu-section">Administracja</div>
                 <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
                 <a href="{{ url_for('limits.limits_view') }}">Limity urlopowe</a>
                 <a href="{{ url_for('admin.reports_view') }}">Raporty</a>
-                <a href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
+                <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
             {% elif is_manager() %}
                 <div class="menu-section">Zespół</div>
-                <a href="{{ url_for('main.presence_view') }}">Obecność</a>
-                <a href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
                 <a href="{{ url_for('admin.reports_view') }}">Raporty zespołu</a>
             {% endif %}
         </nav>
