@@ -2,7 +2,7 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 from werkzeug.security import generate_password_hash
 
 from .database import get_db
-from .services import login_required, role_required, log_action
+from .services import login_required, role_required, log_action, vacation_summary
 
 bp = Blueprint("employees", __name__)
 
@@ -19,6 +19,33 @@ def _to_int(value, default=0):
         return int(value or default)
     except (TypeError, ValueError):
         return default
+
+
+def _next(default="employees.employees_view"):
+    target = request.form.get("next", "")
+    if target.startswith("/"):
+        return redirect(target)
+    return redirect(url_for(default))
+
+
+def _employee_lists(conn):
+    departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
+    managers = conn.execute("""
+        SELECT id, full_name
+        FROM users
+        WHERE role IN ('menedzer','admin','kadry') AND active=1
+        ORDER BY full_name
+    """).fetchall()
+    return departments, managers
+
+
+def _employee_or_404(conn, user_id):
+    return conn.execute("""
+        SELECT u.*, m.full_name AS manager_name
+        FROM users u
+        LEFT JOIN users m ON u.manager_id = m.id
+        WHERE u.id = ?
+    """, (user_id,)).fetchone()
 
 
 @bp.route("/employees", methods=["GET", "POST"])
@@ -107,10 +134,61 @@ def employees_view():
             SUM(CASE WHEN role = 'menedzer' THEN 1 ELSE 0 END) AS managers_count
         FROM users
     """).fetchone()
-    departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
-    managers = conn.execute("SELECT id, full_name FROM users WHERE role IN ('menedzer','admin','kadry') AND active=1 ORDER BY full_name").fetchall()
+    departments, managers = _employee_lists(conn)
     conn.close()
     return render_template("employees.html", users=users, departments=departments, managers=managers, roles=ROLES, stats=stats)
+
+
+@bp.route("/employees/<int:user_id>")
+@login_required
+@role_required("admin", "kadry")
+def employee_profile(user_id):
+    conn = get_db()
+    user = _employee_or_404(conn, user_id)
+    if not user:
+        conn.close()
+        flash("Nie znaleziono pracownika.")
+        return redirect(url_for("employees.employees_view"))
+
+    requests_list = conn.execute("""
+        SELECT lr.*, d.full_name AS decider_name, r.full_name AS replacement_name
+        FROM leave_requests lr
+        LEFT JOIN users d ON lr.decided_by = d.id
+        LEFT JOIN users r ON lr.replacement_user_id = r.id
+        WHERE lr.user_id = ?
+        ORDER BY lr.created_at DESC
+    """, (user_id,)).fetchall()
+    request_stats = conn.execute("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status = 'oczekuje' THEN 1 ELSE 0 END) AS pending,
+            SUM(CASE WHEN status = 'zaakceptowany' THEN days_count ELSE 0 END) AS accepted_days,
+            SUM(CASE WHEN status = 'odrzucony' THEN 1 ELSE 0 END) AS rejected
+        FROM leave_requests
+        WHERE user_id = ?
+    """, (user_id,)).fetchone()
+    audit_logs = conn.execute("""
+        SELECT al.*, actor.full_name AS actor_name
+        FROM audit_logs al
+        LEFT JOIN users actor ON al.actor_user_id = actor.id
+        WHERE al.entity_type = 'user' AND al.entity_id = ?
+        ORDER BY al.created_at DESC
+        LIMIT 20
+    """, (user_id,)).fetchall()
+    departments, managers = _employee_lists(conn)
+    summary = vacation_summary(conn, user)
+    conn.close()
+    return render_template(
+        "employee_profile.html",
+        user=user,
+        requests_list=requests_list,
+        request_stats=request_stats,
+        audit_logs=audit_logs,
+        departments=departments,
+        managers=managers,
+        roles=ROLES,
+        vacation_summary=summary,
+    )
 
 
 @bp.route("/employees/<int:user_id>/edit", methods=["POST"])
@@ -129,7 +207,7 @@ def edit_employee(user_id):
     if not login_value or not full_name:
         conn.close()
         flash("Login i imię/nazwisko są wymagane.")
-        return redirect(url_for("employees.employees_view"))
+        return _next()
 
     try:
         manager_id = request.form.get("manager_id") or None
@@ -162,7 +240,7 @@ def edit_employee(user_id):
         conn.rollback()
         flash(f"Nie udało się zapisać zmian. Błąd: {error}")
     conn.close()
-    return redirect(url_for("employees.employees_view"))
+    return _next()
 
 
 @bp.route("/employees/<int:user_id>/password", methods=["POST"])
@@ -172,7 +250,7 @@ def change_employee_password(user_id):
     new_password = request.form.get("new_password", "").strip()
     if len(new_password) < 6:
         flash("Hasło musi mieć minimum 6 znaków.")
-        return redirect(url_for("employees.employees_view"))
+        return _next()
 
     conn = get_db()
     user = conn.execute("SELECT full_name FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -186,7 +264,7 @@ def change_employee_password(user_id):
     conn.commit()
     conn.close()
     flash("Hasło zostało zmienione.")
-    return redirect(url_for("employees.employees_view"))
+    return _next()
 
 
 @bp.route("/employees/<int:user_id>/toggle", methods=["POST"])
@@ -202,7 +280,7 @@ def toggle_employee(user_id):
         conn.commit()
         flash("Status pracownika zmieniony.")
     conn.close()
-    return redirect(url_for("employees.employees_view"))
+    return _next()
 
 
 @bp.route("/employees/<int:user_id>/delete", methods=["POST"])
@@ -211,7 +289,7 @@ def toggle_employee(user_id):
 def delete_employee(user_id):
     if user_id == session.get("user_id"):
         flash("Nie możesz usunąć aktualnie zalogowanego konta.")
-        return redirect(url_for("employees.employees_view"))
+        return _next()
 
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
