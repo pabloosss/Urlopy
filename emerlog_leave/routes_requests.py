@@ -53,6 +53,48 @@ def _query_requests(conn):
     """, params).fetchall()
 
 
+def _query_all_requests(conn, default_today=True):
+    filters = ["1=1"]
+    params = []
+
+    employee = request.args.get("employee", "").strip()
+    if employee:
+        filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
+        params.extend([f"%{employee}%", f"%{employee}%"])
+
+    for field, column in [("department", "u.department"), ("status", "lr.status"), ("leave_type", "lr.leave_type"), ("manager_id", "u.manager_id")]:
+        value = request.args.get(field, "").strip()
+        if value:
+            filters.append(f"{column} = ?")
+            params.append(value)
+
+    today = date.today().isoformat()
+    date_from = request.args.get("date_from") or (today if default_today else "")
+    date_to = request.args.get("date_to") or (today if default_today else "")
+
+    if date_from:
+        filters.append("lr.date_to >= ?")
+        params.append(date_from)
+    if date_to:
+        filters.append("lr.date_from <= ?")
+        params.append(date_to)
+
+    rows = conn.execute(f"""
+        SELECT lr.*, u.full_name, u.login, u.department,
+               m.full_name AS manager_name,
+               d.full_name AS decider_name,
+               r.full_name AS replacement_name
+        FROM leave_requests lr
+        JOIN users u ON u.id = lr.user_id
+        LEFT JOIN users m ON u.manager_id = m.id
+        LEFT JOIN users d ON lr.decided_by = d.id
+        LEFT JOIN users r ON lr.replacement_user_id = r.id
+        WHERE {' AND '.join(filters)}
+        ORDER BY lr.created_at DESC
+    """, params).fetchall()
+    return rows, date_from, date_to
+
+
 @bp.route("/leave/new", methods=["GET", "POST"])
 @login_required
 def new_leave_request():
@@ -197,31 +239,55 @@ def requests_view():
     return render_template("requests.html", requests_list=rows, departments=departments, managers=managers, statuses=STATUSES, leave_types=LEAVE_TYPES)
 
 
+@bp.route("/requests/all")
+@login_required
+def all_requests_view():
+    if not is_hr():
+        flash("Brak uprawnień do tej sekcji.")
+        return redirect(url_for("main.dashboard"))
+    conn = get_db()
+    rows, selected_from, selected_to = _query_all_requests(conn)
+    departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
+    managers = conn.execute("SELECT id, full_name FROM users WHERE role IN ('menedzer','admin','kadry') ORDER BY full_name").fetchall()
+    conn.close()
+    return render_template(
+        "all_requests.html",
+        requests_list=rows,
+        departments=departments,
+        managers=managers,
+        statuses=STATUSES,
+        leave_types=LEAVE_TYPES,
+        selected_from=selected_from,
+        selected_to=selected_to,
+    )
+
+
 @bp.route("/request/<int:request_id>/<action>", methods=["POST"])
 @login_required
 def change_request_status(request_id, action):
     status_map = {"accept": "zaakceptowany", "reject": "odrzucony", "cancel": "anulowany", "return": "cofniety"}
+    next_url = request.form.get("next", "")
     if action not in status_map:
         flash("Nieznana akcja.")
-        return redirect(url_for("requests.requests_view"))
+        return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
     conn = get_db()
     leave_request = conn.execute("SELECT * FROM leave_requests WHERE id=?", (request_id,)).fetchone()
     if not leave_request:
-        conn.close(); flash("Nie znaleziono wniosku."); return redirect(url_for("requests.requests_view"))
+        conn.close(); flash("Nie znaleziono wniosku."); return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
     owner = conn.execute("SELECT * FROM users WHERE id=?", (leave_request["user_id"],)).fetchone()
     can_decide = is_hr() or (is_manager() and owner and owner["manager_id"] == session["user_id"])
     can_cancel = leave_request["user_id"] == session["user_id"] and leave_request["status"] == "oczekuje"
     if action in {"accept", "reject", "return"} and not can_decide:
-        conn.close(); flash("Brak uprawnień do decyzji."); return redirect(url_for("requests.requests_view"))
+        conn.close(); flash("Brak uprawnień do decyzji."); return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
     if action == "cancel" and not (can_cancel or can_decide):
-        conn.close(); flash("Nie można anulować tego wniosku."); return redirect(url_for("requests.requests_view"))
+        conn.close(); flash("Nie można anulować tego wniosku."); return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
     new_status = status_map[action]
     comment = request.form.get("decision_comment", "")
     conn.execute("UPDATE leave_requests SET status=?, decision_comment=?, decided_by=?, decided_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", (new_status, comment, session["user_id"], request_id))
     log_action(conn, f"zmieniono status na {new_status}", "leave_request", request_id, comment)
     conn.commit(); conn.close()
     flash(f"Status wniosku zmieniony na: {new_status}.")
-    return redirect(url_for("requests.requests_view"))
+    return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
 
 
 @bp.route("/reports/export.csv")
