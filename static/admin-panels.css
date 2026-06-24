@@ -77,6 +77,15 @@
     font-size: 21px;
 }
 
+.employee-card h3 a {
+    color: #111111;
+    text-decoration: none;
+}
+
+.employee-card h3 a:hover {
+    color: var(--red);
+}
+
 .employee-card p,
 .employee-card small {
     margin: 0;
@@ -131,6 +140,24 @@
     border: 1px solid #e5e7eb;
 }
 
+.employee-profile-grid {
+    grid-template-columns: 420px minmax(0, 1fr);
+}
+
+.employee-profile-actions {
+    margin-top: 14px;
+}
+
+.employee-audit-card {
+    margin-top: 18px;
+}
+
+.request-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
 .audit-list {
     display: grid;
     gap: 12px;
@@ -177,6 +204,7 @@
 
 @media (max-width: 1200px) {
     .employees-grid,
+    .employee-profile-grid,
     .employee-edit-layout {
         grid-template-columns: 1fr;
     }
