@@ -35,6 +35,9 @@
             {% if is_manager() or is_hr() %}
                 <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
             {% endif %}
+            {% if is_hr() %}
+                <a href="{{ url_for('requests.all_requests_view') }}">Wszystkie wnioski</a>
+            {% endif %}
 
             {% if is_manager() %}
                 <div class="menu-section">Zespół</div>
