@@ -76,9 +76,7 @@
 
     <div class="card employees-list-card">
         <div class="section-head-row">
-            <div>
-                <h2>Lista pracowników</h2>
-            </div>
+            <div><h2>Lista pracowników</h2></div>
             <span class="chip">wyniki: {{ users|length }}</span>
         </div>
 
@@ -88,13 +86,14 @@
                 <div class="employee-card-main">
                     <div class="employee-avatar">{{ u.full_name[:1] }}</div>
                     <div>
-                        <h3>{{ u.full_name }}</h3>
+                        <h3><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name }}</a></h3>
                         <p>{{ u.login }} · {{ u.role }} · {{ u.department or "brak działu" }}</p>
                         <small>{{ u.job_title or "brak stanowiska" }}{% if u.manager_name %} · menedżer: {{ u.manager_name }}{% endif %}</small>
                     </div>
                     <div class="employee-card-status">
                         {% if u.active %}<span class="status status-zaakceptowany">aktywny</span>{% else %}<span class="status status-anulowany">nieaktywny</span>{% endif %}
                         <small>{{ u.requests_count }} wniosków</small>
+                        <a class="btn-secondary btn-mini" href="{{ url_for('employees.employee_profile', user_id=u.id) }}">Karta</a>
                     </div>
                 </div>
 
