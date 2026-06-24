@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title employees-hero">
+    <div>
+        <p class="eyebrow">Pracownik</p>
+        <h1>{{ user.full_name }}</h1>
+    </div>
+    <a class="btn-secondary" href="{{ url_for('employees.employees_view') }}">Wróć</a>
+</section>
+
+<section class="stats-grid">
+    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni</small></div>
+    <div class="stat-card"><span>Wnioski</span><strong>{{ request_stats.total or 0 }}</strong><small>łącznie</small></div>
+    <div class="stat-card"><span>Oczekujące</span><strong>{{ request_stats.pending or 0 }}</strong><small>wnioski</small></div>
+    <div class="stat-card"><span>Wykorzystane</span><strong>{{ request_stats.accepted_days or 0 }}</strong><small>dni</small></div>
+</section>
+
+<div class="employees-grid employee-profile-grid">
+    <div class="card form-card">
+        <h2>Dane pracownika</h2>
+        <form method="post" action="{{ url_for('employees.edit_employee', user_id=user.id) }}" class="employee-form-grid">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <label>Login</label><input name="login" value="{{ user.login }}" required>
+            <label>Imię i nazwisko</label><input name="full_name" value="{{ user.full_name }}" required>
+            <label>E-mail</label><input type="email" name="email" value="{{ user.email or '' }}">
+            <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}" {% if user.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+            <label>Stanowisko</label><input name="job_title" value="{{ user.job_title or '' }}">
+            <label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}{% if m.id != user.id %}<option value="{{ m.id }}" {% if user.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}</option>{% endif %}{% endfor %}</select>
+            <label>Typ umowy</label><input name="contract_type" value="{{ user.contract_type or '' }}">
+            <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="{{ user.vacation_days or 0 }}"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ user.carryover_days or 0 }}"></div></div>
+            <label>Status</label><select name="active"><option value="1" {% if user.active %}selected{% endif %}>Aktywny</option><option value="0" {% if not user.active %}selected{% endif %}>Nieaktywny</option></select>
+            <button type="submit">Zapisz</button>
+        </form>
+
+        <div class="employee-side-actions employee-profile-actions">
+            <form method="post" action="{{ url_for('employees.change_employee_password', user_id=user.id) }}">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <label>Nowe hasło</label>
+                <input name="new_password" type="password" minlength="6" required>
+                <button type="submit" class="btn-secondary">Zmień hasło</button>
+            </form>
+            <form method="post" action="{{ url_for('employees.toggle_employee', user_id=user.id) }}">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="btn-muted">Zmień aktywność</button>
+            </form>
+            <form method="post" action="{{ url_for('employees.delete_employee', user_id=user.id) }}" onsubmit="return confirm('Na pewno usunąć tego pracownika razem z jego wnioskami?');">
+                <button type="submit" class="btn-bad">Usuń pracownika</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card employees-list-card">
+        <div class="section-head-row">
+            <div><h2>Historia wniosków</h2></div>
+            <span class="chip">{{ requests_list|length }}</span>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr><th>Data</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akceptował</th><th>Uwagi</th></tr>
+                </thead>
+                <tbody>
+                {% for req in requests_list %}
+                    <tr>
+                        <td>{{ req.created_at[:16] if req.created_at else "—" }}</td>
+                        <td>{{ req.leave_type }}</td>
+                        <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
+                        <td><b>{{ req.days_count }}</b></td>
+                        <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
+                        <td>{{ req.decider_name or "—" }}</td>
+                        <td>{{ req.decision_comment or req.comment or "—" }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7" class="empty-state">Brak wniosków.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card audit-card employee-audit-card">
+    <div class="section-head-row">
+        <div><h2>Zmiany na koncie</h2></div>
+    </div>
+    <div class="audit-list">
+        {% for log in audit_logs %}
+        <article class="audit-item">
+            <div class="audit-icon">{{ (log.actor_name or 'S')[:1] }}</div>
+            <div class="audit-content">
+                <div class="audit-topline">
+                    <strong>{{ log.actor_name or "system" }}</strong>
+                    <span>{{ log.created_at }}</span>
+                </div>
+                <h3>{{ log.action }}</h3>
+                {% if log.details %}<p class="audit-details">{{ log.details }}</p>{% endif %}
+            </div>
+        </article>
+        {% else %}
+            <div class="empty-state">Brak zmian.</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
