@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <p class="eyebrow">Admin</p>
+        <h1>Wszystkie wnioski</h1>
+    </div>
+    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
+</section>
+
+<div class="card filters-card">
+    <form method="get" class="filters-form all-requests-filters">
+        <input name="employee" placeholder="Pracownik" value="{{ request.args.get('employee','') }}">
+        <select name="department"><option value="">Dział</option>{% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+        <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+        <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+        <input type="date" name="date_from" value="{{ selected_from }}">
+        <input type="date" name="date_to" value="{{ selected_to }}">
+        <button type="submit">Filtruj</button>
+        <a class="btn-secondary" href="{{ url_for('requests.all_requests_view') }}">Dziś</a>
+    </form>
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Złożono</th>
+                    <th>Pracownik</th>
+                    <th>Dział</th>
+                    <th>Typ</th>
+                    <th>Termin</th>
+                    <th>Dni</th>
+                    <th>Status</th>
+                    <th>Akceptował</th>
+                    <th>Decyzja</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for req in requests_list %}
+                <tr>
+                    <td>{{ req.created_at[:16] if req.created_at else "—" }}</td>
+                    <td><b>{{ req.full_name }}</b><br><small>{{ req.login }}</small></td>
+                    <td>{{ req.department or "—" }}</td>
+                    <td>{{ req.leave_type }}</td>
+                    <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
+                    <td><b>{{ req.days_count }}</b></td>
+                    <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
+                    <td>{{ req.decider_name or "—" }}</td>
+                    <td>{% if req.decided_at %}{{ req.decided_at[:16] }}{% else %}—{% endif %}</td>
+                    <td class="request-admin-actions">
+                        {% set next_url = request.full_path %}
+                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='accept') }}">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                            <button class="btn-ok">Akceptuj</button>
+                        </form>
+                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='reject') }}">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                            <button class="btn-bad">Odrzuć</button>
+                        </form>
+                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='return') }}">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                            <button class="btn-muted">Do poprawy</button>
+                        </form>
+                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}">
+                            <input type="hidden" name="next" value="{{ next_url }}">
+                            <button class="btn-muted">Anuluj</button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="10" class="empty-state">Brak wniosków.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
