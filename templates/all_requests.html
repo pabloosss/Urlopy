@@ -12,6 +12,7 @@
 <div class="card filters-card">
     <form method="get" class="filters-form all-requests-filters">
         <input name="employee" placeholder="Pracownik" value="{{ request.args.get('employee','') }}">
+        <select name="company_id"><option value="">Spółka</option>{% for c in companies %}<option value="{{ c.id }}" {% if request.args.get('company_id') == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
         <select name="department"><option value="">Dział</option>{% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
         <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
         <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
@@ -29,6 +30,7 @@
                 <tr>
                     <th>Złożono</th>
                     <th>Pracownik</th>
+                    <th>Spółka</th>
                     <th>Dział</th>
                     <th>Typ</th>
                     <th>Termin</th>
@@ -44,6 +46,7 @@
                 <tr>
                     <td>{{ req.created_at[:16] if req.created_at else "—" }}</td>
                     <td><b>{{ req.full_name }}</b><br><small>{{ req.login }}</small></td>
+                    <td>{{ req.company_name or "—" }}</td>
                     <td>{{ req.department or "—" }}</td>
                     <td>{{ req.leave_type }}</td>
                     <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
@@ -72,7 +75,7 @@
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="10" class="empty-state">Brak wniosków.</td></tr>
+                <tr><td colspan="11" class="empty-state">Brak wniosków.</td></tr>
             {% endfor %}
             </tbody>
         </table>
