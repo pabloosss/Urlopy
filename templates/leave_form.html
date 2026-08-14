@@ -64,7 +64,7 @@
                     <div><h2>Szczegóły</h2></div>
                 </div>
 
-                <label>Zastępstwo</label>
+                <label>W czasie urlopu zastępować będzie mnie</label>
                 <select name="replacement_user_id">
                     <option value="">Brak / nie dotyczy</option>
                     {% for employee in employees %}
@@ -74,9 +74,6 @@
 
                 <label>Komentarz</label>
                 <textarea name="comment" rows="4" maxlength="1000">{{ form_data.comment }}</textarea>
-
-                <label>Załącznik / informacja opcjonalna</label>
-                <input type="text" name="attachment_note" maxlength="255" value="{{ form_data.attachment_note }}">
             </section>
 
             <div class="request-submit-bar">
