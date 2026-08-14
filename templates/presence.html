@@ -5,7 +5,6 @@
     <div>
         <p class="eyebrow">Ewidencja</p>
         <h1>Obecność i dostępność</h1>
-        <p>Lista osób obecnych i nieobecnych w wybranym dniu.</p>
     </div>
     <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
 </section>
@@ -14,7 +13,6 @@
     <div class="stat-card accent"><span>Osoby na liście</span><strong>{{ stats.all }}</strong><small>po filtrach</small></div>
     <div class="stat-card"><span>Obecni</span><strong>{{ stats.present }}</strong><small>w pracy</small></div>
     <div class="stat-card"><span>Nieobecni</span><strong>{{ stats.absent }}</strong><small>urlop / L4 / inne</small></div>
-    <div class="stat-card"><span>Zdalnie / delegacja</span><strong>{{ stats.remote + stats.delegation }}</strong><small>poza biurem</small></div>
 </section>
 
 <div class="card filters-card">
@@ -34,7 +32,7 @@
         </div>
         <div>
             <label>Pracownik</label>
-            <input name="employee" placeholder="np. Jan" value="{{ request.args.get('employee','') }}">
+            <input name="employee" value="{{ request.args.get('employee','') }}">
         </div>
         <div>
             <label>Status dnia</label>
@@ -42,8 +40,6 @@
                 <option value="">Wszystkie</option>
                 <option value="obecny" {% if request.args.get('day_status') == 'obecny' %}selected{% endif %}>Obecny</option>
                 <option value="nieobecny" {% if request.args.get('day_status') == 'nieobecny' %}selected{% endif %}>Nieobecny</option>
-                <option value="praca zdalna" {% if request.args.get('day_status') == 'praca zdalna' %}selected{% endif %}>Praca zdalna</option>
-                <option value="delegacja" {% if request.args.get('day_status') == 'delegacja' %}selected{% endif %}>Delegacja</option>
             </select>
         </div>
         <div>
