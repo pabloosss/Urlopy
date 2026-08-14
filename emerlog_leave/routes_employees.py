@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import generate_password_hash
 
+from .config import CONTRACT_TYPES
 from .database import get_db
 from .services import login_required, role_required, log_action, vacation_summary
 
@@ -36,16 +37,22 @@ def _employee_lists(conn):
         WHERE role IN ('menedzer','admin','kadry') AND active=1
         ORDER BY full_name
     """).fetchall()
-    return departments, managers
+    companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
+    return departments, managers, companies
 
 
 def _employee_or_404(conn, user_id):
     return conn.execute("""
-        SELECT u.*, m.full_name AS manager_name
+        SELECT u.*, m.full_name AS manager_name, c.name AS company_name
         FROM users u
         LEFT JOIN users m ON u.manager_id = m.id
+        LEFT JOIN companies c ON u.company_id = c.id
         WHERE u.id = ?
     """, (user_id,)).fetchone()
+
+
+def _company_id_from_form():
+    return request.form.get("company_id") or None
 
 
 @bp.route("/employees", methods=["GET", "POST"])
@@ -55,49 +62,66 @@ def employees_view():
     conn = get_db()
 
     if request.method == "POST":
-        login_value = request.form.get("login", "").strip()
-        full_name = request.form.get("full_name", "").strip()
-        password = request.form.get("password", "").strip() or "Start123!"
-        if not login_value or not full_name:
-            flash("Login i imię/nazwisko są wymagane.")
+        form_kind = request.form.get("form_kind", "employee")
+        if form_kind == "company":
+            company_name = request.form.get("company_name", "").strip()
+            if not company_name:
+                flash("Podaj nazwę spółki.")
+            else:
+                try:
+                    conn.execute("INSERT OR IGNORE INTO companies (name) VALUES (?)", (company_name,))
+                    log_action(conn, "dodano spółkę", "company", None, company_name)
+                    conn.commit()
+                    flash("Spółka została dodana.")
+                except Exception as error:
+                    conn.rollback()
+                    flash(f"Nie udało się dodać spółki. Błąd: {error}")
         else:
-            try:
-                cur = conn.execute("""
-                    INSERT INTO users (
-                        login, password_hash, full_name, email, role, vacation_days,
-                        active, department, job_title, manager_id, contract_type, carryover_days
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
-                """, (
-                    login_value,
-                    generate_password_hash(password),
-                    full_name,
-                    request.form.get("email", "").strip(),
-                    request.form.get("role") or "pracownik",
-                    _to_int(request.form.get("vacation_days"), 26),
-                    request.form.get("department", "").strip(),
-                    request.form.get("job_title", "").strip(),
-                    request.form.get("manager_id") or None,
-                    request.form.get("contract_type", "").strip(),
-                    _to_int(request.form.get("carryover_days"), 0),
-                ))
-                log_action(conn, "dodano pracownika", "user", cur.lastrowid, full_name)
-                conn.commit()
-                flash("Pracownik dodany.")
-            except Exception as error:
-                conn.rollback()
-                flash(f"Nie udało się dodać pracownika. Sprawdź login. Błąd: {error}")
+            login_value = request.form.get("login", "").strip()
+            full_name = request.form.get("full_name", "").strip()
+            password = request.form.get("password", "").strip() or "Start123!"
+            if not login_value or not full_name:
+                flash("Login i imię/nazwisko są wymagane.")
+            else:
+                try:
+                    cur = conn.execute("""
+                        INSERT INTO users (
+                            login, password_hash, full_name, email, role, vacation_days,
+                            active, department, job_title, manager_id, contract_type, carryover_days, company_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        login_value,
+                        generate_password_hash(password),
+                        full_name,
+                        request.form.get("email", "").strip(),
+                        request.form.get("role") or "pracownik",
+                        _to_int(request.form.get("vacation_days"), 26),
+                        request.form.get("department", "").strip(),
+                        request.form.get("job_title", "").strip(),
+                        request.form.get("manager_id") or None,
+                        request.form.get("contract_type", "Umowa o pracę"),
+                        _to_int(request.form.get("carryover_days"), 0),
+                        _company_id_from_form(),
+                    ))
+                    log_action(conn, "dodano pracownika", "user", cur.lastrowid, full_name)
+                    conn.commit()
+                    flash("Pracownik dodany.")
+                except Exception as error:
+                    conn.rollback()
+                    flash(f"Nie udało się dodać pracownika. Sprawdź login. Błąd: {error}")
 
     q = request.args.get("q", "").strip()
     role = request.args.get("role", "").strip()
     department = request.args.get("department", "").strip()
     status = request.args.get("status", "").strip()
     manager_id = request.args.get("manager_id", "").strip()
+    company_id = request.args.get("company_id", "").strip()
 
     filters = ["1=1"]
     params = []
     if q:
-        filters.append("(u.full_name LIKE ? OR u.login LIKE ? OR u.email LIKE ? OR u.job_title LIKE ?)")
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        filters.append("(u.full_name LIKE ? OR u.login LIKE ? OR u.email LIKE ? OR u.job_title LIKE ? OR c.name LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
     if role:
         filters.append("u.role = ?")
         params.append(role)
@@ -111,12 +135,16 @@ def employees_view():
     if manager_id:
         filters.append("u.manager_id = ?")
         params.append(manager_id)
+    if company_id:
+        filters.append("u.company_id = ?")
+        params.append(company_id)
 
     users = conn.execute(f"""
-        SELECT u.*, m.full_name AS manager_name,
+        SELECT u.*, m.full_name AS manager_name, c.name AS company_name,
                COALESCE(lr.requests_count, 0) AS requests_count
         FROM users u
         LEFT JOIN users m ON u.manager_id = m.id
+        LEFT JOIN companies c ON u.company_id = c.id
         LEFT JOIN (
             SELECT user_id, COUNT(*) AS requests_count
             FROM leave_requests
@@ -134,9 +162,18 @@ def employees_view():
             SUM(CASE WHEN role = 'menedzer' THEN 1 ELSE 0 END) AS managers_count
         FROM users
     """).fetchone()
-    departments, managers = _employee_lists(conn)
+    departments, managers, companies = _employee_lists(conn)
     conn.close()
-    return render_template("employees.html", users=users, departments=departments, managers=managers, roles=ROLES, stats=stats)
+    return render_template(
+        "employees.html",
+        users=users,
+        departments=departments,
+        managers=managers,
+        companies=companies,
+        roles=ROLES,
+        contract_types=CONTRACT_TYPES,
+        stats=stats,
+    )
 
 
 @bp.route("/employees/<int:user_id>")
@@ -175,7 +212,7 @@ def employee_profile(user_id):
         ORDER BY al.created_at DESC
         LIMIT 20
     """, (user_id,)).fetchall()
-    departments, managers = _employee_lists(conn)
+    departments, managers, companies = _employee_lists(conn)
     summary = vacation_summary(conn, user)
     conn.close()
     return render_template(
@@ -186,7 +223,9 @@ def employee_profile(user_id):
         audit_logs=audit_logs,
         departments=departments,
         managers=managers,
+        companies=companies,
         roles=ROLES,
+        contract_types=CONTRACT_TYPES,
         vacation_summary=summary,
     )
 
@@ -217,7 +256,7 @@ def edit_employee(user_id):
         conn.execute("""
             UPDATE users
             SET login=?, full_name=?, email=?, role=?, vacation_days=?, active=?,
-                department=?, job_title=?, manager_id=?, contract_type=?, carryover_days=?
+                department=?, job_title=?, manager_id=?, contract_type=?, carryover_days=?, company_id=?
             WHERE id=?
         """, (
             login_value,
@@ -229,8 +268,9 @@ def edit_employee(user_id):
             request.form.get("department", "").strip(),
             request.form.get("job_title", "").strip(),
             manager_id,
-            request.form.get("contract_type", "").strip(),
+            request.form.get("contract_type", "Umowa o pracę"),
             _to_int(request.form.get("carryover_days"), 0),
+            _company_id_from_form(),
             user_id,
         ))
         log_action(conn, "edytowano pracownika", "user", user_id, full_name)
