@@ -94,12 +94,6 @@
 
     document.querySelectorAll('.print-request-btn').forEach(button => {
         button.addEventListener('click', () => {
-            const source = document.getElementById('print-request-' + button.datasetRequestId || '');
-        });
-    });
-
-    document.querySelectorAll('.print-request-btn').forEach(button => {
-        button.addEventListener('click', () => {
             const source = document.getElementById('print-request-' + button.dataset.requestId);
             if (!source) return;
             const win = window.open('', '_blank');
