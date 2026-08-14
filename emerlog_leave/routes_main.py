@@ -106,7 +106,7 @@ def presence_view():
     conn = get_db()
     ids = visible_user_ids(conn)
     employees = []
-    stats = {"all": 0, "present": 0, "absent": 0, "remote": 0, "delegation": 0}
+    stats = {"all": 0, "present": 0, "absent": 0}
 
     if ids:
         placeholders = ",".join("?" for _ in ids)
@@ -144,16 +144,8 @@ def presence_view():
                 (person["id"], selected_date, selected_date),
             ).fetchone()
 
-            current_status = "obecny"
-            current_type = "—"
-            if absence:
-                current_type = absence["leave_type"]
-                if absence["leave_type"] == "Praca zdalna":
-                    current_status = "praca zdalna"
-                elif absence["leave_type"] == "Delegacja":
-                    current_status = "delegacja"
-                else:
-                    current_status = "nieobecny"
+            current_status = "nieobecny" if absence else "obecny"
+            current_type = absence["leave_type"] if absence else "—"
 
             if leave_type and current_type != leave_type:
                 continue
@@ -164,10 +156,6 @@ def presence_view():
 
             if current_status == "obecny":
                 stats["present"] += 1
-            elif current_status == "praca zdalna":
-                stats["remote"] += 1
-            elif current_status == "delegacja":
-                stats["delegation"] += 1
             else:
                 stats["absent"] += 1
 
@@ -221,7 +209,7 @@ def calendar_view():
         ).fetchall()
 
         team_stats["requests"] = len(rows)
-        team_stats["days"] = sum(row["days_count"] for row in rows)
+        team_stats["days"] = sum((row["days_count"] or 0) for row in rows)
 
         for row in rows:
             current = max(parse_date(row["date_from"]), first)
