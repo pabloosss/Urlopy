@@ -25,10 +25,11 @@
             <label>Imię i nazwisko</label><input name="full_name" value="{{ user.full_name }}" required>
             <label>E-mail</label><input type="email" name="email" value="{{ user.email or '' }}">
             <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}" {% if user.company_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
             <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}" {% if user.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
             <label>Stanowisko</label><input name="job_title" value="{{ user.job_title or '' }}">
             <label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}{% if m.id != user.id %}<option value="{{ m.id }}" {% if user.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}</option>{% endif %}{% endfor %}</select>
-            <label>Typ umowy</label><input name="contract_type" value="{{ user.contract_type or '' }}">
+            <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}" {% if (user.contract_type or 'Umowa o pracę') == type %}selected{% endif %}>{{ type }}</option>{% endfor %}</select>
             <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="{{ user.vacation_days or 0 }}"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ user.carryover_days or 0 }}"></div></div>
             <label>Status</label><select name="active"><option value="1" {% if user.active %}selected{% endif %}>Aktywny</option><option value="0" {% if not user.active %}selected{% endif %}>Nieaktywny</option></select>
             <button type="submit">Zapisz</button>
