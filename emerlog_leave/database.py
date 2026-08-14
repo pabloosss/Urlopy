@@ -41,8 +41,15 @@ def init_db():
         "manager_id": "INTEGER",
         "contract_type": "TEXT DEFAULT 'Umowa o pracę'",
         "carryover_days": "INTEGER DEFAULT 0",
+        "company_id": "INTEGER",
     }.items():
         _ensure_column(cur, "users", name, definition)
+
+    cur.execute("CREATE TABLE IF NOT EXISTS companies (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)")
+    for company in ["EMERLOG SP. Z O. O.", "RMSPED SP. Z O. O.", "RM LOGISTIC SP. Z O. O."]:
+        cur.execute("INSERT OR IGNORE INTO companies (name) VALUES (?)", (company,))
+    default_company = cur.execute("SELECT id FROM companies WHERE name = ?", ("EMERLOG SP. Z O. O.",)).fetchone()
+    default_company_id = default_company["id"] if default_company else None
 
     cur.execute("CREATE TABLE IF NOT EXISTS departments (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)")
     cur.execute("""
@@ -94,7 +101,7 @@ def init_db():
         )
     """)
 
-    for dep in ["Spedycja", "Księgowość", "Kadry", "IT", "Zarząd"]:
+    for dep in ["Spedycja", "Księgowość", "Kadry", "Administracja", "IT", "Zarząd"]:
         cur.execute("INSERT OR IGNORE INTO departments (name) VALUES (?)", (dep,))
 
     demo_users = [
@@ -111,9 +118,12 @@ def init_db():
             cur.execute("""
                 INSERT INTO users (
                     login, password_hash, full_name, email, role, vacation_days,
-                    active, department, job_title, contract_type, carryover_days
-                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'Umowa o pracę', ?)
-            """, (login, generate_password_hash(password), full_name, email, role, vacation, dep, job, carry))
+                    active, department, job_title, contract_type, carryover_days, company_id
+                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'Umowa o pracę', ?, ?)
+            """, (login, generate_password_hash(password), full_name, email, role, vacation, dep, job, carry, default_company_id))
+
+    if default_company_id:
+        cur.execute("UPDATE users SET company_id = ? WHERE company_id IS NULL", (default_company_id,))
 
     conn.commit()
     for login, _, _, _, _, _, _, manager_login, _, _ in demo_users:
