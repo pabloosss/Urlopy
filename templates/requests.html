@@ -64,12 +64,11 @@
         <main class="sheet">
             <div class="top-date"><strong>{% if req.decided_at %}{{ req.decided_at[:10]|pldate }}{% else %}{{ req.created_at[:10]|pldate }}{% endif %}</strong><span>data wystawienia</span></div>
             <div class="employee-line"><strong>{{ req.full_name }}</strong><span>imię i nazwisko pracownika</span></div>
-            <div class="company-line"><strong>EMERLOG SP. Z O. O.</strong><span>nazwa firmy</span></div>
+            <div class="company-line"><strong>{{ req.company_name or "EMERLOG SP. Z O. O." }}</strong><span>nazwa spółki</span></div>
             <h1>Wniosek urlopowy</h1>
             <p class="request-print-text">Proszę o udzielenie {% if req.leave_type in ['Urlop wypoczynkowy', 'Urlop na żądanie'] %}urlopu wypoczynkowego{% else %}nieobecności: {{ req.leave_type }}{% endif %} w liczbie <b>{{ req.days_count }}</b> dni, w terminie od <b>{{ req.date_from|pldate }}</b> do <b>{{ req.date_to|pldate }}</b>.</p>
-            <div class="signatures-print"><div><span></span><small>pracownik</small></div><div><span></span><small>osoba akceptująca</small></div></div>
-            <p class="accept-line">Zgoda na wskazany termin ........................................................</p>
-            <p class="print-meta">Status: zaakceptowany<br>Akceptujący: {{ req.decider_name or req.manager_name or "—" }}<br>Numer: {{ req.id }} | Typ: {{ req.leave_type }}</p>
+            <p class="replacement-line">W czasie urlopu zastępować będzie mnie <strong>{{ req.replacement_name or "........................................................" }}</strong></p>
+            <p class="print-meta">Status: zaakceptowany</p>
         </main>
     </template>
     {% endif %}
@@ -87,15 +86,17 @@
         .employee-line strong { display: block; min-height: 24px; border-bottom: 1px dotted #111; }
         .company-line { margin: 26px 0 34px; }
         h1 { margin: 34px 0 38px; text-align: center; font-size: 22px; }
-        .request-print-text { margin: 0 0 70px; font-size: 17px; line-height: 1.75; }
-        .signatures-print { display: flex; justify-content: space-between; gap: 42px; margin-top: 80px; }
-        .signatures-print div { flex: 1; text-align: center; }
-        .signatures-print span { display: block; border-bottom: 1px dotted #111; height: 26px; }
-        .signatures-print small { display: block; margin-top: 4px; }
-        .accept-line { margin-top: 70px; font-size: 16px; }
-        .print-meta { margin-top: 44px; color: #555; font-size: 12px; line-height: 1.5; }
+        .request-print-text { margin: 0 0 42px; font-size: 17px; line-height: 1.75; }
+        .replacement-line { margin: 0 0 70px; font-size: 16px; line-height: 1.6; }
+        .print-meta { margin-top: 44px; font-size: 15px; font-weight: 700; }
         @media print { body { padding: 0; background: #fff; } .sheet { width: auto; min-height: auto; margin: 0; padding: 38mm 28mm; box-shadow: none; } }
     `;
+
+    document.querySelectorAll('.print-request-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const source = document.getElementById('print-request-' + button.datasetRequestId || '');
+        });
+    });
 
     document.querySelectorAll('.print-request-btn').forEach(button => {
         button.addEventListener('click', () => {
