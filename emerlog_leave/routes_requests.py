@@ -2,22 +2,20 @@ from datetime import date
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
-from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES
+from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_contract
 from .database import get_db
 from .services import login_required, current_user, visible_user_ids, vacation_summary, count_workdays, parse_date, log_action, is_hr, is_manager
 
 bp = Blueprint("requests", __name__)
 
 LEAVE_TYPE_DESCRIPTIONS = {
-    "Urlop wypoczynkowy": "Standardowy urlop z limitu rocznego.",
-    "Urlop na żądanie": "Pilny urlop z limitu rocznego.",
+    "Urlop wypoczynkowy": "Urlop z limitu rocznego.",
+    "Urlop na żądanie": "Urlop z limitu rocznego.",
     "Urlop okolicznościowy": "Ślub, pogrzeb, narodziny dziecka lub inna okoliczność.",
-    "L4 / chorobowe": "Nieobecność chorobowa. Wpisz informację w komentarzu.",
+    "L4 / chorobowe": "Nieobecność chorobowa.",
     "Urlop bezpłatny": "Nie schodzi z limitu urlopu wypoczynkowego.",
     "Odbiór dnia wolnego": "Odbiór za pracę w innym terminie.",
-    "Praca zdalna": "Dzień pracy poza biurem.",
-    "Delegacja": "Wyjazd służbowy.",
-    "Inne": "Nietypowa nieobecność lub sprawa do opisania w komentarzu.",
+    "Inne": "Inna nieobecność do opisania w komentarzu.",
 }
 
 
@@ -43,9 +41,11 @@ def _query_requests(conn):
         filters.append("lr.date_from <= ?")
         params.append(request.args.get("date_to"))
     return conn.execute(f"""
-        SELECT lr.*, u.full_name, u.department, m.full_name AS manager_name, d.full_name AS decider_name, r.full_name AS replacement_name
+        SELECT lr.*, u.full_name, u.department, c.name AS company_name,
+               m.full_name AS manager_name, d.full_name AS decider_name, r.full_name AS replacement_name
         FROM leave_requests lr
         JOIN users u ON u.id=lr.user_id
+        LEFT JOIN companies c ON u.company_id=c.id
         LEFT JOIN users m ON u.manager_id=m.id
         LEFT JOIN users d ON lr.decided_by=d.id
         LEFT JOIN users r ON lr.replacement_user_id=r.id
@@ -62,7 +62,7 @@ def _query_all_requests(conn, default_today=True):
         filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
         params.extend([f"%{employee}%", f"%{employee}%"])
 
-    for field, column in [("department", "u.department"), ("status", "lr.status"), ("leave_type", "lr.leave_type"), ("manager_id", "u.manager_id")]:
+    for field, column in [("department", "u.department"), ("status", "lr.status"), ("leave_type", "lr.leave_type"), ("manager_id", "u.manager_id"), ("company_id", "u.company_id")]:
         value = request.args.get(field, "").strip()
         if value:
             filters.append(f"{column} = ?")
@@ -80,12 +80,13 @@ def _query_all_requests(conn, default_today=True):
         params.append(date_to)
 
     rows = conn.execute(f"""
-        SELECT lr.*, u.full_name, u.login, u.department,
+        SELECT lr.*, u.full_name, u.login, u.department, c.name AS company_name,
                m.full_name AS manager_name,
                d.full_name AS decider_name,
                r.full_name AS replacement_name
         FROM leave_requests lr
         JOIN users u ON u.id = lr.user_id
+        LEFT JOIN companies c ON u.company_id = c.id
         LEFT JOIN users m ON u.manager_id = m.id
         LEFT JOIN users d ON lr.decided_by = d.id
         LEFT JOIN users r ON lr.replacement_user_id = r.id
@@ -100,6 +101,7 @@ def _query_all_requests(conn, default_today=True):
 def new_leave_request():
     conn = get_db()
     user = current_user(conn)
+    available_leave_types = leave_types_for_contract(user["contract_type"])
     summary = vacation_summary(conn, user)
     employees = conn.execute("SELECT id, full_name FROM users WHERE active=1 AND id!=? ORDER BY full_name", (user["id"],)).fetchall()
     manager_name = "Kadry / przełożony"
@@ -109,12 +111,11 @@ def new_leave_request():
             manager_name = manager["full_name"]
 
     form_data = {
-        "leave_type": "Urlop wypoczynkowy",
+        "leave_type": available_leave_types[0],
         "date_from": "",
         "date_to": "",
         "replacement_user_id": "",
         "comment": "",
-        "attachment_note": "",
     }
 
     def render_form(status_code=200):
@@ -124,7 +125,7 @@ def new_leave_request():
             user=user,
             employees=employees,
             vacation_summary=summary,
-            leave_types=LEAVE_TYPES,
+            leave_types=available_leave_types,
             limit_types=sorted(LIMIT_TYPES),
             leave_type_descriptions=LEAVE_TYPE_DESCRIPTIONS,
             manager_name=manager_name,
@@ -139,7 +140,6 @@ def new_leave_request():
             "date_to": request.form.get("date_to", "").strip(),
             "replacement_user_id": request.form.get("replacement_user_id", "").strip(),
             "comment": request.form.get("comment", "").strip(),
-            "attachment_note": request.form.get("attachment_note", "").strip(),
         }
         errors = []
         days = 0
@@ -147,8 +147,8 @@ def new_leave_request():
         end = None
         replacement_id = None
 
-        if form_data["leave_type"] not in LEAVE_TYPES:
-            errors.append("Wybierz poprawny typ nieobecności.")
+        if form_data["leave_type"] not in available_leave_types:
+            errors.append("Wybierz poprawny typ nieobecności dla swojego typu umowy.")
 
         if not form_data["date_from"] or not form_data["date_to"]:
             errors.append("Uzupełnij datę od i datę do.")
@@ -201,8 +201,6 @@ def new_leave_request():
 
         if len(form_data["comment"]) > 1000:
             errors.append("Komentarz jest za długi. Maksymalnie 1000 znaków.")
-        if len(form_data["attachment_note"]) > 255:
-            errors.append("Opis załącznika jest za długi. Maksymalnie 255 znaków.")
 
         if errors:
             for error in errors:
@@ -210,9 +208,9 @@ def new_leave_request():
             return render_form(400)
 
         cur = conn.execute("""
-            INSERT INTO leave_requests (user_id, leave_type, date_from, date_to, days_count, comment, replacement_user_id, attachment_note, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """, (user["id"], form_data["leave_type"], form_data["date_from"], form_data["date_to"], days, form_data["comment"], replacement_id, form_data["attachment_note"]))
+            INSERT INTO leave_requests (user_id, leave_type, date_from, date_to, days_count, comment, replacement_user_id, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """, (user["id"], form_data["leave_type"], form_data["date_from"], form_data["date_to"], days, form_data["comment"], replacement_id))
         log_action(conn, "złożono wniosek", "leave_request", cur.lastrowid, f"{form_data['leave_type']}: {form_data['date_from']} - {form_data['date_to']}")
         conn.commit()
         conn.close()
@@ -249,12 +247,14 @@ def all_requests_view():
     rows, selected_from, selected_to = _query_all_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     managers = conn.execute("SELECT id, full_name FROM users WHERE role IN ('menedzer','admin','kadry') ORDER BY full_name").fetchall()
+    companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
     return render_template(
         "all_requests.html",
         requests_list=rows,
         departments=departments,
         managers=managers,
+        companies=companies,
         statuses=STATUSES,
         leave_types=LEAVE_TYPES,
         selected_from=selected_from,
@@ -297,7 +297,7 @@ def export_report_csv():
     from flask import Response
     conn = get_db(); rows = _query_requests(conn); conn.close()
     output = io.StringIO(); writer = csv.writer(output, delimiter=";")
-    writer.writerow(["Pracownik", "Dział", "Typ", "Od", "Do", "Dni", "Status", "Menedżer", "Data złożenia"])
+    writer.writerow(["Pracownik", "Spółka", "Dział", "Typ", "Od", "Do", "Dni", "Status", "Menedżer", "Data złożenia"])
     for row in rows:
-        writer.writerow([row["full_name"], row["department"], row["leave_type"], row["date_from"], row["date_to"], row["days_count"], row["status"], row["manager_name"] or "", row["created_at"]])
+        writer.writerow([row["full_name"], row["company_name"] or "", row["department"], row["leave_type"], row["date_from"], row["date_to"], row["days_count"], row["status"], row["manager_name"] or "", row["created_at"]])
     return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=emerlog_urlopy.csv"})
