@@ -32,9 +32,9 @@ def _next(default="employees.employees_view"):
 def _employee_lists(conn):
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     managers = conn.execute("""
-        SELECT id, full_name
+        SELECT id, full_name, department, job_title
         FROM users
-        WHERE role IN ('menedzer','admin','kadry') AND active=1
+        WHERE role = 'menedzer' AND active = 1
         ORDER BY full_name
     """).fetchall()
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
