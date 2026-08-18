@@ -19,6 +19,12 @@ LEAVE_TYPE_DESCRIPTIONS = {
 }
 
 
+def _safe_redirect(next_url, default="requests.requests_view"):
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect(url_for(default))
+
+
 def _query_requests(conn):
     ids = visible_user_ids(conn)
     if not ids:
@@ -232,7 +238,7 @@ def requests_view():
     conn = get_db()
     rows = _query_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
-    managers = conn.execute("SELECT id, full_name FROM users WHERE role IN ('menedzer','admin','kadry') ORDER BY full_name").fetchall()
+    managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
     conn.close()
     return render_template("requests.html", requests_list=rows, departments=departments, managers=managers, statuses=STATUSES, leave_types=LEAVE_TYPES)
 
@@ -246,7 +252,7 @@ def all_requests_view():
     conn = get_db()
     rows, selected_from, selected_to = _query_all_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
-    managers = conn.execute("SELECT id, full_name FROM users WHERE role IN ('menedzer','admin','kadry') ORDER BY full_name").fetchall()
+    managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
     return render_template(
@@ -265,29 +271,58 @@ def all_requests_view():
 @bp.route("/request/<int:request_id>/<action>", methods=["POST"])
 @login_required
 def change_request_status(request_id, action):
-    status_map = {"accept": "zaakceptowany", "reject": "odrzucony", "cancel": "anulowany", "return": "cofniety"}
     next_url = request.form.get("next", "")
-    if action not in status_map:
-        flash("Nieznana akcja.")
-        return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
     conn = get_db()
     leave_request = conn.execute("SELECT * FROM leave_requests WHERE id=?", (request_id,)).fetchone()
     if not leave_request:
-        conn.close(); flash("Nie znaleziono wniosku."); return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
+        conn.close()
+        flash("Nie znaleziono wniosku.")
+        return _safe_redirect(next_url)
+
     owner = conn.execute("SELECT * FROM users WHERE id=?", (leave_request["user_id"],)).fetchone()
     can_decide = is_hr() or (is_manager() and owner and owner["manager_id"] == session["user_id"])
     can_cancel = leave_request["user_id"] == session["user_id"] and leave_request["status"] == "oczekuje"
+
+    if action == "delete":
+        if not is_hr():
+            conn.close()
+            flash("Tylko admin lub kadry mogą usuwać wpisy.")
+            return _safe_redirect(next_url)
+        details = ""
+        if owner:
+            details = f"{owner['full_name']} | {leave_request['leave_type']} | {leave_request['date_from']} - {leave_request['date_to']} | status: {leave_request['status']}"
+        else:
+            details = f"wniosek #{request_id} | {leave_request['leave_type']} | {leave_request['date_from']} - {leave_request['date_to']} | status: {leave_request['status']}"
+        conn.execute("DELETE FROM leave_requests WHERE id=?", (request_id,))
+        log_action(conn, "usunięto wniosek", "leave_request", request_id, details)
+        conn.commit()
+        conn.close()
+        flash("Wniosek został usunięty.")
+        return _safe_redirect(next_url)
+
+    status_map = {"accept": "zaakceptowany", "reject": "odrzucony", "cancel": "anulowany", "return": "cofniety"}
+    if action not in status_map:
+        conn.close()
+        flash("Nieznana akcja.")
+        return _safe_redirect(next_url)
+
     if action in {"accept", "reject", "return"} and not can_decide:
-        conn.close(); flash("Brak uprawnień do decyzji."); return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
+        conn.close()
+        flash("Brak uprawnień do decyzji.")
+        return _safe_redirect(next_url)
     if action == "cancel" and not (can_cancel or can_decide):
-        conn.close(); flash("Nie można anulować tego wniosku."); return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
+        conn.close()
+        flash("Nie można anulować tego wniosku.")
+        return _safe_redirect(next_url)
+
     new_status = status_map[action]
     comment = request.form.get("decision_comment", "")
     conn.execute("UPDATE leave_requests SET status=?, decision_comment=?, decided_by=?, decided_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?", (new_status, comment, session["user_id"], request_id))
     log_action(conn, f"zmieniono status na {new_status}", "leave_request", request_id, comment)
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     flash(f"Status wniosku zmieniony na: {new_status}.")
-    return redirect(next_url if next_url.startswith("/") else url_for("requests.requests_view"))
+    return _safe_redirect(next_url)
 
 
 @bp.route("/reports/export.csv")
