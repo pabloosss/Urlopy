@@ -7,22 +7,10 @@
         <h1>{{ user.full_name }}</h1>
 
         <div class="panel-info-list">
-            <div>
-                <span>Stanowisko</span>
-                <strong>{{ user.job_title or "Pracownik" }}</strong>
-            </div>
-            <div>
-                <span>Dział</span>
-                <strong>{{ user.department or "Brak działu" }}</strong>
-            </div>
-            <div>
-                <span>Typ umowy</span>
-                <strong>{{ user.contract_type or "Nie podano" }}</strong>
-            </div>
-            <div>
-                <span>Rola</span>
-                <strong>{{ session.get("role", "") }}</strong>
-            </div>
+            <div><span>Spółka</span><strong>{{ user.company_name or "—" }}</strong></div>
+            <div><span>Dział</span><strong>{{ user.department or "—" }}</strong></div>
+            <div><span>Umowa</span><strong>{{ user.contract_type or "Umowa o pracę" }}</strong></div>
+            <div><span>Rola</span><strong>{{ session.get("role", "") }}</strong></div>
         </div>
     </aside>
 
@@ -32,44 +20,33 @@
                 <span>Dostępne dni</span>
                 <strong>{{ vacation_summary.available }}</strong>
             </div>
-
             <a class="home-request-priority" href="{{ url_for('requests.new_leave_request') }}">
-                <span>Nowy wniosek</span>
-                <strong>Złóż wniosek</strong>
+                <span>Wniosek</span>
+                <strong>Złóż</strong>
             </a>
         </section>
 
         <section class="home-quick-stats">
-            <div>
-                <span>Wykorzystane</span>
-                <strong>{{ vacation_summary.accepted }}</strong>
-            </div>
-            <div>
-                <span>Oczekujące</span>
-                <strong>{{ vacation_summary.pending }}</strong>
-            </div>
-            <a href="{{ url_for('main.my_leave') }}">
-                <span>Wnioski</span>
-                <strong>Moje wnioski</strong>
-            </a>
+            <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
+            <div><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong></div>
+            <a href="{{ url_for('main.my_leave') }}"><span>Historia</span><strong>Moje wnioski</strong></a>
             {% if is_manager() or is_hr() %}
-            <a href="{{ url_for('main.calendar_view') }}">
-                <span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span>
-                <strong>{% if is_manager() %}Kalendarz zespołu{% else %}Kalendarz firmowy{% endif %}</strong>
-            </a>
+                <a href="{{ url_for('requests.requests_view', status='oczekuje') }}"><span>Akceptacja</span><strong>{{ stats.pending }}</strong></a>
             {% endif %}
         </section>
 
         {% if is_manager() or is_hr() %}
         <section class="home-manager-tools">
-            <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">
-                <span>{% if is_manager() %}Podopieczni{% else %}Kadry{% endif %}</span>
-                <strong>Do akceptacji: {{ stats.pending }}</strong>
-            </a>
             <a href="{{ url_for('main.calendar_view') }}">
-                <span>{% if is_manager() %}Urlopy zespołu{% else %}Nieobecności{% endif %}</span>
-                <strong>{% if is_manager() %}Kto i kiedy{% else %}Kalendarz{% endif %}</strong>
+                <span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span>
+                <strong>Kalendarz</strong>
             </a>
+            {% if is_hr() %}
+            <a href="{{ url_for('requests.all_requests_view') }}">
+                <span>Admin</span>
+                <strong>Wszystkie wnioski</strong>
+            </a>
+            {% endif %}
         </section>
         {% endif %}
     </div>
