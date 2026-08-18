@@ -31,10 +31,42 @@
     gap: 10px;
 }
 
+.form-field-full {
+    grid-column: 1 / -1;
+}
+
 .employee-company-add {
     margin-top: 18px;
     padding-top: 16px;
     border-top: 1px solid #e5e7eb;
+}
+
+.manager-search-block {
+    display: grid;
+    gap: 6px;
+}
+
+.manager-search-input {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.manager-search-block::after {
+    content: "Widoczni są tylko aktywni menedżerowie";
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.manager-search-block.manager-no-results::after {
+    content: "Brak menedżera dla tej frazy";
+    color: #b91c1c;
+}
+
+.manager-select option {
+    font-weight: 700;
 }
 
 .employee-cards {
@@ -49,6 +81,19 @@
     padding: 16px;
     background: #ffffff;
     box-shadow: 0 10px 26px rgba(15, 23, 42, .06);
+}
+
+.employee-card.role-card-menedzer {
+    border-left-color: #2563eb;
+    background: linear-gradient(90deg, rgba(37, 99, 235, .08), #fff 28%);
+}
+
+.employee-card.role-card-admin {
+    border-left-color: #7c3aed;
+}
+
+.employee-card.role-card-kadry {
+    border-left-color: #0f766e;
 }
 
 .employee-card.is-inactive {
@@ -78,6 +123,18 @@
     box-shadow: 0 12px 28px rgba(0,0,0,.14);
 }
 
+.role-card-menedzer .employee-avatar {
+    background: #2563eb;
+}
+
+.role-card-admin .employee-avatar {
+    background: #7c3aed;
+}
+
+.role-card-kadry .employee-avatar {
+    background: #0f766e;
+}
+
 .employee-card h3 {
     margin: 0 0 5px;
     font-size: 21px;
@@ -96,6 +153,38 @@
 .employee-card small {
     margin: 0;
     color: var(--muted);
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+
+.role-badge.role-menedzer {
+    color: #1d4ed8;
+    background: #dbeafe;
+}
+
+.role-badge.role-admin {
+    color: #6d28d9;
+    background: #ede9fe;
+}
+
+.role-badge.role-kadry {
+    color: #0f766e;
+    background: #ccfbf1;
+}
+
+.role-badge.role-pracownik {
+    color: #374151;
+    background: #f3f4f6;
 }
 
 .employee-card-status {
