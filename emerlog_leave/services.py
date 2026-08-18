@@ -76,7 +76,12 @@ def count_workdays(start, end):
 
 
 def current_user(conn):
-    return conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+    return conn.execute("""
+        SELECT u.*, c.name AS company_name
+        FROM users u
+        LEFT JOIN companies c ON u.company_id = c.id
+        WHERE u.id = ?
+    """, (session["user_id"],)).fetchone()
 
 
 def visible_user_ids(conn):
