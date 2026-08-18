@@ -51,11 +51,12 @@
                 <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Nieaktywni</option>
             </select>
         </div>
-        <div>
+        <div class="manager-search-block">
             <label>Menedżer</label>
-            <select name="manager_id">
+            <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
+            <select name="manager_id" class="manager-select">
                 <option value="">Wszyscy</option>
-                {% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}
+                {% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}
             </select>
         </div>
         <button type="submit">Szukaj</button>
@@ -76,7 +77,11 @@
             <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
             <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
             <label>Stanowisko</label><input name="job_title">
-            <label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}">{{ m.full_name }}</option>{% endfor %}</select>
+            <div class="manager-search-block form-field-full">
+                <label>Menedżer</label>
+                <input type="search" class="manager-search-input" placeholder="Szukaj po nazwisku, dziale lub stanowisku">
+                <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}">👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
+            </div>
             <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
             <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
             <button>Dodaj pracownika</button>
@@ -100,12 +105,14 @@
 
         <div class="employee-cards">
             {% for u in users %}
-            <article class="employee-card {% if not u.active %}is-inactive{% endif %}">
+            <article class="employee-card role-card-{{ u.role }} {% if not u.active %}is-inactive{% endif %}">
                 <div class="employee-card-main">
                     <div class="employee-avatar">{{ u.full_name[:1] }}</div>
                     <div>
                         <h3><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name }}</a></h3>
-                        <p>{{ u.login }} · {{ u.role }} · {{ u.company_name or "brak spółki" }} · {{ u.department or "brak działu" }}</p>
+                        <p>
+                            {{ u.login }} · <span class="role-badge role-{{ u.role }}">{% if u.role == 'menedzer' %}👔 {% elif u.role == 'admin' %}🛡️ {% elif u.role == 'kadry' %}📋 {% endif %}{{ u.role }}</span> · {{ u.company_name or "brak spółki" }} · {{ u.department or "brak działu" }}
+                        </p>
                         <small>{{ u.job_title or "brak stanowiska" }} · {{ u.contract_type or "Umowa o pracę" }}{% if u.manager_name %} · menedżer: {{ u.manager_name }}{% endif %}</small>
                     </div>
                     <div class="employee-card-status">
@@ -126,7 +133,7 @@
                             <div><label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}" {% if u.company_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
                             <div><label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}" {% if u.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
                             <div><label>Stanowisko</label><input name="job_title" value="{{ u.job_title or '' }}"></div>
-                            <div><label>Menedżer</label><select name="manager_id"><option value="">Brak</option>{% for m in managers %}{% if m.id != u.id %}<option value="{{ m.id }}" {% if u.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}</option>{% endif %}{% endfor %}</select></div>
+                            <div class="manager-search-block"><label>Menedżer</label><input type="search" class="manager-search-input" placeholder="Szukaj menedżera"><select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}{% if m.id != u.id %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if u.manager_id == m.id %}selected{% endif %}>👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endif %}{% endfor %}</select></div>
                             <div><label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}" {% if (u.contract_type or 'Umowa o pracę') == type %}selected{% endif %}>{{ type }}</option>{% endfor %}</select></div>
                             <div><label>Limit</label><input name="vacation_days" type="number" value="{{ u.vacation_days or 0 }}"></div>
                             <div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ u.carryover_days or 0 }}"></div>
@@ -156,4 +163,30 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    document.querySelectorAll('.manager-search-block').forEach(block => {
+        const input = block.querySelector('.manager-search-input');
+        const select = block.querySelector('.manager-select');
+        if (!input || !select) return;
+
+        input.addEventListener('input', () => {
+            const query = input.value.trim().toLowerCase();
+            let visibleCount = 0;
+            Array.from(select.options).forEach(option => {
+                if (!option.value) {
+                    option.hidden = false;
+                    return;
+                }
+                const haystack = (option.dataset.search || option.textContent || '').toLowerCase();
+                const visible = !query || haystack.includes(query);
+                option.hidden = !visible;
+                if (visible) visibleCount += 1;
+            });
+            block.classList.toggle('manager-no-results', query.length > 0 && visibleCount === 0);
+        });
+    });
+})();
+</script>
 {% endblock %}
