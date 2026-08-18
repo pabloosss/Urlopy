@@ -7,9 +7,9 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
     <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=55">
-    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=8">
     <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=3">
-    <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=5">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-panels.css') }}?v=4">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
@@ -47,7 +47,6 @@
                 <div class="menu-section">Planowanie</div>
                 <a href="{{ url_for('main.calendar_view') }}">Kalendarz firmowy</a>
                 <a href="{{ url_for('main.presence_view') }}">Obecność</a>
-                <a href="{{ url_for('main.presence_view') }}">Dostępność</a>
 
                 <div class="menu-section">Administracja</div>
                 <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
