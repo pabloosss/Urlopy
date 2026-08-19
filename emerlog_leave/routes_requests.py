@@ -2,7 +2,7 @@ from datetime import date
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
-from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_contract
+from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_user
 from .database import get_db
 from .services import login_required, current_user, visible_user_ids, vacation_summary, count_workdays, parse_date, log_action, is_hr, is_manager
 
@@ -15,7 +15,7 @@ LEAVE_TYPE_DESCRIPTIONS = {
     "L4 / chorobowe": "Nieobecność chorobowa.",
     "Urlop bezpłatny": "Nie schodzi z limitu urlopu wypoczynkowego.",
     "Odbiór dnia wolnego": "Odbiór za pracę w innym terminie.",
-    "Inne": "Inna nieobecność do opisania w komentarzu.",
+    "Inne": "Wymagany komentarz.",
 }
 
 
@@ -31,15 +31,21 @@ def _query_requests(conn):
         return []
     filters = [f"lr.user_id IN ({','.join('?' for _ in ids)})"]
     params = list(ids)
-    for field, column in [("department", "u.department"), ("status", "lr.status"), ("leave_type", "lr.leave_type"), ("manager_id", "u.manager_id")]:
+    for field, column in [
+        ("department", "u.department"),
+        ("status", "lr.status"),
+        ("leave_type", "lr.leave_type"),
+        ("manager_id", "u.manager_id"),
+        ("company_id", "u.company_id"),
+    ]:
         value = request.args.get(field, "").strip()
         if value:
             filters.append(f"{column}=?")
             params.append(value)
     employee = request.args.get("employee", "").strip()
     if employee:
-        filters.append("u.full_name LIKE ?")
-        params.append(f"%{employee}%")
+        filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
+        params.extend([f"%{employee}%", f"%{employee}%"])
     if request.args.get("date_from"):
         filters.append("lr.date_to >= ?")
         params.append(request.args.get("date_from"))
@@ -47,7 +53,7 @@ def _query_requests(conn):
         filters.append("lr.date_from <= ?")
         params.append(request.args.get("date_to"))
     return conn.execute(f"""
-        SELECT lr.*, u.full_name, u.department, c.name AS company_name,
+        SELECT lr.*, u.full_name, u.login, u.department, c.name AS company_name,
                m.full_name AS manager_name, d.full_name AS decider_name, r.full_name AS replacement_name
         FROM leave_requests lr
         JOIN users u ON u.id=lr.user_id
@@ -68,15 +74,26 @@ def _query_all_requests(conn, default_today=True):
         filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
         params.extend([f"%{employee}%", f"%{employee}%"])
 
-    for field, column in [("department", "u.department"), ("status", "lr.status"), ("leave_type", "lr.leave_type"), ("manager_id", "u.manager_id"), ("company_id", "u.company_id")]:
+    for field, column in [
+        ("department", "u.department"),
+        ("status", "lr.status"),
+        ("leave_type", "lr.leave_type"),
+        ("manager_id", "u.manager_id"),
+        ("company_id", "u.company_id"),
+    ]:
         value = request.args.get(field, "").strip()
         if value:
             filters.append(f"{column} = ?")
             params.append(value)
 
     today = date.today().isoformat()
-    date_from = request.args.get("date_from") or (today if default_today else "")
-    date_to = request.args.get("date_to") or (today if default_today else "")
+    has_date_args = "date_from" in request.args or "date_to" in request.args
+    if default_today and not has_date_args:
+        date_from = today
+        date_to = today
+    else:
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
 
     if date_from:
         filters.append("lr.date_to >= ?")
@@ -107,7 +124,7 @@ def _query_all_requests(conn, default_today=True):
 def new_leave_request():
     conn = get_db()
     user = current_user(conn)
-    available_leave_types = leave_types_for_contract(user["contract_type"])
+    available_leave_types = leave_types_for_user(user["contract_type"], user["department"])
     summary = vacation_summary(conn, user)
     employees = conn.execute("SELECT id, full_name FROM users WHERE active=1 AND id!=? ORDER BY full_name", (user["id"],)).fetchall()
     manager_name = "Kadry / przełożony"
@@ -154,7 +171,10 @@ def new_leave_request():
         replacement_id = None
 
         if form_data["leave_type"] not in available_leave_types:
-            errors.append("Wybierz poprawny typ nieobecności dla swojego typu umowy.")
+            errors.append("Wybierz poprawny typ nieobecności dla działu albo typu umowy.")
+
+        if form_data["leave_type"] == "Inne" and not form_data["comment"]:
+            errors.append("Dla typu „Inne” komentarz jest wymagany.")
 
         if not form_data["date_from"] or not form_data["date_to"]:
             errors.append("Uzupełnij datę od i datę do.")
@@ -173,7 +193,7 @@ def new_leave_request():
             try:
                 replacement_id = int(form_data["replacement_user_id"])
             except ValueError:
-                errors.append("Wybierz poprawną osobę na zastępstwo.")
+                errors.append("Wybierz poprawną osobę na zastępstwo z listy podpowiedzi.")
                 replacement_id = None
             if replacement_id == user["id"]:
                 errors.append("Nie możesz wybrać siebie jako zastępstwa.")
@@ -239,8 +259,9 @@ def requests_view():
     rows = _query_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
+    companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
-    return render_template("requests.html", requests_list=rows, departments=departments, managers=managers, statuses=STATUSES, leave_types=LEAVE_TYPES)
+    return render_template("requests.html", requests_list=rows, departments=departments, managers=managers, companies=companies, statuses=STATUSES, leave_types=LEAVE_TYPES)
 
 
 @bp.route("/requests/all")
