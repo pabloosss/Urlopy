@@ -78,9 +78,7 @@
             gap: 12mm;
             margin-bottom: 10mm;
         }
-        .field {
-            min-width: 0;
-        }
+        .field { min-width: 0; }
         .field strong {
             display: block;
             min-height: 24px;
@@ -130,42 +128,6 @@
             font-size: 11px;
             line-height: 1.5;
             color: #666;
-        }
-        .comment {
-            margin-top: 8mm;
-            padding: 7mm 0 0;
-            border-top: 1px solid #e0e0e0;
-        }
-        .comment b {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: .04em;
-        }
-        .approval {
-            margin-top: 22mm;
-            padding-top: 8mm;
-            border-top: 1px solid #ddd;
-        }
-        .approval-text {
-            margin-bottom: 12mm;
-            font-size: 14px;
-            line-height: 1.55;
-        }
-        .approval-signature {
-            width: 78mm;
-            margin-left: auto;
-            text-align: center;
-        }
-        .approval-signature .line {
-            height: 10mm;
-            border-bottom: 1px dotted #111;
-        }
-        .approval-caption {
-            margin-top: 4px;
-            font-size: 10px;
-            color: #555;
         }
         @media print {
             body { background: #fff; }
@@ -230,21 +192,6 @@
             </p>
         </section>
         {% endif %}
-
-        {% if req.comment %}
-        <div class="comment">
-            <b>Komentarz</b>
-            <div>{{ req.comment }}</div>
-        </div>
-        {% endif %}
-
-        <div class="approval">
-            <div class="approval-text">Potwierdzam, że wyrażam zgodę na urlop wskazanej osoby.</div>
-            <div class="approval-signature">
-                <div class="line"></div>
-                <div class="approval-caption">podpis osoby upoważnionej</div>
-            </div>
-        </div>
     </main>
 
     <script>
