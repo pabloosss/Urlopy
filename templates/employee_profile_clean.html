@@ -12,7 +12,7 @@
 <section class="stats-grid">
     <div class="stat-card accent"><span>Dostępne dni</span><strong>{{ vacation_summary.available }}</strong></div>
     <div class="stat-card"><span>Wnioski</span><strong>{{ request_stats.total or 0 }}</strong></div>
-    <div class="stat-card"><span>Wykorzystane dni</span><strong>{{ request_stats.accepted_days or 0 }}</strong></div>
+    <div class="stat-card"><span>Wykorzystane dni</span><strong>{{ vacation_summary.accepted }}</strong></div>
     <div class="stat-card"><span>Status konta</span><strong class="profile-status-text">{% if user.active %}Aktywne{% else %}Wyłączone{% endif %}</strong></div>
 </section>
 
