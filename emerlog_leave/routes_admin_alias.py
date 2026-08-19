@@ -3,14 +3,7 @@ from datetime import date
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from .database import get_db
-from .services import (
-    get_app_setting,
-    log_action,
-    login_required,
-    role_required,
-    set_app_setting,
-    vacation_summary,
-)
+from .services import get_app_setting, log_action, login_required, role_required, set_app_setting
 
 bp = Blueprint("admin", __name__)
 
@@ -37,65 +30,42 @@ def settings_view():
         if default_days < 0 or default_days > 60:
             flash("Domyślny limit musi mieścić się w zakresie 0–60 dni.")
         else:
-            carryover_enabled = "1" if request.form.get("carryover_enabled") == "1" else "0"
-            set_app_setting(conn, "default_vacation_days", default_days)
-            set_app_setting(conn, "carryover_enabled", carryover_enabled)
+            settings = {
+                "default_vacation_days": str(default_days),
+                "carryover_enabled": "1" if request.form.get("carryover_enabled") == "1" else "0",
+                "require_spedycja_replacement": "1" if request.form.get("require_spedycja_replacement") == "1" else "0",
+                "allow_past_requests": "1" if request.form.get("allow_past_requests") == "1" else "0",
+                "allow_employee_cancel": "1" if request.form.get("allow_employee_cancel") == "1" else "0",
+            }
+            for key, value in settings.items():
+                set_app_setting(conn, key, value)
+
             log_action(
                 conn,
-                "zmieniono ustawienia urlopowe",
+                "zmieniono ustawienia systemu",
                 "settings",
                 None,
-                f"domyślny limit: {default_days}; przenoszenie: {'tak' if carryover_enabled == '1' else 'nie'}",
+                (
+                    f"limit od nowego roku: {default_days}; "
+                    f"przenoszenie: {settings['carryover_enabled']}; "
+                    f"zastępstwo Spedycja: {settings['require_spedycja_replacement']}; "
+                    f"wnioski wstecz: {settings['allow_past_requests']}; "
+                    f"samodzielne anulowanie: {settings['allow_employee_cancel']}"
+                ),
             )
             conn.commit()
-            flash("Ustawienia urlopowe zostały zapisane.")
+            flash("Ustawienia systemu zostały zapisane.")
 
-    current_year = date.today().year
-    default_days = int(get_app_setting(conn, "default_vacation_days", "26") or 26)
-    carryover_enabled = get_app_setting(conn, "carryover_enabled", "1") == "1"
-
-    users = conn.execute(
-        """
-        SELECT u.*, c.name AS company_name
-        FROM users u
-        LEFT JOIN companies c ON u.company_id = c.id
-        WHERE u.active = 1
-        ORDER BY u.department, u.full_name
-        """
-    ).fetchall()
-
-    balances = []
-    unused_total = 0
-    unused_people = 0
-    for user in users:
-        summary = vacation_summary(conn, user, current_year)
-        if summary["unused"] > 0:
-            unused_people += 1
-            unused_total += summary["unused"]
-        balances.append({"user": user, "summary": summary})
-
-    rollover_history = conn.execute(
-        """
-        SELECT vyb.*, u.full_name
-        FROM vacation_year_balances vyb
-        JOIN users u ON u.id = vyb.user_id
-        WHERE vyb.processed_at IS NOT NULL
-        ORDER BY vyb.year DESC, u.full_name
-        LIMIT 30
-        """
-    ).fetchall()
-
+    values = {
+        "default_vacation_days": int(get_app_setting(conn, "default_vacation_days", "26") or 26),
+        "carryover_enabled": get_app_setting(conn, "carryover_enabled", "1") == "1",
+        "require_spedycja_replacement": get_app_setting(conn, "require_spedycja_replacement", "1") == "1",
+        "allow_past_requests": get_app_setting(conn, "allow_past_requests", "1") == "1",
+        "allow_employee_cancel": get_app_setting(conn, "allow_employee_cancel", "1") == "1",
+        "next_year": date.today().year + 1,
+    }
     conn.close()
-    return render_template(
-        "admin_settings.html",
-        current_year=current_year,
-        default_vacation_days=default_days,
-        carryover_enabled=carryover_enabled,
-        balances=balances,
-        unused_people=unused_people,
-        unused_total=unused_total,
-        rollover_history=rollover_history,
-    )
+    return render_template("admin_settings.html", **values)
 
 
 @bp.route("/admin/audit")
