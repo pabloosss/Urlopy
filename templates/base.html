@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=55">
     <link rel="stylesheet" href="{{ url_for('static', filename='home-dashboard.css') }}?v=8">
     <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=3">
-    <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-panels.css') }}?v=4">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
@@ -32,9 +32,6 @@
             <div class="menu-section">Wnioski</div>
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
             <a href="{{ url_for('main.my_leave') }}">Moje wnioski</a>
-            {% if is_manager() or is_hr() %}
-                <a href="{{ url_for('requests.requests_view', status='oczekuje') }}">Akceptacja</a>
-            {% endif %}
             {% if is_hr() %}
                 <a href="{{ url_for('requests.all_requests_view') }}">Wszystkie wnioski</a>
             {% endif %}
