@@ -33,17 +33,7 @@
     <div class="table-wrapper">
         <table>
             <thead>
-                <tr>
-                    <th>Złożono</th>
-                    <th>Pracownik</th>
-                    <th>Spółka</th>
-                    <th>Dział</th>
-                    <th>Typ</th>
-                    <th>Termin</th>
-                    <th>Dni</th>
-                    <th>Status</th>
-                    <th>Akcje</th>
-                </tr>
+                <tr><th>Złożono</th><th>Pracownik</th><th>Spółka</th><th>Dział</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr>
             </thead>
             <tbody>
             {% for req in requests_list %}
@@ -59,7 +49,7 @@
                     <td class="request-admin-actions">
                         {% set next_url = request.full_path %}
                         {% if req.status == "zaakceptowany" %}
-                            <a class="btn-secondary btn-mini" href="{{ url_for('requests.download_request_pdf', request_id=req.id) }}">Pobierz PDF</a>
+                            <a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='reject') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-muted">Odrzuć</button></form>
                         {% else %}
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='accept') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-ok">Przywróć</button></form>
