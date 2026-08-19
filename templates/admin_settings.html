@@ -3,125 +3,87 @@
 {% block content %}
 <section class="page-title admin-settings-hero">
     <div>
-        <h1>Ustawienia urlopowe</h1>
-        <p>Rok {{ current_year }} · limity, przenoszenie dni i kontrola niewykorzystanego urlopu.</p>
+        <h1>Ustawienia systemu</h1>
+        <p>Globalne zasady działania programu.</p>
     </div>
 </section>
 
-<section class="stats-grid admin-settings-stats">
-    <div class="stat-card accent"><span>Domyślny limit</span><strong>{{ default_vacation_days }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Niewykorzystane dni</span><strong>{{ unused_total }}</strong><small>łącznie</small></div>
-    <div class="stat-card"><span>Osoby z wolnymi dniami</span><strong>{{ unused_people }}</strong><small>pracowników</small></div>
-    <div class="stat-card"><span>Przenoszenie</span><strong class="settings-state-text">{% if carryover_enabled %}Włączone{% else %}Wyłączone{% endif %}</strong></div>
-</section>
-
-<div class="admin-settings-layout">
-    <section class="card admin-settings-form-card">
-        <div class="section-head-row">
-            <div>
-                <h2>Reguły roczne</h2>
-                <p class="muted">Ustawienia obowiązujące w systemie.</p>
-            </div>
-        </div>
-
-        <form method="post" class="admin-settings-form">
-            <div>
-                <label>Domyślna liczba dni wolnych w roku</label>
-                <input type="number" name="default_vacation_days" min="0" max="60" value="{{ default_vacation_days }}" required>
-                <small>Ta wartość będzie automatycznie podpowiadana przy dodawaniu nowych pracowników.</small>
+<form method="post" class="system-settings-form">
+    <div class="system-settings-grid">
+        <section class="card system-settings-card">
+            <div class="settings-card-head">
+                <span class="settings-card-number">01</span>
+                <div>
+                    <h2>Nowy rok</h2>
+                    <p>Ustawienia rocznego limitu urlopu.</p>
+                </div>
             </div>
 
-            <label class="settings-switch-row">
+            <div class="settings-field-main">
+                <label for="defaultVacationDays">Domyślna liczba dni od {{ next_year }} roku</label>
+                <div class="settings-number-input">
+                    <input id="defaultVacationDays" type="number" name="default_vacation_days" min="0" max="60" value="{{ default_vacation_days }}" required>
+                    <span>dni</span>
+                </div>
+                <small>Nowa wartość zacznie obowiązywać przy przejściu na kolejny rok. Nie zmienia limitów w bieżącym roku.</small>
+            </div>
+
+            <label class="settings-toggle">
                 <input type="checkbox" name="carryover_enabled" value="1" {% if carryover_enabled %}checked{% endif %}>
-                <span>
-                    <strong>Przenoś niewykorzystane dni na kolejny rok</strong>
-                    <small>Po zmianie roku niewykorzystana pula zostanie dopisana jako dni zaległe. Operacja wykonywana jest tylko raz dla danego roku.</small>
+                <span class="settings-toggle-control"></span>
+                <span class="settings-toggle-copy">
+                    <strong>Przenoszenie niewykorzystanych dni</strong>
+                    <small>Pozostałe dni zostaną dodane do puli na kolejny rok.</small>
                 </span>
             </label>
+        </section>
 
-            <button type="submit">Zapisz ustawienia</button>
-        </form>
-
-        <div class="settings-info-box">
-            <strong>Jak działa zmiana roku?</strong>
-            <p>System zapisuje osobny bilans dla każdego roku. Przy pierwszym uruchomieniu w nowym roku oblicza wykorzystane dni z poprzedniego roku, ustala pozostałą pulę i — jeśli przenoszenie jest włączone — zapisuje ją jako dni zaległe na nowy rok.</p>
-        </div>
-    </section>
-
-    <section class="card admin-unused-card">
-        <div class="section-head-row">
-            <div>
-                <h2>Bilans pracowników</h2>
-                <p class="muted">Stan na {{ current_year }} rok.</p>
+        <section class="card system-settings-card">
+            <div class="settings-card-head">
+                <span class="settings-card-number">02</span>
+                <div>
+                    <h2>Wnioski</h2>
+                    <p>Globalne zasady składania i obsługi wniosków.</p>
+                </div>
             </div>
-            <span class="chip">{{ balances|length }}</span>
-        </div>
 
-        <div class="table-wrapper">
-            <table class="vacation-balance-table">
-                <thead>
-                    <tr>
-                        <th>Pracownik</th>
-                        <th>Dział</th>
-                        <th>Limit</th>
-                        <th>Przeniesione</th>
-                        <th>Wykorzystane</th>
-                        <th>Pozostało</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in balances %}
-                    <tr class="{% if item.summary.unused > 0 %}has-unused-days{% endif %}">
-                        <td>
-                            <b>{{ item.user.full_name }}</b>
-                            <br><small>{{ item.user.company_name or "—" }}</small>
-                        </td>
-                        <td>{{ item.user.department or "—" }}</td>
-                        <td>{{ item.summary.base }}</td>
-                        <td>{{ item.summary.carryover }}</td>
-                        <td>{{ item.summary.accepted }}</td>
-                        <td>
-                            {% if item.summary.unused > 0 %}
-                                <span class="unused-days-badge">{{ item.summary.unused }} dni</span>
-                            {% else %}
-                                <span class="status status-zaakceptowany">0 dni</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="6" class="empty-state">Brak aktywnych pracowników.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-</div>
+            <div class="settings-toggle-list">
+                <label class="settings-toggle">
+                    <input type="checkbox" name="require_spedycja_replacement" value="1" {% if require_spedycja_replacement %}checked{% endif %}>
+                    <span class="settings-toggle-control"></span>
+                    <span class="settings-toggle-copy">
+                        <strong>Wymagaj zastępstwa w Spedycji</strong>
+                        <small>Wniosek ze Spedycji nie zapisze się bez wskazania osoby zastępującej.</small>
+                    </span>
+                </label>
 
-{% if rollover_history %}
-<section class="card rollover-history-card">
-    <div class="section-head-row">
+                <label class="settings-toggle">
+                    <input type="checkbox" name="allow_past_requests" value="1" {% if allow_past_requests %}checked{% endif %}>
+                    <span class="settings-toggle-control"></span>
+                    <span class="settings-toggle-copy">
+                        <strong>Zezwalaj na wnioski z datą wsteczną</strong>
+                        <small>Po wyłączeniu pracownik może wybrać najwcześniej dzisiejszą datę.</small>
+                    </span>
+                </label>
+
+                <label class="settings-toggle">
+                    <input type="checkbox" name="allow_employee_cancel" value="1" {% if allow_employee_cancel %}checked{% endif %}>
+                    <span class="settings-toggle-control"></span>
+                    <span class="settings-toggle-copy">
+                        <strong>Pracownik może anulować własny wniosek</strong>
+                        <small>Admin i kadry nadal mogą zarządzać statusem niezależnie od tej opcji.</small>
+                    </span>
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <div class="settings-save-bar">
         <div>
-            <h2>Historia przenoszenia dni</h2>
-            <p class="muted">Ostatnie automatycznie zamknięte lata.</p>
+            <strong>Ustawienia globalne</strong>
+            <span>Zmiany obowiązują wszystkich użytkowników programu.</span>
         </div>
+        <button type="submit">Zapisz ustawienia</button>
     </div>
-    <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Rok</th><th>Pracownik</th><th>Pula</th><th>Wykorzystane</th><th>Przeniesiono</th><th>Przetworzono</th></tr></thead>
-            <tbody>
-                {% for row in rollover_history %}
-                <tr>
-                    <td><b>{{ row.year }}</b></td>
-                    <td>{{ row.full_name }}</td>
-                    <td>{{ (row.base_days or 0) + (row.opening_carryover or 0) }}</td>
-                    <td>{{ row.used_days or 0 }}</td>
-                    <td><b>{{ row.carried_to_next or 0 }}</b></td>
-                    <td>{{ row.processed_at[:16] if row.processed_at else "—" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-{% endif %}
+</form>
 {% endblock %}
