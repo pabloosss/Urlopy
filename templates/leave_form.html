@@ -4,12 +4,12 @@
 <section class="page-title request-hero">
     <div>
         <p class="eyebrow">Nowy wniosek</p>
-        <h1>Złóż wniosek o nieobecność</h1>
+        <h1>Złóż wniosek</h1>
     </div>
     <div class="request-hero-status">
         <span>Dostępne</span>
         <strong>{{ vacation_summary.available }}</strong>
-        <small>dni urlopu</small>
+        <small>dni</small>
     </div>
 </section>
 
@@ -19,7 +19,7 @@
             <section class="form-step">
                 <div class="step-head">
                     <span>1</span>
-                    <div><h2>Typ nieobecności</h2></div>
+                    <div><h2>Typ</h2></div>
                 </div>
 
                 <div class="leave-type-grid">
@@ -65,20 +65,21 @@
                 </div>
 
                 <label>W czasie urlopu zastępować będzie mnie</label>
-                <select name="replacement_user_id">
-                    <option value="">Brak / nie dotyczy</option>
+                <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz imię lub nazwisko" value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name }}{% endif %}{% endfor %}">
+                <input type="hidden" name="replacement_user_id" id="replacementUserId" value="{{ form_data.replacement_user_id }}">
+                <datalist id="replacementOptions">
                     {% for employee in employees %}
-                    <option value="{{ employee.id }}" {% if form_data.replacement_user_id|string == employee.id|string %}selected{% endif %}>{{ employee.full_name }}</option>
+                    <option value="{{ employee.full_name }}"></option>
                     {% endfor %}
-                </select>
+                </datalist>
 
                 <label>Komentarz</label>
-                <textarea name="comment" rows="4" maxlength="1000">{{ form_data.comment }}</textarea>
+                <textarea name="comment" id="commentField" rows="4" maxlength="1000">{{ form_data.comment }}</textarea>
             </section>
 
             <div class="request-submit-bar">
                 <button type="submit" id="submitRequestBtn">Wyślij wniosek</button>
-                <a class="btn-secondary" href="{{ url_for('requests.requests_view') }}">Wróć do wniosków</a>
+                <a class="btn-secondary" href="{{ url_for('requests.requests_view') }}">Wróć</a>
             </div>
         </form>
     </div>
@@ -92,15 +93,6 @@
             <div class="summary-line"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong></div>
             <div class="summary-line"><span>Po wniosku</span><strong id="afterRequestDays">{{ vacation_summary.available }}</strong></div>
             <div class="summary-alert" id="summaryAlert">Wybierz daty.</div>
-        </div>
-
-        <div class="card request-info-card">
-            <h2>Akceptacja</h2>
-            <div class="approval-path">
-                <div><span>1</span><strong>Pracownik</strong></div>
-                <div><span>2</span><strong>{{ manager_name }}</strong></div>
-                <div><span>3</span><strong>Kadry</strong></div>
-            </div>
         </div>
 
         <div class="card request-info-card">
@@ -118,6 +110,14 @@
 (function () {
     const availableDays = Number({{ vacation_summary.available|default(0) }});
     const limitTypes = {{ limit_types|tojson }};
+    const replacementPeople = [
+        {% for employee in employees %}{ id: "{{ employee.id }}", name: {{ employee.full_name|tojson }} }{% if not loop.last %},{% endif %}{% endfor %}
+    ];
+
+    const form = document.getElementById('leaveRequestForm');
+    const replacementSearch = document.getElementById('replacementSearch');
+    const replacementUserId = document.getElementById('replacementUserId');
+    const commentField = document.getElementById('commentField');
     const dateFrom = document.getElementById('dateFrom');
     const dateTo = document.getElementById('dateTo');
     const liveDays = document.getElementById('liveDays');
@@ -205,12 +205,23 @@
         return days;
     }
 
+    function syncReplacement() {
+        const typed = replacementSearch.value.trim().toLowerCase();
+        if (!typed) {
+            replacementUserId.value = '';
+            return;
+        }
+        const match = replacementPeople.find(person => person.name.toLowerCase() === typed);
+        replacementUserId.value = match ? match.id : '';
+    }
+
     function updateSummary() {
         const start = parseDate(dateFrom.value);
         const end = parseDate(dateTo.value);
         const days = countWorkdays(start, end);
         const type = selectedType();
         const usesLimit = limitTypes.includes(type);
+        commentField.required = type === 'Inne';
 
         if (days === null) {
             liveDays.textContent = '0';
@@ -237,6 +248,10 @@
             summaryAlert.textContent = `Brakuje ${Math.abs(after)} dni.`;
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = true;
+        } else if (type === 'Inne') {
+            summaryAlert.textContent = 'Wymagany komentarz.';
+            summaryAlert.className = 'summary-alert is-neutral';
+            submitBtn.disabled = false;
         } else if (usesLimit) {
             summaryAlert.textContent = `Zostanie ${after} dni.`;
             summaryAlert.className = 'summary-alert is-ok';
@@ -276,7 +291,18 @@
         });
     });
 
-    [dateFrom, dateTo, ...typeInputs].forEach(element => element.addEventListener('change', updateSummary));
+    replacementSearch.addEventListener('input', syncReplacement);
+    replacementSearch.addEventListener('change', syncReplacement);
+
+    form.addEventListener('submit', event => {
+        syncReplacement();
+        if (replacementSearch.value.trim() && !replacementUserId.value) {
+            event.preventDefault();
+            alert('Wybierz zastępstwo z podpowiedzi albo zostaw pole puste.');
+        }
+    });
+
+    [dateFrom, dateTo, commentField, ...typeInputs].forEach(element => element.addEventListener('change', updateSummary));
     updateSummary();
 })();
 </script>
