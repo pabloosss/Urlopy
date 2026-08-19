@@ -97,8 +97,39 @@
             font-size: 15px;
             line-height: 1.65;
         }
-        .replacement {
-            margin-top: 8mm;
+        .replacement-block {
+            margin-top: 9mm;
+            padding: 7mm 8mm;
+            border: 1px solid #d9d9d9;
+            border-left: 3px solid #222;
+            border-radius: 7px;
+            background: #fff;
+        }
+        .replacement-title {
+            margin-bottom: 4mm;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #444;
+        }
+        .replacement-text {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .replacement-person {
+            margin: 5mm 0 3mm;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #999;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .replacement-note {
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #666;
         }
         .comment {
             margin-top: 8mm;
@@ -112,24 +143,15 @@
             text-transform: uppercase;
             letter-spacing: .04em;
         }
-        .status {
-            margin-top: 9mm;
-            display: inline-block;
-            padding: 7px 11px;
-            border: 1px solid #bdbdbd;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 13px;
-        }
         .approval {
-            margin-top: 24mm;
+            margin-top: 22mm;
             padding-top: 8mm;
             border-top: 1px solid #ddd;
         }
         .approval-text {
             margin-bottom: 12mm;
             font-size: 14px;
-            line-height: 1.5;
+            line-height: 1.55;
         }
         .approval-signature {
             width: 78mm;
@@ -197,10 +219,16 @@
         </div>
 
         {% if req.department and req.department|lower == 'spedycja' %}
-        <div class="field replacement">
-            <strong>{{ req.replacement_name or "—" }}</strong>
-            <span>W czasie urlopu zastępować będzie mnie</span>
-        </div>
+        <section class="replacement-block">
+            <div class="replacement-title">Zastępstwo w okresie urlopu</div>
+            <p class="replacement-text">
+                Na czas mojej nieobecności obowiązki służbowe oraz bieżące sprawy związane z moim stanowiskiem przejmować będzie:
+            </p>
+            <div class="replacement-person">{{ req.replacement_name or "—" }}</div>
+            <p class="replacement-note">
+                Osoba wskazana powyżej będzie pełnić zastępstwo w okresie objętym niniejszym wnioskiem urlopowym.
+            </p>
+        </section>
         {% endif %}
 
         {% if req.comment %}
@@ -209,8 +237,6 @@
             <div>{{ req.comment }}</div>
         </div>
         {% endif %}
-
-        <div class="status">Status: zaakceptowany</div>
 
         <div class="approval">
             <div class="approval-text">Potwierdzam, że wyrażam zgodę na urlop wskazanej osoby.</div>
