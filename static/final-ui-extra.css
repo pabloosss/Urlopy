@@ -123,6 +123,76 @@
 .my-request-item h3 { font-size: 18px; }
 .my-request-footer { border-top-color: #eceef1; }
 
+/* Przywrócony, bardziej reprezentacyjny panel główny */
+.dashboard-pretty {
+    gap: 26px;
+    align-items: stretch;
+}
+.dashboard-pretty .home-user-panel {
+    min-height: 548px;
+    border-left-width: 9px;
+    box-shadow: 0 24px 58px rgba(15, 23, 42, .18);
+}
+.dashboard-pretty .home-priority-cards {
+    grid-template-columns: .82fr 1.28fr;
+    gap: 20px;
+}
+.dashboard-pretty .home-days-priority,
+.dashboard-pretty .home-request-priority {
+    min-height: 250px;
+    border-radius: 28px;
+}
+.dashboard-pretty .home-days-priority {
+    border-width: 2px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+}
+.dashboard-pretty .home-days-priority strong {
+    font-size: 104px;
+}
+.dashboard-pretty .home-request-priority {
+    position: relative;
+    overflow: hidden;
+}
+.dashboard-pretty .home-request-priority::after {
+    content: "";
+    position: absolute;
+    width: 210px;
+    height: 210px;
+    right: -55px;
+    bottom: -90px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.10);
+}
+.dashboard-pretty .home-request-priority strong {
+    position: relative;
+    z-index: 1;
+    font-size: 52px;
+}
+.dashboard-pretty .home-quick-stats,
+.dashboard-pretty .home-manager-tools {
+    gap: 14px;
+}
+.dashboard-pretty .home-quick-stats div,
+.dashboard-pretty .home-quick-stats a,
+.dashboard-pretty .home-manager-tools a {
+    min-height: 122px;
+    border-radius: 20px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .085);
+}
+.dashboard-pretty .home-quick-stats strong,
+.dashboard-pretty .home-manager-tools strong {
+    font-size: 25px;
+}
+.dashboard-pretty .home-new-requests.has-new {
+    border-color: #efb2b5;
+    background: linear-gradient(145deg, #fff 0%, #fff2f3 100%);
+    box-shadow: 0 15px 36px rgba(215, 25, 32, .14);
+}
+.dashboard-pretty .home-new-requests.has-new span,
+.dashboard-pretty .home-new-requests.has-new strong {
+    color: #c5161c;
+}
+
 @media (max-width: 1050px) {
     .admin-create-grid,
     .leave-form-grid,
@@ -137,4 +207,6 @@
     }
     .live-summary-card,
     .employee-profile-grid .form-card { position: static; }
+    .dashboard-pretty .home-priority-cards { grid-template-columns: 1fr; }
+    .dashboard-pretty .home-user-panel { min-height: auto; }
 }
