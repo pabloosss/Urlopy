@@ -1,115 +1,226 @@
-.admin-settings-stats .settings-state-text {
-    font-size: 22px;
-    line-height: 1.1;
+.system-settings-form {
+    display: grid;
+    gap: 16px;
 }
 
-.admin-settings-layout {
+.system-settings-grid {
     display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
     align-items: start;
 }
 
-.admin-settings-form-card {
-    position: sticky;
-    top: 84px;
+.system-settings-card {
+    min-height: 100%;
+    margin: 0;
+    padding: 22px;
 }
 
-.admin-settings-form-card .section-head-row p,
-.admin-unused-card .section-head-row p,
-.rollover-history-card .section-head-row p {
-    margin: 4px 0 0;
+.settings-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #e6e8eb;
 }
 
-.admin-settings-form {
+.settings-card-number {
+    width: 36px;
+    height: 36px;
     display: grid;
-    gap: 18px;
-}
-
-.admin-settings-form > div > small,
-.settings-switch-row small {
-    display: block;
-    margin-top: 6px;
-    color: #69717d;
+    place-items: center;
+    flex: 0 0 36px;
+    border-radius: 10px;
+    background: #17191c;
+    color: #fff;
     font-size: 11px;
-    line-height: 1.45;
+    font-weight: 900;
+    letter-spacing: .04em;
 }
 
-.settings-switch-row {
-    display: grid;
-    grid-template-columns: 22px minmax(0, 1fr);
-    gap: 10px;
-    align-items: start;
-    padding: 14px;
-    border: 1px solid #e2e5e9;
-    border-radius: 11px;
-    background: #fafbfc;
-    cursor: pointer;
+.settings-card-head h2 {
+    margin: 0;
+    font-size: 19px;
 }
 
-.settings-switch-row input {
-    width: 18px;
-    min-height: 18px;
-    height: 18px;
-    margin: 2px 0 0;
-    accent-color: #d71920;
+.settings-card-head p {
+    margin: 4px 0 0;
+    color: #707782;
+    font-size: 12px;
 }
 
-.settings-switch-row strong {
+.settings-field-main {
+    padding: 4px 0 20px;
+}
+
+.settings-field-main > label {
     display: block;
-    color: #20242a;
+    margin-bottom: 8px;
     font-size: 13px;
 }
 
-.settings-info-box {
-    margin-top: 18px;
-    padding: 14px;
-    border-left: 3px solid #d71920;
-    border-radius: 9px;
-    background: #fff7f7;
-}
-
-.settings-info-box strong {
-    font-size: 12px;
-}
-
-.settings-info-box p {
-    margin: 6px 0 0;
-    color: #606874;
-    font-size: 12px;
-    line-height: 1.55;
-}
-
-.vacation-balance-table .has-unused-days td {
-    background: #fffafa;
-}
-
-.vacation-balance-table .has-unused-days:hover td {
-    background: #fff5f5;
-}
-
-.unused-days-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 9px;
-    border-radius: 999px;
-    background: #fff0f0;
-    color: #b31218;
-    border: 1px solid #f0b9bc;
+.settings-field-main > small {
+    display: block;
+    max-width: 520px;
+    margin-top: 8px;
+    color: #717986;
     font-size: 11px;
+    line-height: 1.5;
+}
+
+.settings-number-input {
+    width: 190px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    border: 1px solid #cfd4db;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.settings-number-input:focus-within {
+    border-color: #d65b60;
+    outline: 2px solid rgba(215,25,32,.10);
+}
+
+.settings-number-input input {
+    min-height: 48px;
+    border: 0;
+    border-radius: 0;
+    outline: 0 !important;
+    font-size: 22px;
     font-weight: 900;
 }
 
-.rollover-history-card {
-    margin-top: 16px;
+.settings-number-input span {
+    padding: 0 14px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 800;
 }
 
-@media (max-width: 1050px) {
-    .admin-settings-layout {
+.settings-toggle-list {
+    display: grid;
+    gap: 10px;
+}
+
+.settings-toggle {
+    position: relative;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid #e1e4e8;
+    border-radius: 12px;
+    background: #fafbfc;
+    cursor: pointer;
+    transition: border-color .14s ease, background .14s ease;
+}
+
+.settings-toggle:hover {
+    border-color: #cfd4db;
+    background: #fff;
+}
+
+.settings-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.settings-toggle-control {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: #c7ccd3;
+    transition: background .15s ease;
+}
+
+.settings-toggle-control::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 3px;
+    top: 3px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.18);
+    transition: transform .15s ease;
+}
+
+.settings-toggle input:checked + .settings-toggle-control {
+    background: #d71920;
+}
+
+.settings-toggle input:checked + .settings-toggle-control::after {
+    transform: translateX(18px);
+}
+
+.settings-toggle-copy strong,
+.settings-toggle-copy small {
+    display: block;
+}
+
+.settings-toggle-copy strong {
+    color: #24282e;
+    font-size: 13px;
+}
+
+.settings-toggle-copy small {
+    margin-top: 4px;
+    color: #717986;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.settings-save-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 18px;
+    border: 1px solid #dfe2e6;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(15,23,42,.06);
+}
+
+.settings-save-bar strong,
+.settings-save-bar span {
+    display: block;
+}
+
+.settings-save-bar strong {
+    font-size: 13px;
+}
+
+.settings-save-bar span {
+    margin-top: 3px;
+    color: #737b86;
+    font-size: 11px;
+}
+
+.settings-save-bar button {
+    width: auto;
+    min-width: 180px;
+}
+
+@media (max-width: 900px) {
+    .system-settings-grid {
         grid-template-columns: 1fr;
     }
 
-    .admin-settings-form-card {
-        position: static;
+    .settings-save-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .settings-save-bar button {
+        width: 100%;
     }
 }
