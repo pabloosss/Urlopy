@@ -1,98 +1,93 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="page-title dashboard-title">
-    <div>
-        <h1>Panel</h1>
-        <p>{{ user.full_name }}{% if user.company_name %} · {{ user.company_name }}{% endif %}{% if user.department %} · {{ user.department }}{% endif %}</p>
-    </div>
-    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
-</section>
+<section class="home-panel-layout dashboard-pretty">
+    <aside class="home-user-panel">
+        <p class="panel-label">Mój panel</p>
+        <h1>{{ user.full_name }}</h1>
 
-<section class="dashboard-metrics">
-    <div class="metric-card metric-primary">
-        <span>Dostępne dni</span>
-        <strong>{{ vacation_summary.available }}</strong>
-    </div>
-    <div class="metric-card">
-        <span>Wykorzystane</span>
-        <strong>{{ vacation_summary.accepted }}</strong>
-    </div>
-
-    {% if session.get('role') == 'admin' %}
-    <a class="metric-card metric-link {% if stats.new_requests %}metric-alert{% endif %}" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">
-        <span>Nowe wnioski</span>
-        <strong>{{ stats.new_requests }}</strong>
-    </a>
-    {% endif %}
-
-    {% if is_manager() or is_hr() %}
-    <a class="metric-card metric-link" href="{{ url_for('main.presence_view') }}">
-        <span>Nieobecni dziś</span>
-        <strong>{{ stats.absent_today }}</strong>
-    </a>
-    <a class="metric-card metric-link" href="{% if is_hr() %}{{ url_for('employees.employees_view') }}{% else %}{{ url_for('requests.requests_view') }}{% endif %}">
-        <span>{% if is_manager() %}Zespół{% else %}Pracownicy{% endif %}</span>
-        <strong>{{ stats.employee_count }}</strong>
-    </a>
-    {% endif %}
-</section>
-
-<div class="dashboard-content-grid">
-    <section class="card dashboard-list-card">
-        <div class="section-head-row">
-            <h2>Moje ostatnie wnioski</h2>
-            <a class="text-link" href="{{ url_for('main.my_leave') }}">Wszystkie</a>
+        <div class="panel-info-list">
+            <div><span>Spółka</span><strong>{{ user.company_name or "—" }}</strong></div>
+            <div><span>Dział</span><strong>{{ user.department or "—" }}</strong></div>
+            <div><span>Umowa</span><strong>{{ user.contract_type or "Umowa o pracę" }}</strong></div>
+            <div><span>Rola</span><strong>{{ session.get("role", "") }}</strong></div>
         </div>
-        <div class="dashboard-list">
-            {% for req in stats.latest %}
-            <a class="dashboard-list-row" href="{{ url_for('main.my_leave') }}">
-                <div>
-                    <strong>{{ req.leave_type }}</strong>
-                    <span>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</span>
-                </div>
-                <div class="dashboard-list-right">
-                    <b>{{ req.days_count }} d.</b>
-                    <span class="status status-{{ req.status }}">{{ req.status }}</span>
-                </div>
+    </aside>
+
+    <div class="home-work-area">
+        <section class="home-priority-cards">
+            <div class="home-days-priority">
+                <span>Dostępne dni</span>
+                <strong>{{ vacation_summary.available }}</strong>
+            </div>
+
+            <a class="home-request-priority" href="{{ url_for('requests.new_leave_request') }}">
+                <span>Wniosek urlopowy</span>
+                <strong>Złóż wniosek</strong>
+            </a>
+        </section>
+
+        <section class="home-quick-stats">
+            <div>
+                <span>Wykorzystane</span>
+                <strong>{{ vacation_summary.accepted }}</strong>
+            </div>
+
+            <a href="{{ url_for('main.my_leave') }}">
+                <span>Historia</span>
+                <strong>Moje wnioski</strong>
+            </a>
+
+            {% if session.get('role') == 'admin' %}
+            <a class="home-new-requests {% if stats.new_requests %}has-new{% endif %}" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">
+                <span>Nowe wnioski</span>
+                <strong>{{ stats.new_requests }}</strong>
+            </a>
+            {% elif is_hr() %}
+            <a href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">
+                <span>Wnioski</span>
+                <strong>Wszystkie</strong>
+            </a>
+            {% endif %}
+
+            {% if is_manager() or is_hr() %}
+            <a href="{{ url_for('main.presence_view') }}">
+                <span>Nieobecni dziś</span>
+                <strong>{{ stats.absent_today }}</strong>
             </a>
             {% else %}
-            <div class="empty-state">Brak wniosków.</div>
-            {% endfor %}
-        </div>
-    </section>
+            <a href="{{ url_for('requests.new_leave_request') }}">
+                <span>Szybka akcja</span>
+                <strong>Nowy wniosek</strong>
+            </a>
+            {% endif %}
+        </section>
 
-    {% if is_manager() or is_hr() %}
-    <section class="card dashboard-list-card">
-        <div class="section-head-row">
-            <h2>Najbliższe nieobecności</h2>
-            <a class="text-link" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
-        </div>
-        <div class="dashboard-list">
-            {% for req in stats.upcoming %}
-            <a class="dashboard-list-row" href="{{ url_for('main.calendar_view') }}">
-                <div>
-                    <strong>{{ req.full_name }}</strong>
-                    <span>{{ req.department or '—' }} · {{ req.leave_type }}</span>
-                </div>
-                <div class="dashboard-list-right">
-                    <b>{{ req.date_from|pldate }}</b>
-                    <span>{{ req.date_to|pldate }}</span>
-                </div>
+        {% if is_manager() or is_hr() %}
+        <section class="home-manager-tools">
+            <a href="{{ url_for('main.calendar_view') }}">
+                <span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span>
+                <strong>Kalendarz</strong>
+            </a>
+
+            <a href="{{ url_for('main.presence_view') }}">
+                <span>Dzisiaj</span>
+                <strong>Obecność</strong>
+            </a>
+
+            {% if is_hr() %}
+            <a href="{{ url_for('employees.employees_view') }}">
+                <span>Aktywni</span>
+                <strong>{{ stats.employee_count }} pracowników</strong>
             </a>
             {% else %}
-            <div class="empty-state">Brak zaplanowanych nieobecności.</div>
-            {% endfor %}
-        </div>
-    </section>
-    {% else %}
-    <section class="card dashboard-action-card">
-        <div>
-            <h2>Urlop</h2>
-            <p>Nowy wniosek zapisuje się od razu i jest widoczny w historii.</p>
-        </div>
-        <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
-    </section>
-    {% endif %}
-</div>
+            <a href="{{ url_for('requests.requests_view') }}">
+                <span>Podopieczni</span>
+                <strong>{{ stats.employee_count }} osób</strong>
+            </a>
+            {% endif %}
+        </section>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}
