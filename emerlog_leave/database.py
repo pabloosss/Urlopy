@@ -76,6 +76,35 @@ def init_db():
     }.items():
         _ensure_column(cur, "leave_requests", name, definition)
 
+    # Powiadomienia o nowych wnioskach są przechowywane osobno dla każdego admina.
+    # Dzięki temu odczyt przez jednego admina nie kasuje oznaczenia u drugiego.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS request_notifications (
+            request_id INTEGER NOT NULL,
+            recipient_user_id INTEGER NOT NULL,
+            seen_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (request_id, recipient_user_id)
+        )
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS notify_admins_after_leave_request_insert
+        AFTER INSERT ON leave_requests
+        BEGIN
+            INSERT OR IGNORE INTO request_notifications (request_id, recipient_user_id)
+            SELECT NEW.id, id
+            FROM users
+            WHERE role = 'admin' AND active = 1;
+        END
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS cleanup_notifications_after_leave_request_delete
+        AFTER DELETE ON leave_requests
+        BEGIN
+            DELETE FROM request_notifications WHERE request_id = OLD.id;
+        END
+    """)
+
     # Stary workflow wymagał akceptacji. Po zmianie wszystkie oczekujące
     # wnioski stają się zwykłymi zaakceptowanymi wpisami, bez kasowania danych.
     cur.execute("""
