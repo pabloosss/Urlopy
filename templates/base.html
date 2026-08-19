@@ -11,63 +11,67 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='leave-form.css') }}?v=3">
     <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-panels.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='final-ui.css') }}?v=1">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
 {% if session.get("user_id") %}
-<div class="app-shell">
-    <aside class="sidebar">
-        <div class="brand">
-            <a class="brand-logo" href="{{ url_for('main.dashboard') }}" aria-label="EMERLOG">
-                <img class="brand-logo-mark" src="{{ url_for('static', filename='img/favicon.svg') }}?v=1" alt="">
+<div class="app-shell final-shell">
+    <aside class="sidebar final-sidebar">
+        <div class="brand final-brand">
+            <a class="brand-logo final-brand-logo" href="{{ url_for('main.dashboard') }}" aria-label="EMERLOG">
                 <img class="brand-logo-full" src="{{ url_for('static', filename='img/logo.svg') }}?v=2" alt="EMERLOG">
             </a>
-            <small>Panel urlopów</small>
+            <span>Urlopy</span>
         </div>
 
-        <nav class="menu">
+        <nav class="menu final-menu">
             <div class="menu-section">Start</div>
-            <a href="{{ url_for('main.dashboard') }}">Mój panel</a>
+            <a class="{% if request.endpoint == 'main.dashboard' %}is-active{% endif %}" href="{{ url_for('main.dashboard') }}">Panel</a>
 
             <div class="menu-section">Wnioski</div>
-            <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
-            <a href="{{ url_for('main.my_leave') }}">Moje wnioski</a>
+            <a class="{% if request.endpoint == 'requests.new_leave_request' %}is-active{% endif %}" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
+            <a class="{% if request.endpoint == 'main.my_leave' %}is-active{% endif %}" href="{{ url_for('main.my_leave') }}">Moje wnioski</a>
             {% if is_hr() %}
-                <a href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">Wszystkie wnioski</a>
+                <a class="{% if request.endpoint == 'requests.all_requests_view' %}is-active{% endif %}" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">Wszystkie wnioski</a>
             {% endif %}
 
             {% if is_manager() %}
                 <div class="menu-section">Zespół</div>
-                <a href="{{ url_for('main.calendar_view') }}">Kalendarz zespołu</a>
-                <a href="{{ url_for('requests.requests_view') }}">Urlopy zespołu</a>
+                <a class="{% if request.endpoint == 'main.calendar_view' %}is-active{% endif %}" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
+                <a class="{% if request.endpoint == 'requests.requests_view' %}is-active{% endif %}" href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
+                <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
             {% elif is_hr() %}
-                <div class="menu-section">Planowanie</div>
-                <a href="{{ url_for('main.calendar_view') }}">Kalendarz firmowy</a>
-                <a href="{{ url_for('main.presence_view') }}">Obecność</a>
+                <div class="menu-section">Organizacja</div>
+                <a class="{% if request.endpoint == 'main.calendar_view' %}is-active{% endif %}" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
+                <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
+                <a class="{% if request.endpoint and request.endpoint.startswith('employees.') %}is-active{% endif %}" href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
 
                 <div class="menu-section">Administracja</div>
-                <a href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
-                <a href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
+                <a class="{% if request.endpoint == 'admin.audit_view' %}is-active{% endif %}" href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
             {% endif %}
         </nav>
     </aside>
 
-    <div class="content-shell">
-        <header class="topbar">
-            <div>
-                <strong>{{ session.get("full_name") }}</strong>
-                <span>{{ session.get("role") }}</span>
+    <div class="content-shell final-content-shell">
+        <header class="topbar final-topbar">
+            <div class="topbar-app-name">EMERLOG <span>Urlopy</span></div>
+            <div class="topbar-user">
+                <div>
+                    <strong>{{ session.get("full_name") }}</strong>
+                    <span>{{ session.get("role") }}</span>
+                </div>
+                <a class="logout" href="{{ url_for('main.logout') }}">Wyloguj</a>
             </div>
-            <a class="logout" href="{{ url_for('main.logout') }}">Wyloguj</a>
         </header>
-        <main>
+        <main class="final-main">
 {% else %}
 <main class="login-main">
 {% endif %}
 
             {% with messages = get_flashed_messages() %}
                 {% if messages %}
-                    <div class="msg">
+                    <div class="msg final-message">
                         {% for message in messages %}<p>{{ message }}</p>{% endfor %}
                     </div>
                 {% endif %}
