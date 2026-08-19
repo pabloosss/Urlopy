@@ -40,10 +40,12 @@
                 <div class="request-actions">
                     {% if req.status == "zaakceptowany" %}
                         <a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>
+                        {% if allow_employee_cancel %}
                         <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}">
                             <input type="hidden" name="next" value="{{ request.path }}">
                             <button class="btn-muted">Anuluj</button>
                         </form>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
