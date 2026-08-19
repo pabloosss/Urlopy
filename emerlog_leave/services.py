@@ -217,13 +217,21 @@ def ensure_vacation_years(conn, current_year=None):
 
 def vacation_summary(conn, user, year=None):
     year = year or date.today().year
+    current_year = date.today().year
     balance = conn.execute(
         "SELECT * FROM vacation_year_balances WHERE user_id = ? AND year = ?",
         (user["id"], year),
     ).fetchone()
 
     base = (balance["base_days"] if balance else user["vacation_days"]) or 0
-    carryover = (balance["opening_carryover"] if balance else user["carryover_days"]) or 0
+    if balance:
+        carryover = balance["opening_carryover"] or 0
+    elif year == current_year:
+        carryover = user["carryover_days"] or 0
+    else:
+        # Dla przyszłego roku nie zakładamy z góry, ile dni zostanie przeniesionych.
+        carryover = 0
+
     accepted = vacation_days_used_in_year(conn, user["id"], year)
     total = base + carryover
 
