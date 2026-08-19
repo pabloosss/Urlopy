@@ -3,7 +3,14 @@ from werkzeug.security import generate_password_hash
 
 from .config import CONTRACT_TYPES
 from .database import get_db
-from .services import login_required, role_required, log_action, vacation_summary
+from .services import (
+    get_app_setting,
+    login_required,
+    role_required,
+    log_action,
+    sync_user_year_balance,
+    vacation_summary,
+)
 
 bp = Blueprint("employees", __name__)
 
@@ -60,11 +67,14 @@ def _company_id_from_form():
 @role_required("admin", "kadry")
 def employees_view():
     conn = get_db()
+    default_vacation_days = _to_int(get_app_setting(conn, "default_vacation_days", "26"), 26)
 
     if request.method == "POST":
         login_value = request.form.get("login", "").strip()
         full_name = request.form.get("full_name", "").strip()
         password = request.form.get("password", "").strip() or "Start123!"
+        vacation_days = _to_int(request.form.get("vacation_days"), default_vacation_days)
+        carryover_days = _to_int(request.form.get("carryover_days"), 0)
         if not login_value or not full_name:
             flash("Login i imię/nazwisko są wymagane.")
         else:
@@ -79,13 +89,14 @@ def employees_view():
                     generate_password_hash(password),
                     full_name,
                     request.form.get("role") or "pracownik",
-                    _to_int(request.form.get("vacation_days"), 26),
+                    vacation_days,
                     request.form.get("department", "").strip(),
                     request.form.get("manager_id") or None,
                     request.form.get("contract_type", "Umowa o pracę"),
-                    _to_int(request.form.get("carryover_days"), 0),
+                    carryover_days,
                     _company_id_from_form(),
                 ))
+                sync_user_year_balance(conn, cur.lastrowid, vacation_days, carryover_days)
                 log_action(conn, "dodano pracownika", "user", cur.lastrowid, full_name)
                 conn.commit()
                 flash("Pracownik dodany.")
@@ -156,6 +167,7 @@ def employees_view():
         roles=ROLES,
         contract_types=CONTRACT_TYPES,
         stats=stats,
+        default_vacation_days=default_vacation_days,
     )
 
 
@@ -179,11 +191,7 @@ def employee_profile(user_id):
         ORDER BY lr.created_at DESC
     """, (user_id,)).fetchall()
     request_stats = conn.execute("""
-        SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN status = 'oczekuje' THEN 1 ELSE 0 END) AS pending,
-            SUM(CASE WHEN status = 'zaakceptowany' THEN days_count ELSE 0 END) AS accepted_days,
-            SUM(CASE WHEN status = 'odrzucony' THEN 1 ELSE 0 END) AS rejected
+        SELECT COUNT(*) AS total
         FROM leave_requests
         WHERE user_id = ?
     """, (user_id,)).fetchone()
@@ -236,6 +244,8 @@ def edit_employee(user_id):
         if manager_id and int(manager_id) == user_id:
             manager_id = None
         active = 1 if request.form.get("active") == "1" else 0
+        vacation_days = _to_int(request.form.get("vacation_days"), user["vacation_days"] or 0)
+        carryover_days = _to_int(request.form.get("carryover_days"), user["carryover_days"] or 0)
         conn.execute("""
             UPDATE users
             SET login=?, full_name=?, role=?, vacation_days=?, active=?,
@@ -245,15 +255,16 @@ def edit_employee(user_id):
             login_value,
             full_name,
             request.form.get("role") or "pracownik",
-            _to_int(request.form.get("vacation_days"), 26),
+            vacation_days,
             active,
             request.form.get("department", "").strip(),
             manager_id,
             request.form.get("contract_type", "Umowa o pracę"),
-            _to_int(request.form.get("carryover_days"), 0),
+            carryover_days,
             _company_id_from_form(),
             user_id,
         ))
+        sync_user_year_balance(conn, user_id, vacation_days, carryover_days)
         log_action(conn, "edytowano pracownika", "user", user_id, full_name)
         conn.commit()
         flash("Pracownik zaktualizowany.")
@@ -326,6 +337,8 @@ def delete_employee(user_id):
         conn.execute("UPDATE leave_requests SET replacement_user_id = NULL WHERE replacement_user_id = ?", (user_id,))
         conn.execute("DELETE FROM leave_requests WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM limit_adjustments WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM vacation_year_balances WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM request_notifications WHERE recipient_user_id = ?", (user_id,))
         conn.execute("UPDATE limit_adjustments SET changed_by = NULL WHERE changed_by = ?", (user_id,))
         conn.execute("UPDATE audit_logs SET actor_user_id = NULL WHERE actor_user_id = ?", (user_id,))
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
