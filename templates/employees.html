@@ -3,24 +3,24 @@
 {% block content %}
 <section class="page-title employees-hero">
     <div>
-        <p class="eyebrow">Pracownicy</p>
-        <h1>Baza pracowników</h1>
+        <h1>Pracownicy</h1>
+        <p>Baza użytkowników i ustawień pracowniczych.</p>
     </div>
-    <a class="btn-secondary" href="#addEmployee">+ Dodaj pracownika</a>
+    <a class="btn-primary" href="#addEmployee">Dodaj pracownika</a>
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Wszyscy</span><strong>{{ stats.total or 0 }}</strong><small>w bazie</small></div>
-    <div class="stat-card"><span>Aktywni</span><strong>{{ stats.active_count or 0 }}</strong><small>mogą się logować</small></div>
-    <div class="stat-card"><span>Nieaktywni</span><strong>{{ stats.inactive_count or 0 }}</strong><small>wyłączeni</small></div>
-    <div class="stat-card"><span>Menedżerowie</span><strong>{{ stats.managers_count or 0 }}</strong><small>zespoły</small></div>
+    <div class="stat-card accent"><span>Wszyscy</span><strong>{{ stats.total or 0 }}</strong></div>
+    <div class="stat-card"><span>Aktywni</span><strong>{{ stats.active_count or 0 }}</strong></div>
+    <div class="stat-card"><span>Nieaktywni</span><strong>{{ stats.inactive_count or 0 }}</strong></div>
+    <div class="stat-card"><span>Menedżerowie</span><strong>{{ stats.managers_count or 0 }}</strong></div>
 </section>
 
 <div class="card employee-search-card">
     <form method="get" class="employee-filter-form">
         <div class="filter-wide">
             <label>Szukaj</label>
-            <input name="q" placeholder="imię, nazwisko, login, e-mail, stanowisko" value="{{ request.args.get('q','') }}">
+            <input name="q" placeholder="Imię, login, e-mail lub stanowisko" value="{{ request.args.get('q','') }}">
         </div>
         <div>
             <label>Rola</label>
@@ -56,111 +56,86 @@
             <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
             <select name="manager_id" class="manager-select">
                 <option value="">Wszyscy</option>
-                {% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}
+                {% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}
             </select>
         </div>
-        <button type="submit">Szukaj</button>
+        <button type="submit">Filtruj</button>
         <a class="btn-secondary" href="{{ url_for('employees.employees_view') }}">Wyczyść</a>
     </form>
 </div>
 
-<div class="employees-grid">
-    <div class="card form-card" id="addEmployee">
-        <h2>Dodaj pracownika</h2>
-        <form method="post" class="employee-form-grid">
-            <input type="hidden" name="form_kind" value="employee">
-            <label>Login</label><input name="login" required>
-            <label>Hasło startowe</label><input name="password" placeholder="Start123!">
-            <label>Imię i nazwisko</label><input name="full_name" required>
-            <label>E-mail</label><input name="email" type="email">
-            <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-            <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
-            <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
-            <label>Stanowisko</label><input name="job_title">
-            <div class="manager-search-block form-field-full">
-                <label>Menedżer</label>
-                <input type="search" class="manager-search-input" placeholder="Szukaj po nazwisku, dziale lub stanowisku">
-                <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}">👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
-            </div>
-            <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
-            <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
-            <button>Dodaj pracownika</button>
-        </form>
-
-        <div class="employee-company-add">
-            <h2>Dodaj spółkę</h2>
+<details class="card admin-create-panel" id="addEmployee">
+    <summary>Dodaj pracownika lub spółkę</summary>
+    <div class="admin-create-grid">
+        <section>
+            <h2>Nowy pracownik</h2>
             <form method="post" class="employee-form-grid">
+                <input type="hidden" name="form_kind" value="employee">
+                <label>Login</label><input name="login" required>
+                <label>Hasło startowe</label><input name="password" placeholder="Start123!">
+                <label>Imię i nazwisko</label><input name="full_name" required>
+                <label>E-mail</label><input name="email" type="email">
+                <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+                <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
+                <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
+                <label>Stanowisko</label><input name="job_title">
+                <div class="manager-search-block form-field-full">
+                    <label>Menedżer</label>
+                    <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
+                    <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}">{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
+                </div>
+                <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
+                <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
+                <button type="submit">Dodaj</button>
+            </form>
+        </section>
+
+        <section class="company-create-section">
+            <h2>Nowa spółka</h2>
+            <form method="post">
                 <input type="hidden" name="form_kind" value="company">
-                <label>Nazwa spółki</label><input name="company_name" required>
+                <label>Nazwa spółki</label>
+                <input name="company_name" required>
                 <button type="submit" class="btn-secondary">Dodaj spółkę</button>
             </form>
-        </div>
+        </section>
+    </div>
+</details>
+
+<div class="card employees-list-card">
+    <div class="section-head-row">
+        <h2>Lista pracowników</h2>
+        <span class="chip">{{ users|length }}</span>
     </div>
 
-    <div class="card employees-list-card">
-        <div class="section-head-row">
-            <div><h2>Lista pracowników</h2></div>
-            <span class="chip">wyniki: {{ users|length }}</span>
-        </div>
-
-        <div class="employee-cards">
-            {% for u in users %}
-            <article class="employee-card role-card-{{ u.role }} {% if not u.active %}is-inactive{% endif %}">
-                <div class="employee-card-main">
-                    <div class="employee-avatar">{{ u.full_name[:1] }}</div>
-                    <div>
-                        <h3><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name }}</a></h3>
-                        <p>
-                            {{ u.login }} · <span class="role-badge role-{{ u.role }}">{% if u.role == 'menedzer' %}👔 {% elif u.role == 'admin' %}🛡️ {% elif u.role == 'kadry' %}📋 {% endif %}{{ u.role }}</span> · {{ u.company_name or "brak spółki" }} · {{ u.department or "brak działu" }}
-                        </p>
-                        <small>{{ u.job_title or "brak stanowiska" }} · {{ u.contract_type or "Umowa o pracę" }}{% if u.manager_name %} · menedżer: {{ u.manager_name }}{% endif %}</small>
-                    </div>
-                    <div class="employee-card-status">
-                        {% if u.active %}<span class="status status-zaakceptowany">aktywny</span>{% else %}<span class="status status-anulowany">nieaktywny</span>{% endif %}
-                        <small>{{ u.requests_count }} wniosków</small>
-                        <a class="btn-secondary btn-mini" href="{{ url_for('employees.employee_profile', user_id=u.id) }}">Karta</a>
-                    </div>
+    <div class="employee-cards">
+        {% for u in users %}
+        <article class="employee-card role-card-{{ u.role }} {% if not u.active %}is-inactive{% endif %}">
+            <div class="employee-card-main">
+                <div class="employee-avatar">{{ u.full_name[:1] }}</div>
+                <div>
+                    <h3><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name }}</a></h3>
+                    <p>
+                        <span class="role-badge role-{{ u.role }}">{{ u.role }}</span>
+                        · {{ u.company_name or "brak spółki" }}
+                        · {{ u.department or "brak działu" }}
+                    </p>
+                    <small>
+                        {{ u.job_title or "brak stanowiska" }}
+                        · {{ u.contract_type or "Umowa o pracę" }}
+                        {% if u.manager_name %} · menedżer: {{ u.manager_name }}{% endif %}
+                    </small>
                 </div>
-
-                <details class="employee-details">
-                    <summary>Edytuj</summary>
-                    <div class="employee-edit-layout">
-                        <form method="post" action="{{ url_for('employees.edit_employee', user_id=u.id) }}" class="employee-edit-form">
-                            <div><label>Login</label><input name="login" value="{{ u.login }}" required></div>
-                            <div><label>Imię i nazwisko</label><input name="full_name" value="{{ u.full_name }}" required></div>
-                            <div><label>E-mail</label><input type="email" name="email" value="{{ u.email or '' }}"></div>
-                            <div><label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}" {% if u.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-                            <div><label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}" {% if u.company_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
-                            <div><label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}" {% if u.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
-                            <div><label>Stanowisko</label><input name="job_title" value="{{ u.job_title or '' }}"></div>
-                            <div class="manager-search-block"><label>Menedżer</label><input type="search" class="manager-search-input" placeholder="Szukaj menedżera"><select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}{% if m.id != u.id %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if u.manager_id == m.id %}selected{% endif %}>👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endif %}{% endfor %}</select></div>
-                            <div><label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}" {% if (u.contract_type or 'Umowa o pracę') == type %}selected{% endif %}>{{ type }}</option>{% endfor %}</select></div>
-                            <div><label>Limit</label><input name="vacation_days" type="number" value="{{ u.vacation_days or 0 }}"></div>
-                            <div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ u.carryover_days or 0 }}"></div>
-                            <div><label>Status</label><select name="active"><option value="1" {% if u.active %}selected{% endif %}>Aktywny</option><option value="0" {% if not u.active %}selected{% endif %}>Nieaktywny</option></select></div>
-                            <button type="submit">Zapisz</button>
-                        </form>
-
-                        <div class="employee-side-actions">
-                            <form method="post" action="{{ url_for('employees.change_employee_password', user_id=u.id) }}">
-                                <label>Nowe hasło</label>
-                                <input name="new_password" type="password" minlength="6" placeholder="min. 6 znaków" required>
-                                <button type="submit" class="btn-secondary">Zmień hasło</button>
-                            </form>
-                            <form method="post" action="{{ url_for('employees.toggle_employee', user_id=u.id) }}">
-                                <button type="submit" class="btn-muted">Zmień aktywność</button>
-                            </form>
-                            <form method="post" action="{{ url_for('employees.delete_employee', user_id=u.id) }}" onsubmit="return confirm('Na pewno usunąć tego pracownika?');">
-                                <button type="submit" class="btn-bad">Usuń</button>
-                            </form>
-                        </div>
-                    </div>
-                </details>
-            </article>
-            {% else %}
-            <div class="empty-state">Brak pracowników dla wybranych filtrów.</div>
-            {% endfor %}
-        </div>
+                <div class="employee-card-status">
+                    {% if u.active %}<span class="status status-zaakceptowany">aktywny</span>{% else %}<span class="status status-anulowany">nieaktywny</span>{% endif %}
+                    <small>{{ u.requests_count }} wniosków</small>
+                    <a class="btn-secondary btn-mini" href="{{ url_for('employees.employee_profile', user_id=u.id) }}">Otwórz</a>
+                </div>
+            </div>
+        </article>
+        {% else %}
+        <div class="empty-state">Brak pracowników.</div>
+        {% endfor %}
     </div>
 </div>
 
@@ -173,18 +148,14 @@
 
         input.addEventListener('input', () => {
             const query = input.value.trim().toLowerCase();
-            let visibleCount = 0;
             Array.from(select.options).forEach(option => {
                 if (!option.value) {
                     option.hidden = false;
                     return;
                 }
                 const haystack = (option.dataset.search || option.textContent || '').toLowerCase();
-                const visible = !query || haystack.includes(query);
-                option.hidden = !visible;
-                if (visible) visibleCount += 1;
+                option.hidden = query ? !haystack.includes(query) : false;
             });
-            block.classList.toggle('manager-no-results', query.length > 0 && visibleCount === 0);
         });
     });
 })();
