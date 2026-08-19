@@ -33,7 +33,7 @@
                 <a href="{{ url_for('main.calendar_view') }}"><span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span><strong>Kalendarz</strong></a>
             {% endif %}
             {% if is_hr() %}
-                <a href="{{ url_for('requests.all_requests_view') }}"><span>Admin</span><strong>Wszystkie wnioski</strong></a>
+                <a href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to="><span>Admin</span><strong>Wszystkie wnioski</strong></a>
             {% endif %}
         </section>
     </div>
