@@ -46,7 +46,7 @@
                         {% elif is_hr() and req.status != "zaakceptowany" %}
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='accept') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-ok">Przywróć</button></form>
                         {% endif %}
-                        {% if req.user_id == session.get('user_id') and req.status == "zaakceptowany" %}
+                        {% if allow_employee_cancel and req.user_id == session.get('user_id') and req.status == "zaakceptowany" %}
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-muted">Anuluj</button></form>
                         {% endif %}
                         {% if is_hr() %}
