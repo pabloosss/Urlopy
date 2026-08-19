@@ -12,12 +12,15 @@
 <div class="card filters-card">
     <form method="get" class="filters-form">
         <input name="employee" placeholder="Pracownik" value="{{ request.args.get('employee','') }}">
+        <select name="company_id"><option value="">Spółka</option>{% for c in companies %}<option value="{{ c.id }}" {% if request.args.get('company_id') == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
         <select name="department"><option value="">Dział</option>{% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+        <select name="manager_id"><option value="">Menedżer</option>{% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}</select>
         <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
         <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
         <input type="date" name="date_from" value="{{ request.args.get('date_from','') }}">
         <input type="date" name="date_to" value="{{ request.args.get('date_to','') }}">
         <button type="submit">Filtruj</button>
+        <a class="btn-secondary" href="{{ url_for('requests.requests_view') }}">Wyczyść</a>
     </form>
 </div>
 
@@ -25,7 +28,7 @@
     <div class="table-wrapper">
         <table>
             <thead>
-                <tr><th>Pracownik</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akceptował</th><th>Akcje</th></tr>
+                <tr><th>Pracownik</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Osoba upoważniona</th><th>Akcje</th></tr>
             </thead>
             <tbody>
             {% for req in requests_list %}
@@ -79,7 +82,10 @@
             <div class="print-field"><strong>{{ req.company_name or "EMERLOG SP. Z O. O." }}</strong><span>spółka</span></div>
 
             <p class="request-print-text">Proszę o udzielenie {% if req.leave_type in ['Urlop wypoczynkowy', 'Urlop na żądanie'] %}urlopu wypoczynkowego{% else %}nieobecności: {{ req.leave_type }}{% endif %} w liczbie <b>{{ req.days_count }}</b> dni, w terminie od <b>{{ req.date_from|pldate }}</b> do <b>{{ req.date_to|pldate }}</b>.</p>
-            <p class="replacement-line">W czasie urlopu zastępować będzie mnie <strong>{{ req.replacement_name or "........................................................" }}</strong></p>
+
+            <div class="print-field print-wide"><strong>{{ req.replacement_name or "........................................................" }}</strong><span>W czasie urlopu zastępować będzie mnie</span></div>
+            <div class="print-field print-wide"><strong>{{ req.decider_name or "........................................................" }}</strong><span>Osoba upoważniona, która wyraziła zgodę na urlop we wskazanym terminie</span></div>
+
             <p class="print-status">Status: zaakceptowany</p>
         </main>
     </template>
@@ -89,25 +95,26 @@
 <script>
 (function () {
     const printStyle = `
-        body { margin: 0; padding: 36px; font-family: Arial, sans-serif; color: #111; background: #f3f4f6; }
-        .sheet { width: 760px; min-height: 1040px; margin: 0 auto; padding: 54px 64px; background: #fff; box-shadow: 0 18px 50px rgba(0,0,0,.16); box-sizing: border-box; }
-        .print-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 56px; }
-        .print-logo { width: 220px; height: auto; display: block; }
-        .print-date { text-align: right; min-width: 180px; }
+        @page { size: A4; margin: 18mm; }
+        body { margin: 0; padding: 24px; font-family: Arial, sans-serif; color: #111; background: #f3f4f6; }
+        .sheet { width: 760px; margin: 0 auto; padding: 44px 58px; background: #fff; box-shadow: 0 18px 50px rgba(0,0,0,.16); box-sizing: border-box; break-inside: avoid; page-break-inside: avoid; }
+        .print-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 42px; }
+        .print-logo { width: 210px; height: auto; display: block; }
+        .print-date { text-align: right; min-width: 170px; }
         .print-date strong { display: block; border-bottom: 1px dotted #111; padding: 0 0 5px; }
         .print-date span, .print-field span { display: block; margin-top: 4px; font-size: 12px; color: #555; }
-        h1 { margin: 0 0 42px; text-align: center; font-size: 22px; font-weight: 700; }
-        .print-field { max-width: 420px; margin: 0 0 22px; }
-        .print-field strong { display: block; border-bottom: 1px dotted #111; padding: 0 0 6px; }
-        .request-print-text { margin: 44px 0 36px; font-size: 17px; line-height: 1.75; }
-        .replacement-line { margin: 0 0 54px; font-size: 16px; line-height: 1.6; }
-        .print-status { margin-top: 36px; font-size: 15px; font-weight: 700; }
-        @media print { body { padding: 0; background: #fff; } .sheet { width: auto; min-height: auto; margin: 0; padding: 24mm 24mm; box-shadow: none; } .print-logo { width: 210px; } }
+        h1 { margin: 0 0 34px; text-align: center; font-size: 21px; font-weight: 700; }
+        .print-field { max-width: 430px; margin: 0 0 18px; }
+        .print-field strong { display: block; border-bottom: 1px dotted #111; padding: 0 0 5px; min-height: 18px; }
+        .print-wide { max-width: 100%; margin-top: 22px; }
+        .request-print-text { margin: 34px 0 28px; font-size: 16px; line-height: 1.65; }
+        .print-status { margin-top: 34px; font-size: 15px; font-weight: 700; }
+        @media print { body { padding: 0; background: #fff; } .sheet { width: 100%; margin: 0; padding: 0; box-shadow: none; page-break-inside: avoid; break-inside: avoid; } .print-logo { width: 200px; } }
     `;
 
     document.querySelectorAll('.print-request-btn').forEach(button => {
         button.addEventListener('click', () => {
-            const source = document.getElementById('print-request-' + button.dataset.requestId);
+            const source = document.getElementById('print-request-' + button.datasetRequestId);
             if (!source) return;
             const win = window.open('', '_blank');
             win.document.write('<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"><title>Wniosek urlopowy</title><style>' + printStyle + '</style></head><body>' + source.innerHTML + '<script>window.onload=function(){window.print();}<\/script></body></html>');
