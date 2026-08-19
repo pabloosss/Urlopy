@@ -52,7 +52,7 @@
             <tbody>
             {% for row in employees %}
                 <tr>
-                    <td><b>{{ row.user.full_name }}</b><br><small>{{ row.user.job_title or row.user.email }}</small></td>
+                    <td><b>{{ row.user.full_name }}</b></td>
                     <td>{{ row.user.department or "—" }}</td>
                     <td>{{ row.user.manager_name or "—" }}</td>
                     <td><span class="status status-day-{{ row.day_status|replace(' ', '-') }}">{{ row.day_status }}</span></td>
