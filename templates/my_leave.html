@@ -30,7 +30,6 @@
                         <b>{{ req.days_count }}</b> dni roboczych
                         {% if req.replacement_name %} · zastępuje: {{ req.replacement_name }}{% endif %}
                     </p>
-                    {% if req.comment %}<p class="request-comment">{{ req.comment }}</p>{% endif %}
                 </div>
                 <span class="status status-{{ req.status }}">{{ req.status }}</span>
             </div>
