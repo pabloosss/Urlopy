@@ -3,22 +3,22 @@
 {% block content %}
 <section class="page-title employees-hero">
     <div>
-        <p class="eyebrow">Pracownik</p>
         <h1>{{ user.full_name }}</h1>
+        <p>{{ user.company_name or "—" }} · {{ user.department or "—" }} · {{ user.job_title or "brak stanowiska" }}</p>
     </div>
     <a class="btn-secondary" href="{{ url_for('employees.employees_view') }}">Wróć</a>
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Wnioski</span><strong>{{ request_stats.total or 0 }}</strong><small>łącznie</small></div>
-    <div class="stat-card"><span>Oczekujące</span><strong>{{ request_stats.pending or 0 }}</strong><small>wnioski</small></div>
-    <div class="stat-card"><span>Wykorzystane</span><strong>{{ request_stats.accepted_days or 0 }}</strong><small>dni</small></div>
+    <div class="stat-card accent"><span>Dostępne dni</span><strong>{{ vacation_summary.available }}</strong></div>
+    <div class="stat-card"><span>Wnioski</span><strong>{{ request_stats.total or 0 }}</strong></div>
+    <div class="stat-card"><span>Wykorzystane dni</span><strong>{{ request_stats.accepted_days or 0 }}</strong></div>
+    <div class="stat-card"><span>Status konta</span><strong class="profile-status-text">{% if user.active %}Aktywne{% else %}Wyłączone{% endif %}</strong></div>
 </section>
 
 <div class="employees-grid employee-profile-grid">
     <div class="card form-card">
-        <h2>Dane pracownika</h2>
+        <div class="section-head-row"><h2>Dane pracownika</h2></div>
         <form method="post" action="{{ url_for('employees.edit_employee', user_id=user.id) }}" class="employee-form-grid">
             <input type="hidden" name="next" value="{{ request.path }}">
             <label>Login</label><input name="login" value="{{ user.login }}" required>
@@ -30,13 +30,13 @@
             <label>Stanowisko</label><input name="job_title" value="{{ user.job_title or '' }}">
             <div class="manager-search-block form-field-full">
                 <label>Menedżer</label>
-                <input type="search" class="manager-search-input" placeholder="Szukaj po nazwisku, dziale lub stanowisku">
-                <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}{% if m.id != user.id %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if user.manager_id == m.id %}selected{% endif %}>👔 {{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endif %}{% endfor %}</select>
+                <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
+                <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}{% if m.id != user.id %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if user.manager_id == m.id %}selected{% endif %}>{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endif %}{% endfor %}</select>
             </div>
             <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}" {% if (user.contract_type or 'Umowa o pracę') == type %}selected{% endif %}>{{ type }}</option>{% endfor %}</select>
             <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="{{ user.vacation_days or 0 }}"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="{{ user.carryover_days or 0 }}"></div></div>
-            <label>Status</label><select name="active"><option value="1" {% if user.active %}selected{% endif %}>Aktywny</option><option value="0" {% if not user.active %}selected{% endif %}>Nieaktywny</option></select>
-            <button type="submit">Zapisz</button>
+            <label>Status konta</label><select name="active"><option value="1" {% if user.active %}selected{% endif %}>Aktywne</option><option value="0" {% if not user.active %}selected{% endif %}>Wyłączone</option></select>
+            <button type="submit">Zapisz zmiany</button>
         </form>
 
         <div class="employee-side-actions employee-profile-actions">
@@ -48,7 +48,7 @@
             </form>
             <form method="post" action="{{ url_for('employees.toggle_employee', user_id=user.id) }}">
                 <input type="hidden" name="next" value="{{ request.path }}">
-                <button type="submit" class="btn-muted">Zmień aktywność</button>
+                <button type="submit" class="btn-muted">{% if user.active %}Wyłącz konto{% else %}Włącz konto{% endif %}</button>
             </form>
             <form method="post" action="{{ url_for('employees.delete_employee', user_id=user.id) }}" onsubmit="return confirm('Na pewno usunąć tego pracownika razem z jego wnioskami?');">
                 <button type="submit" class="btn-bad">Usuń pracownika</button>
@@ -58,33 +58,33 @@
 
     <div class="card employees-list-card">
         <div class="section-head-row">
-            <div><h2>Historia wniosków</h2></div>
+            <h2>Historia wniosków</h2>
             <span class="chip">{{ requests_list|length }}</span>
         </div>
         <div class="table-wrapper">
             <table>
                 <thead>
-                    <tr><th>Data</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akceptował</th><th>Uwagi</th><th>Akcje</th></tr>
+                    <tr><th>Złożono</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Komentarz</th><th>Akcje</th></tr>
                 </thead>
                 <tbody>
                 {% for req in requests_list %}
                     <tr>
-                        <td>{{ req.created_at[:16] if req.created_at else "—" }}</td>
+                        <td>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</td>
                         <td>{{ req.leave_type }}</td>
                         <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
                         <td><b>{{ req.days_count }}</b></td>
                         <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
-                        <td>{{ req.decider_name or "—" }}</td>
-                        <td>{{ req.decision_comment or req.comment or "—" }}</td>
+                        <td>{{ req.comment or "—" }}</td>
                         <td class="request-admin-actions">
-                            <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek? Tej operacji nie da się cofnąć.');">
+                            {% if req.status == 'zaakceptowany' %}<a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>{% endif %}
+                            <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek?');">
                                 <input type="hidden" name="next" value="{{ request.path }}">
                                 <button class="btn-bad">Usuń</button>
                             </form>
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="8" class="empty-state">Brak wniosków.</td></tr>
+                    <tr><td colspan="7" class="empty-state">Brak wniosków.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
@@ -93,18 +93,13 @@
 </div>
 
 <div class="card audit-card employee-audit-card">
-    <div class="section-head-row">
-        <div><h2>Zmiany na koncie</h2></div>
-    </div>
+    <div class="section-head-row"><h2>Historia zmian</h2></div>
     <div class="audit-list">
         {% for log in audit_logs %}
         <article class="audit-item">
             <div class="audit-icon">{{ (log.actor_name or 'S')[:1] }}</div>
             <div class="audit-content">
-                <div class="audit-topline">
-                    <strong>{{ log.actor_name or "system" }}</strong>
-                    <span>{{ log.created_at }}</span>
-                </div>
+                <div class="audit-topline"><strong>{{ log.actor_name or "system" }}</strong><span>{{ log.created_at }}</span></div>
                 <h3>{{ log.action }}</h3>
                 {% if log.details %}<p class="audit-details">{{ log.details }}</p>{% endif %}
             </div>
@@ -121,21 +116,13 @@
         const input = block.querySelector('.manager-search-input');
         const select = block.querySelector('.manager-select');
         if (!input || !select) return;
-
         input.addEventListener('input', () => {
             const query = input.value.trim().toLowerCase();
-            let visibleCount = 0;
             Array.from(select.options).forEach(option => {
-                if (!option.value) {
-                    option.hidden = false;
-                    return;
-                }
+                if (!option.value) { option.hidden = false; return; }
                 const haystack = (option.dataset.search || option.textContent || '').toLowerCase();
-                const visible = !query || haystack.includes(query);
-                option.hidden = !visible;
-                if (visible) visibleCount += 1;
+                option.hidden = query ? !haystack.includes(query) : false;
             });
-            block.classList.toggle('manager-no-results', query.length > 0 && visibleCount === 0);
         });
     });
 })();
