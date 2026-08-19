@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask import Flask, redirect, request, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -31,6 +33,7 @@ def create_app():
     ensure_vacation_years(conn)
     conn.commit()
     conn.close()
+    app.config["VACATION_YEAR_CHECKED"] = date.today().year
 
     app.register_blueprint(main_bp)
     app.register_blueprint(requests_bp)
@@ -44,9 +47,17 @@ def create_app():
     app.template_filter("pldate")(format_pl_date)
 
     @app.before_request
-    def enforce_https():
+    def enforce_https_and_year_rollover():
         if FORCE_HTTPS and not request.is_secure:
             return redirect(request.url.replace("http://", "https://", 1), code=301)
+
+        current_year = date.today().year
+        if app.config.get("VACATION_YEAR_CHECKED") != current_year:
+            conn = get_db()
+            ensure_vacation_years(conn, current_year)
+            conn.commit()
+            conn.close()
+            app.config["VACATION_YEAR_CHECKED"] = current_year
         return None
 
     @app.after_request
