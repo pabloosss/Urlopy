@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wniosek urlopowy</title>
+    <style>
+        @page { size: A4; margin: 16mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef0f3; color: #111; font-family: Arial, sans-serif; }
+        .toolbar { max-width: 210mm; margin: 18px auto 0; display: flex; justify-content: flex-end; gap: 8px; padding: 0 8px; }
+        .toolbar button { border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer; }
+        .sheet { width: 210mm; min-height: 297mm; margin: 12px auto 28px; padding: 18mm 20mm; background: #fff; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+        .logo { width: 68mm; height: auto; }
+        .date { width: 48mm; text-align: right; }
+        .date strong { display: block; border-bottom: 1px dotted #222; padding-bottom: 4px; }
+        .date span, .field span { display: block; margin-top: 4px; font-size: 11px; color: #555; }
+        h1 { margin: 26mm 0 16mm; text-align: center; font-size: 22px; }
+        .field { width: 90mm; margin-bottom: 10mm; }
+        .field strong { display: block; min-height: 24px; border-bottom: 1px dotted #222; padding-bottom: 4px; font-size: 15px; }
+        .text { margin: 14mm 0 12mm; font-size: 16px; line-height: 1.7; }
+        .wide { width: 100%; }
+        .comment { margin-top: 10mm; padding: 8mm 0 0; border-top: 1px solid #ddd; }
+        .comment b { display: block; margin-bottom: 4px; }
+        .status { margin-top: 12mm; font-weight: 700; }
+        .approval { margin-top: 24mm; font-size: 15px; }
+        .approval-line { display: flex; align-items: flex-end; gap: 12px; }
+        .approval-line span:first-child { white-space: nowrap; }
+        .approval-line .line { flex: 1; border-bottom: 1px dotted #111; height: 20px; }
+        .approval-caption { margin-top: 5px; text-align: right; padding-right: 18mm; font-size: 11px; color: #444; }
+        @media print {
+            body { background: #fff; }
+            .toolbar { display: none; }
+            .sheet { width: auto; min-height: auto; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button type="button" onclick="window.print()">Zapisz jako PDF</button>
+    </div>
+
+    <main class="sheet">
+        <header class="header">
+            <img class="logo" src="{{ url_for('static', filename='img/logo.svg') }}?v=2" alt="EMERLOG">
+            <div class="date">
+                <strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong>
+                <span>data</span>
+            </div>
+        </header>
+
+        <h1>Wniosek urlopowy</h1>
+
+        <div class="field">
+            <strong>{{ req.full_name }}</strong>
+            <span>pracownik</span>
+        </div>
+
+        <div class="field">
+            <strong>{{ req.company_name or "EMERLOG SP. Z O. O." }}</strong>
+            <span>spółka</span>
+        </div>
+
+        <p class="text">
+            Proszę o udzielenie
+            {% if req.leave_type in ['Urlop wypoczynkowy', 'Urlop na żądanie'] %}
+                urlopu wypoczynkowego
+            {% else %}
+                nieobecności: {{ req.leave_type }}
+            {% endif %}
+            w liczbie <b>{{ req.days_count }}</b> dni, w terminie od
+            <b>{{ req.date_from|pldate }}</b> do <b>{{ req.date_to|pldate }}</b>.
+        </p>
+
+        {% if req.department and req.department|lower == 'spedycja' %}
+        <div class="field wide">
+            <strong>{{ req.replacement_name or "—" }}</strong>
+            <span>W czasie urlopu zastępować będzie mnie</span>
+        </div>
+        {% endif %}
+
+        {% if req.comment %}
+        <div class="comment">
+            <b>Komentarz</b>
+            <div>{{ req.comment }}</div>
+        </div>
+        {% endif %}
+
+        <div class="status">Status: zaakceptowany</div>
+
+        <div class="approval">
+            <div class="approval-line">
+                <span>Wyrażam zgodę na urlop we wskazanym terminie</span>
+                <span class="line"></span>
+            </div>
+            <div class="approval-caption">podpis osoby upoważnionej</div>
+        </div>
+    </main>
+
+    <script>
+        window.addEventListener('load', () => setTimeout(() => window.print(), 250));
+    </script>
+</body>
+</html>
