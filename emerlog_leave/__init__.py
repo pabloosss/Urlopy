@@ -3,7 +3,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import SECRET_KEY, LEAVE_TYPES, FORCE_HTTPS, SESSION_COOKIE_SECURE
 from .database import get_db, init_db
-from .services import format_pl_date, is_hr, is_manager
+from .services import format_pl_date, is_hr, is_manager, ensure_vacation_years
 from .routes_main import bp as main_bp
 from .routes_requests import bp as requests_bp
 from .routes_pdf import bp as request_pdf_bp
@@ -27,6 +27,10 @@ def create_app():
     )
 
     init_db()
+    conn = get_db()
+    ensure_vacation_years(conn)
+    conn.commit()
+    conn.close()
 
     app.register_blueprint(main_bp)
     app.register_blueprint(requests_bp)
