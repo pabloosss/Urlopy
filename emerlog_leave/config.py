@@ -1,6 +1,10 @@
 import os
 
 DATABASE = os.environ.get("DATABASE", "database.db")
+BACKUP_DIR = os.environ.get(
+    "BACKUP_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(DATABASE)), "backups"),
+)
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-before-production")
 FORCE_HTTPS = os.environ.get("FORCE_HTTPS", "0") == "1"
 SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
