@@ -137,7 +137,6 @@ def init_db():
         )
     """)
 
-    # Globalne ustawienia administracyjne.
     cur.execute("""
         CREATE TABLE IF NOT EXISTS app_settings (
             key TEXT PRIMARY KEY,
@@ -145,11 +144,15 @@ def init_db():
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('default_vacation_days', '26')")
-    cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('carryover_enabled', '1')")
+    for key, value in [
+        ("default_vacation_days", "26"),
+        ("carryover_enabled", "1"),
+        ("require_spedycja_replacement", "1"),
+        ("allow_past_requests", "1"),
+        ("allow_employee_cancel", "1"),
+    ]:
+        cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
 
-    # Migawka limitu dla każdego roku. Wpis dla pierwszego roku tworzy się
-    # przy starcie aplikacji, dzięki czemu wdrożenie nie nalicza nic wstecz.
     cur.execute("""
         CREATE TABLE IF NOT EXISTS vacation_year_balances (
             user_id INTEGER NOT NULL,
