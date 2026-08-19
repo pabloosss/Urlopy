@@ -82,7 +82,7 @@
                     <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }}">{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
                 </div>
                 <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
-                <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="{{ default_vacation_days }}"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
+                <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
                 <button type="submit">Dodaj</button>
             </form>
         </section>
