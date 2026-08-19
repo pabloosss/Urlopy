@@ -6,6 +6,7 @@ from .database import init_db
 from .services import format_pl_date, is_hr, is_manager
 from .routes_main import bp as main_bp
 from .routes_requests import bp as requests_bp
+from .routes_pdf import bp as request_pdf_bp
 from .routes_employees import bp as employees_bp
 from .routes_limits import bp as limits_bp
 from .routes_reports import bp as reports_bp
@@ -28,6 +29,7 @@ def create_app():
 
     app.register_blueprint(main_bp)
     app.register_blueprint(requests_bp)
+    app.register_blueprint(request_pdf_bp)
     app.register_blueprint(employees_bp)
     app.register_blueprint(limits_bp)
     app.register_blueprint(reports_bp)
