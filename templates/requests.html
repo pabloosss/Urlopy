@@ -3,8 +3,8 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <p class="eyebrow">Wnioski</p>
-        <h1>Lista wniosków</h1>
+        <h1>{% if is_manager() %}Wnioski zespołu{% else %}Wnioski{% endif %}</h1>
+        <p>Historia i bieżące nieobecności w Twoim zakresie.</p>
     </div>
     <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
 </section>
@@ -17,19 +17,18 @@
         <select name="manager_id"><option value="">Menedżer</option>{% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}</select>
         <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
         <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-        <input type="date" name="date_from" value="{{ request.args.get('date_from','') }}">
-        <input type="date" name="date_to" value="{{ request.args.get('date_to','') }}">
+        <input type="date" name="date_from" title="Termin od" value="{{ request.args.get('date_from','') }}">
+        <input type="date" name="date_to" title="Termin do" value="{{ request.args.get('date_to','') }}">
         <button type="submit">Filtruj</button>
         <a class="btn-secondary" href="{{ url_for('requests.requests_view') }}">Wyczyść</a>
     </form>
 </div>
 
 <div class="card">
+    <div class="section-head-row"><h2>Wnioski</h2><span class="chip">{{ requests_list|length }}</span></div>
     <div class="table-wrapper">
         <table>
-            <thead>
-                <tr><th>Pracownik</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr>
-            </thead>
+            <thead><tr><th>Pracownik</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
             <tbody>
             {% for req in requests_list %}
                 <tr>
@@ -41,9 +40,7 @@
                     <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
                     <td class="request-admin-actions">
                         {% set next_url = request.full_path %}
-                        {% if req.status == "zaakceptowany" %}
-                            <a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>
-                        {% endif %}
+                        {% if req.status == "zaakceptowany" %}<a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>{% endif %}
                         {% if is_hr() and req.status == "zaakceptowany" %}
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='reject') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-muted">Odrzuć</button></form>
                         {% elif is_hr() and req.status != "zaakceptowany" %}
@@ -53,7 +50,7 @@
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='cancel') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-muted">Anuluj</button></form>
                         {% endif %}
                         {% if is_hr() %}
-                            <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek? Tej operacji nie da się cofnąć.');"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-bad">Usuń</button></form>
+                            <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek?');"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-bad">Usuń</button></form>
                         {% endif %}
                     </td>
                 </tr>
