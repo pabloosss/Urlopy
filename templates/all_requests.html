@@ -28,7 +28,12 @@
 <div class="card">
     <div class="section-head-row">
         <div><h2>Wnioski</h2></div>
-        <span class="chip">wyniki: {{ requests_list|length }}</span>
+        <div class="request-list-counters">
+            {% if session.get('role') == 'admin' and new_requests_count %}
+                <span class="new-request-count">Nowe: {{ new_requests_count }}</span>
+            {% endif %}
+            <span class="chip">wyniki: {{ requests_list|length }}</span>
+        </div>
     </div>
     <div class="table-wrapper">
         <table>
@@ -37,8 +42,12 @@
             </thead>
             <tbody>
             {% for req in requests_list %}
-                <tr>
-                    <td>{{ req.created_at[:16] if req.created_at else "—" }}</td>
+                {% set is_new = session.get('role') == 'admin' and req.id in new_request_ids %}
+                <tr {% if is_new %}class="new-request-row" data-new-request-id="{{ req.id }}"{% endif %}>
+                    <td>
+                        {% if is_new %}<span class="new-request-badge">NOWY</span>{% endif %}
+                        <span>{{ req.created_at[:16] if req.created_at else "—" }}</span>
+                    </td>
                     <td><b>{{ req.full_name }}</b><br><small>{{ req.login }}</small></td>
                     <td>{{ req.company_name or "—" }}</td>
                     <td>{{ req.department or "—" }}</td>
@@ -64,4 +73,23 @@
         </table>
     </div>
 </div>
+
+{% if session.get('role') == 'admin' %}
+<script>
+(function () {
+    const ids = Array.from(document.querySelectorAll('[data-new-request-id]'))
+        .map(row => Number(row.dataset.newRequestId))
+        .filter(Number.isInteger);
+
+    if (!ids.length) return;
+
+    fetch('{{ url_for('request_notifications.mark_requests_seen') }}', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({request_ids: ids})
+    }).catch(() => {});
+})();
+</script>
+{% endif %}
 {% endblock %}
