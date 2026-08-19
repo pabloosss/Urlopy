@@ -17,11 +17,7 @@
     <div class="card request-form-card">
         <form method="post" id="leaveRequestForm" class="request-form">
             <section class="form-step">
-                <div class="step-head">
-                    <span>1</span>
-                    <div><h2>Rodzaj</h2></div>
-                </div>
-
+                <div class="step-head"><span>1</span><div><h2>Rodzaj</h2></div></div>
                 <div class="leave-type-grid">
                     {% for type in leave_types %}
                     <label class="leave-type-card">
@@ -34,22 +30,17 @@
             </section>
 
             <section class="form-step">
-                <div class="step-head">
-                    <span>2</span>
-                    <div><h2>Termin</h2></div>
-                </div>
-
+                <div class="step-head"><span>2</span><div><h2>Termin</h2></div></div>
                 <div class="date-grid request-date-grid">
                     <div>
                         <label>Od</label>
-                        <input type="date" name="date_from" id="dateFrom" value="{{ form_data.date_from }}" required>
+                        <input type="date" name="date_from" id="dateFrom" value="{{ form_data.date_from }}" {% if not allow_past_requests %}min="{{ today }}"{% endif %} required>
                     </div>
                     <div>
                         <label>Do</label>
-                        <input type="date" name="date_to" id="dateTo" value="{{ form_data.date_to }}" required>
+                        <input type="date" name="date_to" id="dateTo" value="{{ form_data.date_to }}" {% if not allow_past_requests %}min="{{ today }}"{% endif %} required>
                     </div>
                 </div>
-
                 <div class="quick-date-buttons">
                     <button type="button" data-range="today">Dzisiaj</button>
                     <button type="button" data-range="tomorrow">Jutro</button>
@@ -59,14 +50,10 @@
             </section>
 
             <section class="form-step">
-                <div class="step-head">
-                    <span>3</span>
-                    <div><h2>Szczegóły</h2></div>
-                </div>
-
+                <div class="step-head"><span>3</span><div><h2>Szczegóły</h2></div></div>
                 {% if user.department and user.department|lower == 'spedycja' %}
-                <label>W czasie urlopu zastępować będzie mnie</label>
-                <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz imię lub nazwisko" value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name }}{% endif %}{% endfor %}">
+                <label>W czasie urlopu zastępować będzie mnie{% if require_spedycja_replacement %} *{% endif %}</label>
+                <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz imię lub nazwisko" {% if require_spedycja_replacement %}required{% endif %} value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name }}{% endif %}{% endfor %}">
                 <input type="hidden" name="replacement_user_id" id="replacementUserId" value="{{ form_data.replacement_user_id }}">
                 <datalist id="replacementOptions">
                     {% for employee in employees %}<option value="{{ employee.full_name }}"></option>{% endfor %}
@@ -100,6 +87,7 @@
 (function () {
     const availableDays = Number({{ vacation_summary.available|default(0) }});
     const limitTypes = {{ limit_types|tojson }};
+    const replacementRequired = {{ require_spedycja_replacement|tojson }};
     const replacementPeople = [
         {% for employee in employees %}{ id: "{{ employee.id }}", name: {{ employee.full_name|tojson }} }{% if not loop.last %},{% endif %}{% endfor %}
     ];
@@ -175,9 +163,7 @@
     function countWorkdays(start, end) {
         if (!start || !end || end < start) return null;
         const holidays = new Set();
-        for (let year = start.getFullYear(); year <= end.getFullYear(); year++) {
-            holidaySet(year).forEach(day => holidays.add(day));
-        }
+        for (let year = start.getFullYear(); year <= end.getFullYear(); year++) holidaySet(year).forEach(day => holidays.add(day));
         let days = 0;
         const current = new Date(start);
         while (current <= end) {
@@ -250,7 +236,6 @@
             const day = today.getDay();
             let start = new Date(today);
             let end = new Date(today);
-
             if (button.dataset.range === 'tomorrow') { start = addDays(today, 1); end = addDays(today, 1); }
             if (button.dataset.range === 'week') {
                 const mondayOffset = day === 0 ? -6 : 1 - day;
@@ -260,7 +245,6 @@
                 const mondayOffset = day === 0 ? 1 : 8 - day;
                 start = addDays(today, mondayOffset); end = addDays(start, 4);
             }
-
             dateFrom.value = formatDate(start);
             dateTo.value = formatDate(end);
             updateSummary();
@@ -274,9 +258,14 @@
 
     form.addEventListener('submit', event => {
         syncReplacement();
+        if (replacementSearch && replacementRequired && !replacementSearch.value.trim()) {
+            event.preventDefault();
+            alert('Wybierz osobę, która będzie Cię zastępować.');
+            return;
+        }
         if (replacementSearch && replacementSearch.value.trim() && !replacementUserId.value) {
             event.preventDefault();
-            alert('Wybierz osobę z listy podpowiedzi albo pozostaw pole puste.');
+            alert('Wybierz osobę z listy podpowiedzi.');
         }
     });
 
