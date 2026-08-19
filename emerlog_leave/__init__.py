@@ -1,11 +1,11 @@
 from datetime import date
 
-from flask import Flask, redirect, request, session
+from flask import Flask, flash, redirect, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import SECRET_KEY, LEAVE_TYPES, FORCE_HTTPS, SESSION_COOKIE_SECURE
 from .database import get_db, init_db
-from .services import format_pl_date, is_hr, is_manager, ensure_vacation_years
+from .services import format_pl_date, get_app_setting, is_hr, is_manager, ensure_vacation_years
 from .routes_main import bp as main_bp
 from .routes_requests import bp as requests_bp
 from .routes_pdf import bp as request_pdf_bp
@@ -47,7 +47,7 @@ def create_app():
     app.template_filter("pldate")(format_pl_date)
 
     @app.before_request
-    def enforce_https_and_year_rollover():
+    def enforce_https_year_and_policies():
         if FORCE_HTTPS and not request.is_secure:
             return redirect(request.url.replace("http://", "https://", 1), code=301)
 
@@ -58,6 +58,39 @@ def create_app():
             conn.commit()
             conn.close()
             app.config["VACATION_YEAR_CHECKED"] = current_year
+
+        if request.method != "POST" or not session.get("user_id"):
+            return None
+
+        if request.endpoint == "requests.new_leave_request":
+            conn = get_db()
+            allow_past = get_app_setting(conn, "allow_past_requests", "1") == "1"
+            require_replacement = get_app_setting(conn, "require_spedycja_replacement", "1") == "1"
+            user = conn.execute("SELECT department FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+            conn.close()
+
+            date_from = request.form.get("date_from", "").strip()
+            if not allow_past and date_from and date_from < date.today().isoformat():
+                flash("Nie można złożyć wniosku z datą wcześniejszą niż dzisiejsza.")
+                return redirect(url_for("requests.new_leave_request"))
+
+            is_spedycja = user and (user["department"] or "").strip().lower() == "spedycja"
+            if require_replacement and is_spedycja and not request.form.get("replacement_user_id", "").strip():
+                flash("Dla Spedycji wybór osoby zastępującej jest wymagany.")
+                return redirect(url_for("requests.new_leave_request"))
+
+        if request.endpoint == "requests.change_request_status" and request.view_args:
+            if request.view_args.get("action") == "cancel" and not is_hr():
+                conn = get_db()
+                allow_cancel = get_app_setting(conn, "allow_employee_cancel", "1") == "1"
+                conn.close()
+                if not allow_cancel:
+                    flash("Samodzielne anulowanie wniosków jest wyłączone przez administratora.")
+                    next_url = request.form.get("next", "")
+                    if next_url.startswith("/"):
+                        return redirect(next_url)
+                    return redirect(url_for("main.my_leave"))
+
         return None
 
     @app.after_request
@@ -78,24 +111,32 @@ def create_app():
             "leave_types": LEAVE_TYPES,
             "new_requests_count": 0,
             "new_request_ids": set(),
+            "allow_employee_cancel": True,
+            "allow_past_requests": True,
+            "require_spedycja_replacement": True,
         }
 
-        if session.get("role") == "admin" and session.get("user_id"):
+        if session.get("user_id"):
             conn = get_db()
-            rows = conn.execute(
-                """
-                SELECT rn.request_id
-                FROM request_notifications rn
-                JOIN leave_requests lr ON lr.id = rn.request_id
-                WHERE rn.recipient_user_id = ? AND rn.seen_at IS NULL
-                ORDER BY lr.created_at DESC
-                """,
-                (session["user_id"],),
-            ).fetchall()
+            values["allow_employee_cancel"] = get_app_setting(conn, "allow_employee_cancel", "1") == "1"
+            values["allow_past_requests"] = get_app_setting(conn, "allow_past_requests", "1") == "1"
+            values["require_spedycja_replacement"] = get_app_setting(conn, "require_spedycja_replacement", "1") == "1"
+
+            if session.get("role") == "admin":
+                rows = conn.execute(
+                    """
+                    SELECT rn.request_id
+                    FROM request_notifications rn
+                    JOIN leave_requests lr ON lr.id = rn.request_id
+                    WHERE rn.recipient_user_id = ? AND rn.seen_at IS NULL
+                    ORDER BY lr.created_at DESC
+                    """,
+                    (session["user_id"],),
+                ).fetchall()
+                ids = {row["request_id"] for row in rows}
+                values["new_request_ids"] = ids
+                values["new_requests_count"] = len(ids)
             conn.close()
-            ids = {row["request_id"] for row in rows}
-            values["new_request_ids"] = ids
-            values["new_requests_count"] = len(ids)
 
         return values
 
