@@ -64,6 +64,7 @@
                     <div><h2>Szczegóły</h2></div>
                 </div>
 
+                {% if user.department and user.department|lower == 'spedycja' %}
                 <label>W czasie urlopu zastępować będzie mnie</label>
                 <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz imię lub nazwisko" value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name }}{% endif %}{% endfor %}">
                 <input type="hidden" name="replacement_user_id" id="replacementUserId" value="{{ form_data.replacement_user_id }}">
@@ -72,6 +73,7 @@
                     <option value="{{ employee.full_name }}"></option>
                     {% endfor %}
                 </datalist>
+                {% endif %}
 
                 <label>Komentarz</label>
                 <textarea name="comment" id="commentField" rows="4" maxlength="1000">{{ form_data.comment }}</textarea>
@@ -205,6 +207,7 @@
     }
 
     function syncReplacement() {
+        if (!replacementSearch || !replacementUserId) return;
         const typed = replacementSearch.value.trim().toLowerCase();
         if (!typed) {
             replacementUserId.value = '';
@@ -290,12 +293,14 @@
         });
     });
 
-    replacementSearch.addEventListener('input', syncReplacement);
-    replacementSearch.addEventListener('change', syncReplacement);
+    if (replacementSearch && replacementUserId) {
+        replacementSearch.addEventListener('input', syncReplacement);
+        replacementSearch.addEventListener('change', syncReplacement);
+    }
 
     form.addEventListener('submit', event => {
         syncReplacement();
-        if (replacementSearch.value.trim() && !replacementUserId.value) {
+        if (replacementSearch && replacementSearch.value.trim() && !replacementUserId.value) {
             event.preventDefault();
             alert('Wybierz zastępstwo z podpowiedzi albo zostaw pole puste.');
         }
