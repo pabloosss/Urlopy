@@ -6,7 +6,16 @@ from flask import Blueprint, flash, redirect, render_template, request, send_fil
 
 from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_user
 from .database import get_db
-from .services import login_required, current_user, visible_user_ids, vacation_summary, count_workdays, parse_date, log_action, is_hr
+from .services import (
+    login_required,
+    current_user,
+    visible_user_ids,
+    vacation_summary,
+    count_workdays,
+    parse_date,
+    log_action,
+    is_hr,
+)
 
 bp = Blueprint("requests", __name__)
 
@@ -31,8 +40,10 @@ def _query_requests(conn):
     ids = visible_user_ids(conn)
     if not ids:
         return []
+
     filters = [f"lr.user_id IN ({','.join('?' for _ in ids)})"]
     params = list(ids)
+
     for field, column in [
         ("department", "u.department"),
         ("status", "lr.status"),
@@ -44,27 +55,37 @@ def _query_requests(conn):
         if value:
             filters.append(f"{column}=?")
             params.append(value)
+
     employee = request.args.get("employee", "").strip()
     if employee:
         filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
         params.extend([f"%{employee}%", f"%{employee}%"])
-    if request.args.get("date_from"):
+
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    if date_from:
         filters.append("lr.date_to >= ?")
-        params.append(request.args.get("date_from"))
-    if request.args.get("date_to"):
+        params.append(date_from)
+    if date_to:
         filters.append("lr.date_from <= ?")
-        params.append(request.args.get("date_to"))
-    return conn.execute(f"""
+        params.append(date_to)
+
+    return conn.execute(
+        f"""
         SELECT lr.*, u.full_name, u.login, u.department, c.name AS company_name,
-               m.full_name AS manager_name, d.full_name AS decider_name, r.full_name AS replacement_name
+               m.full_name AS manager_name, d.full_name AS decider_name,
+               r.full_name AS replacement_name
         FROM leave_requests lr
-        JOIN users u ON u.id=lr.user_id
-        LEFT JOIN companies c ON u.company_id=c.id
-        LEFT JOIN users m ON u.manager_id=m.id
-        LEFT JOIN users d ON lr.decided_by=d.id
-        LEFT JOIN users r ON lr.replacement_user_id=r.id
-        WHERE {' AND '.join(filters)} ORDER BY lr.created_at DESC
-    """, params).fetchall()
+        JOIN users u ON u.id = lr.user_id
+        LEFT JOIN companies c ON u.company_id = c.id
+        LEFT JOIN users m ON u.manager_id = m.id
+        LEFT JOIN users d ON lr.decided_by = d.id
+        LEFT JOIN users r ON lr.replacement_user_id = r.id
+        WHERE {' AND '.join(filters)}
+        ORDER BY lr.created_at DESC
+        """,
+        params,
+    ).fetchall()
 
 
 def _query_all_requests(conn, default_today=True):
@@ -104,10 +125,10 @@ def _query_all_requests(conn, default_today=True):
         filters.append("lr.date_from <= ?")
         params.append(date_to)
 
-    rows = conn.execute(f"""
+    rows = conn.execute(
+        f"""
         SELECT lr.*, u.full_name, u.login, u.department, c.name AS company_name,
-               m.full_name AS manager_name,
-               d.full_name AS decider_name,
+               m.full_name AS manager_name, d.full_name AS decider_name,
                r.full_name AS replacement_name
         FROM leave_requests lr
         JOIN users u ON u.id = lr.user_id
@@ -117,12 +138,15 @@ def _query_all_requests(conn, default_today=True):
         LEFT JOIN users r ON lr.replacement_user_id = r.id
         WHERE {' AND '.join(filters)}
         ORDER BY lr.created_at DESC
-    """, params).fetchall()
+        """,
+        params,
+    ).fetchall()
     return rows, date_from, date_to
 
 
 def _request_for_pdf(conn, request_id):
-    return conn.execute("""
+    return conn.execute(
+        """
         SELECT lr.*, u.full_name, u.department, c.name AS company_name,
                r.full_name AS replacement_name
         FROM leave_requests lr
@@ -130,7 +154,9 @@ def _request_for_pdf(conn, request_id):
         LEFT JOIN companies c ON u.company_id = c.id
         LEFT JOIN users r ON lr.replacement_user_id = r.id
         WHERE lr.id = ?
-    """, (request_id,)).fetchone()
+        """,
+        (request_id,),
+    ).fetchone()
 
 
 def _register_pdf_fonts():
@@ -141,6 +167,7 @@ def _register_pdf_fonts():
     bold = "Helvetica-Bold"
     regular_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     bold_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
     try:
         if os.path.exists(regular_path) and "UrlopySans" not in pdfmetrics.getRegisteredFontNames():
             pdfmetrics.registerFont(TTFont("UrlopySans", regular_path))
@@ -152,6 +179,7 @@ def _register_pdf_fonts():
             bold = "UrlopySansBold"
     except Exception:
         pass
+
     return regular, bold
 
 
@@ -200,14 +228,28 @@ def _draw_wrapped_text(canvas, text, x, y, max_width, font_name, font_size=11, l
     return y
 
 
+def _pdf_date(value):
+    raw = (value or "")[:10]
+    try:
+        return parse_date(raw).strftime("%d.%m.%Y")
+    except Exception:
+        return raw
+
+
 @bp.route("/leave/new", methods=["GET", "POST"])
 @login_required
 def new_leave_request():
     conn = get_db()
     user = current_user(conn)
+    is_spedycja = (user["department"] or "").strip().lower() == "spedycja"
     available_leave_types = leave_types_for_user(user["contract_type"], user["department"])
     summary = vacation_summary(conn, user)
-    employees = conn.execute("SELECT id, full_name FROM users WHERE active=1 AND id!=? ORDER BY full_name", (user["id"],)).fetchall()
+    employees = []
+    if is_spedycja:
+        employees = conn.execute(
+            "SELECT id, full_name FROM users WHERE active=1 AND id!=? ORDER BY full_name",
+            (user["id"],),
+        ).fetchall()
 
     form_data = {
         "leave_type": available_leave_types[0],
@@ -236,7 +278,7 @@ def new_leave_request():
             "leave_type": request.form.get("leave_type", "").strip(),
             "date_from": request.form.get("date_from", "").strip(),
             "date_to": request.form.get("date_to", "").strip(),
-            "replacement_user_id": request.form.get("replacement_user_id", "").strip(),
+            "replacement_user_id": request.form.get("replacement_user_id", "").strip() if is_spedycja else "",
             "comment": request.form.get("comment", "").strip(),
         }
         errors = []
@@ -264,16 +306,20 @@ def new_leave_request():
         if days <= 0 and start and end:
             errors.append("Wybrany zakres nie zawiera dni roboczych.")
 
-        if form_data["replacement_user_id"]:
+        if is_spedycja and form_data["replacement_user_id"]:
             try:
                 replacement_id = int(form_data["replacement_user_id"])
             except ValueError:
                 errors.append("Wybierz poprawną osobę na zastępstwo z listy podpowiedzi.")
                 replacement_id = None
+
             if replacement_id == user["id"]:
                 errors.append("Nie możesz wybrać siebie jako zastępstwa.")
             elif replacement_id:
-                replacement = conn.execute("SELECT id FROM users WHERE id=? AND active=1", (replacement_id,)).fetchone()
+                replacement = conn.execute(
+                    "SELECT id FROM users WHERE id=? AND active=1",
+                    (replacement_id,),
+                ).fetchone()
                 if not replacement:
                     errors.append("Wybrana osoba na zastępstwo nie istnieje albo jest nieaktywna.")
 
@@ -283,7 +329,7 @@ def new_leave_request():
         if not errors:
             overlap = conn.execute(
                 """
-                SELECT leave_type, date_from, date_to, status
+                SELECT leave_type, date_from, date_to
                 FROM leave_requests
                 WHERE user_id=?
                   AND status = 'zaakceptowany'
@@ -308,21 +354,30 @@ def new_leave_request():
                 flash(error)
             return render_form(400)
 
-        cur = conn.execute("""
+        cur = conn.execute(
+            """
             INSERT INTO leave_requests (
                 user_id, leave_type, date_from, date_to, days_count, comment,
                 replacement_user_id, status, decided_by, decided_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'zaakceptowany', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        """, (
-            user["id"],
-            form_data["leave_type"],
-            form_data["date_from"],
-            form_data["date_to"],
-            days,
-            form_data["comment"],
-            replacement_id,
-        ))
-        log_action(conn, "złożono wniosek", "leave_request", cur.lastrowid, f"{form_data['leave_type']}: {form_data['date_from']} - {form_data['date_to']}")
+            """,
+            (
+                user["id"],
+                form_data["leave_type"],
+                form_data["date_from"],
+                form_data["date_to"],
+                days,
+                form_data["comment"],
+                replacement_id,
+            ),
+        )
+        log_action(
+            conn,
+            "złożono wniosek",
+            "leave_request",
+            cur.lastrowid,
+            f"{form_data['leave_type']}: {form_data['date_from']} - {form_data['date_to']}",
+        )
         conn.commit()
         request_id = cur.lastrowid
         conn.close()
@@ -374,7 +429,7 @@ def download_request_pdf(request_id):
     pdf.drawRightString(right, y - 2 * mm, "data")
     pdf.setFillColor(HexColor("#111111"))
     pdf.setFont(bold_font, 10)
-    pdf.drawRightString(right, y - 7 * mm, (row["created_at"] or "")[:10])
+    pdf.drawRightString(right, y - 7 * mm, _pdf_date(row["created_at"]))
 
     y -= 36 * mm
     pdf.setFont(bold_font, 17)
@@ -403,21 +458,24 @@ def download_request_pdf(request_id):
         leave_text = "urlopu wypoczynkowego"
     else:
         leave_text = f"nieobecności: {row['leave_type']}"
+
     request_text = (
         f"Proszę o udzielenie {leave_text} w liczbie {row['days_count']} dni, "
-        f"w terminie od {row['date_from']} do {row['date_to']}."
+        f"w terminie od {_pdf_date(row['date_from'])} do {_pdf_date(row['date_to'])}."
     )
     pdf.setFont(regular_font, 11)
+    pdf.setFillColor(HexColor("#111111"))
     y = _draw_wrapped_text(pdf, request_text, left, y, right - left, regular_font, 11, 17)
 
-    y -= 7 * mm
-    pdf.setFont(regular_font, 8)
-    pdf.setFillColor(HexColor("#666666"))
-    pdf.drawString(left, y, "W czasie urlopu zastępować będzie mnie")
-    y -= 6 * mm
-    pdf.setFont(bold_font, 11)
-    pdf.setFillColor(HexColor("#111111"))
-    pdf.drawString(left, y, row["replacement_name"] or "—")
+    if (row["department"] or "").strip().lower() == "spedycja":
+        y -= 7 * mm
+        pdf.setFont(regular_font, 8)
+        pdf.setFillColor(HexColor("#666666"))
+        pdf.drawString(left, y, "W czasie urlopu zastępować będzie mnie")
+        y -= 6 * mm
+        pdf.setFont(bold_font, 11)
+        pdf.setFillColor(HexColor("#111111"))
+        pdf.drawString(left, y, row["replacement_name"] or "—")
 
     if row["comment"]:
         y -= 14 * mm
@@ -428,10 +486,21 @@ def download_request_pdf(request_id):
         pdf.setFillColor(HexColor("#111111"))
         y = _draw_wrapped_text(pdf, row["comment"], left, y, right - left, regular_font, 10, 15)
 
-    y -= 12 * mm
+    y -= 10 * mm
     pdf.setFont(bold_font, 11)
     pdf.setFillColor(HexColor("#111111"))
-    pdf.drawString(left, y, f"Status: {row['status']}")
+    pdf.drawString(left, y, "Status: zaakceptowany")
+
+    y -= 24 * mm
+    pdf.setFont(regular_font, 10)
+    pdf.drawString(left, y, "Wyrażam zgodę na urlop we wskazanym terminie")
+    signature_left = left + 92 * mm
+    pdf.setDash(1, 2)
+    pdf.line(signature_left, y - 1 * mm, right, y - 1 * mm)
+    pdf.setDash()
+    pdf.setFont(regular_font, 8)
+    pdf.setFillColor(HexColor("#555555"))
+    pdf.drawCentredString((signature_left + right) / 2, y - 6 * mm, "podpis osoby upoważnionej")
 
     pdf.showPage()
     pdf.save()
@@ -453,7 +522,15 @@ def requests_view():
     managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
-    return render_template("requests.html", requests_list=rows, departments=departments, managers=managers, companies=companies, statuses=STATUSES, leave_types=LEAVE_TYPES)
+    return render_template(
+        "requests.html",
+        requests_list=rows,
+        departments=departments,
+        managers=managers,
+        companies=companies,
+        statuses=STATUSES,
+        leave_types=LEAVE_TYPES,
+    )
 
 
 @bp.route("/requests/all")
@@ -462,12 +539,14 @@ def all_requests_view():
     if not is_hr():
         flash("Brak uprawnień do tej sekcji.")
         return redirect(url_for("main.dashboard"))
+
     conn = get_db()
     rows, selected_from, selected_to = _query_all_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
+
     return render_template(
         "all_requests.html",
         requests_list=rows,
@@ -499,7 +578,10 @@ def change_request_status(request_id, action):
             conn.close()
             flash("Tylko admin lub kadry mogą usuwać wpisy.")
             return _safe_redirect(next_url)
-        details = f"{owner['full_name'] if owner else 'nieznany'} | {leave_request['leave_type']} | {leave_request['date_from']} - {leave_request['date_to']} | status: {leave_request['status']}"
+        details = (
+            f"{owner['full_name'] if owner else 'nieznany'} | {leave_request['leave_type']} | "
+            f"{leave_request['date_from']} - {leave_request['date_to']} | status: {leave_request['status']}"
+        )
         conn.execute("DELETE FROM leave_requests WHERE id=?", (request_id,))
         log_action(conn, "usunięto wniosek", "leave_request", request_id, details)
         conn.commit()
@@ -552,9 +634,26 @@ def export_report_csv():
     conn = get_db()
     rows = _query_requests(conn)
     conn.close()
+
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
     writer.writerow(["Pracownik", "Spółka", "Dział", "Typ", "Od", "Do", "Dni", "Status", "Menedżer", "Data złożenia"])
     for row in rows:
-        writer.writerow([row["full_name"], row["company_name"] or "", row["department"], row["leave_type"], row["date_from"], row["date_to"], row["days_count"], row["status"], row["manager_name"] or "", row["created_at"]])
-    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=emerlog_urlopy.csv"})
+        writer.writerow([
+            row["full_name"],
+            row["company_name"] or "",
+            row["department"],
+            row["leave_type"],
+            row["date_from"],
+            row["date_to"],
+            row["days_count"],
+            row["status"],
+            row["manager_name"] or "",
+            row["created_at"],
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=emerlog_urlopy.csv"},
+    )
