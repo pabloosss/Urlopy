@@ -61,7 +61,7 @@ def init_db():
             date_to TEXT NOT NULL,
             days_count INTEGER NOT NULL,
             comment TEXT,
-            status TEXT DEFAULT 'oczekuje',
+            status TEXT DEFAULT 'zaakceptowany',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -75,6 +75,17 @@ def init_db():
         "updated_at": "TEXT",
     }.items():
         _ensure_column(cur, "leave_requests", name, definition)
+
+    # Stary workflow wymagał akceptacji. Po zmianie wszystkie oczekujące
+    # wnioski stają się zwykłymi zaakceptowanymi wpisami, bez kasowania danych.
+    cur.execute("""
+        UPDATE leave_requests
+        SET status = 'zaakceptowany',
+            decided_by = NULL,
+            decided_at = COALESCE(decided_at, created_at),
+            updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
+        WHERE status = 'oczekuje'
+    """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS audit_logs (
