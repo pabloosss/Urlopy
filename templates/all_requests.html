@@ -3,8 +3,8 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <p class="eyebrow">Admin</p>
         <h1>Wszystkie wnioski</h1>
+        <p>Pełna historia wniosków w organizacji.</p>
     </div>
     <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
 </section>
@@ -27,19 +27,15 @@
 
 <div class="card">
     <div class="section-head-row">
-        <div><h2>Wnioski</h2></div>
+        <h2>Wnioski</h2>
         <div class="request-list-counters">
-            {% if session.get('role') == 'admin' and new_requests_count %}
-                <span class="new-request-count">Nowe: {{ new_requests_count }}</span>
-            {% endif %}
-            <span class="chip">wyniki: {{ requests_list|length }}</span>
+            {% if session.get('role') == 'admin' and new_requests_count %}<span class="new-request-count">Nowe: {{ new_requests_count }}</span>{% endif %}
+            <span class="chip">{{ requests_list|length }}</span>
         </div>
     </div>
     <div class="table-wrapper">
         <table>
-            <thead>
-                <tr><th>Złożono</th><th>Pracownik</th><th>Spółka</th><th>Dział</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr>
-            </thead>
+            <thead><tr><th>Złożono</th><th>Pracownik</th><th>Spółka</th><th>Dział</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
             <tbody>
             {% for req in requests_list %}
                 {% set is_new = session.get('role') == 'admin' and req.id in new_request_ids %}
@@ -63,7 +59,7 @@
                         {% else %}
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='accept') }}"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-ok">Przywróć</button></form>
                         {% endif %}
-                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek? Tej operacji nie da się cofnąć.');"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-bad">Usuń</button></form>
+                        <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek?');"><input type="hidden" name="next" value="{{ next_url }}"><button class="btn-bad">Usuń</button></form>
                     </td>
                 </tr>
             {% else %}
@@ -80,9 +76,7 @@
     const ids = Array.from(document.querySelectorAll('[data-new-request-id]'))
         .map(row => Number(row.dataset.newRequestId))
         .filter(Number.isInteger);
-
     if (!ids.length) return;
-
     fetch('{{ url_for('request_notifications.mark_requests_seen') }}', {
         method: 'POST',
         credentials: 'same-origin',
