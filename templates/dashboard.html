@@ -32,7 +32,12 @@
             {% if is_manager() or is_hr() %}
                 <a href="{{ url_for('main.calendar_view') }}"><span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span><strong>Kalendarz</strong></a>
             {% endif %}
-            {% if is_hr() %}
+            {% if session.get('role') == 'admin' %}
+                <a class="home-new-requests {% if new_requests_count %}has-new{% endif %}" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">
+                    <span>Nowe wnioski</span>
+                    <strong>{{ new_requests_count }}</strong>
+                </a>
+            {% elif is_hr() %}
                 <a href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to="><span>Admin</span><strong>Wszystkie wnioski</strong></a>
             {% endif %}
         </section>
