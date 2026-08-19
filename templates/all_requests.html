@@ -35,7 +35,7 @@
     </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Złożono</th><th>Pracownik</th><th>Spółka</th><th>Dział</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
+            <thead><tr><th>Złożono</th><th>Pracownik</th><th>Spółka</th><th>Dział</th><th>Typ</th><th>Termin</th><th>Dni</th>{% if session.get('role') == 'admin' %}<th>Komentarz</th>{% endif %}<th>Status</th><th>Akcje</th></tr></thead>
             <tbody>
             {% for req in requests_list %}
                 {% set is_new = session.get('role') == 'admin' and req.id in new_request_ids %}
@@ -50,6 +50,7 @@
                     <td>{{ req.leave_type }}</td>
                     <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
                     <td><b>{{ req.days_count }}</b></td>
+                    {% if session.get('role') == 'admin' %}<td>{{ req.comment or "—" }}</td>{% endif %}
                     <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
                     <td class="request-admin-actions">
                         {% set next_url = request.full_path %}
@@ -63,7 +64,7 @@
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="9" class="empty-state">Brak wniosków.</td></tr>
+                <tr><td colspan="{% if session.get('role') == 'admin' %}10{% else %}9{% endif %}" class="empty-state">Brak wniosków.</td></tr>
             {% endfor %}
             </tbody>
         </table>
