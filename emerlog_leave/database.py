@@ -76,8 +76,6 @@ def init_db():
     }.items():
         _ensure_column(cur, "leave_requests", name, definition)
 
-    # Powiadomienia o nowych wnioskach są przechowywane osobno dla każdego admina.
-    # Dzięki temu odczyt przez jednego admina nie kasuje oznaczenia u drugiego.
     cur.execute("""
         CREATE TABLE IF NOT EXISTS request_notifications (
             request_id INTEGER NOT NULL,
@@ -105,8 +103,6 @@ def init_db():
         END
     """)
 
-    # Stary workflow wymagał akceptacji. Po zmianie wszystkie oczekujące
-    # wnioski stają się zwykłymi zaakceptowanymi wpisami, bez kasowania danych.
     cur.execute("""
         UPDATE leave_requests
         SET status = 'zaakceptowany',
@@ -138,6 +134,33 @@ def init_db():
             new_carryover_days INTEGER,
             reason TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Globalne ustawienia administracyjne.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('default_vacation_days', '26')")
+    cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('carryover_enabled', '1')")
+
+    # Migawka limitu dla każdego roku. Wpis dla pierwszego roku tworzy się
+    # przy starcie aplikacji, dzięki czemu wdrożenie nie nalicza nic wstecz.
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS vacation_year_balances (
+            user_id INTEGER NOT NULL,
+            year INTEGER NOT NULL,
+            base_days INTEGER NOT NULL DEFAULT 0,
+            opening_carryover INTEGER NOT NULL DEFAULT 0,
+            used_days INTEGER,
+            carried_to_next INTEGER,
+            processed_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, year)
         )
     """)
 
