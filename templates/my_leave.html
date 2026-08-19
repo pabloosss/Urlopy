@@ -3,24 +3,21 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <p class="eyebrow">Moje wnioski</p>
-        <h1>Historia wniosków</h1>
+        <h1>Moje wnioski</h1>
+        <p>Historia złożonych wniosków.</p>
     </div>
-    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Złóż nowy wniosek</a>
+    <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Limit roczny</span><strong>{{ vacation_summary.base }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Zaległe</span><strong>{{ vacation_summary.carryover }}</strong><small>dni</small></div>
-    <div class="stat-card"><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong><small>dni</small></div>
+    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong></div>
+    <div class="stat-card"><span>Limit</span><strong>{{ vacation_summary.base }}</strong></div>
+    <div class="stat-card"><span>Zaległe</span><strong>{{ vacation_summary.carryover }}</strong></div>
+    <div class="stat-card"><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
 </section>
 
 <div class="card my-requests-card">
-    <div class="section-head-row">
-        <div><h2>Moje wnioski</h2></div>
-        <a class="btn-secondary" href="{{ url_for('requests.new_leave_request') }}">+ Nowy</a>
-    </div>
+    <div class="section-head-row"><h2>Historia</h2><span class="chip">{{ requests_list|length }}</span></div>
 
     <div class="my-request-list">
         {% for req in requests_list %}
@@ -39,10 +36,7 @@
             </div>
 
             <div class="my-request-footer">
-                <div>
-                    <span>Data złożenia</span>
-                    <strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong>
-                </div>
+                <div><span>Złożono</span><strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong></div>
                 <div class="request-actions">
                     {% if req.status == "zaakceptowany" %}
                         <a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>
