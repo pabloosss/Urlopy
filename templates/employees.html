@@ -20,7 +20,7 @@
     <form method="get" class="employee-filter-form">
         <div class="filter-wide">
             <label>Szukaj</label>
-            <input name="q" placeholder="Imię, login, e-mail lub stanowisko" value="{{ request.args.get('q','') }}">
+            <input name="q" placeholder="Imię, nazwisko lub login" value="{{ request.args.get('q','') }}">
         </div>
         <div>
             <label>Rola</label>
@@ -56,7 +56,7 @@
             <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
             <select name="manager_id" class="manager-select">
                 <option value="">Wszyscy</option>
-                {% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}
+                {% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}
             </select>
         </div>
         <button type="submit">Filtruj</button>
@@ -65,38 +65,25 @@
 </div>
 
 <details class="card admin-create-panel" id="addEmployee">
-    <summary>Dodaj pracownika lub spółkę</summary>
-    <div class="admin-create-grid">
+    <summary>Dodaj pracownika</summary>
+    <div class="admin-create-grid admin-create-grid-single">
         <section>
             <h2>Nowy pracownik</h2>
             <form method="post" class="employee-form-grid">
-                <input type="hidden" name="form_kind" value="employee">
                 <label>Login</label><input name="login" required>
                 <label>Hasło startowe</label><input name="password" placeholder="Start123!">
                 <label>Imię i nazwisko</label><input name="full_name" required>
-                <label>E-mail</label><input name="email" type="email">
                 <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
                 <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
                 <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
-                <label>Stanowisko</label><input name="job_title">
                 <div class="manager-search-block form-field-full">
                     <label>Menedżer</label>
                     <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
-                    <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }} {{ m.job_title or '' }}">{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
+                    <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.department or '' }}">{{ m.full_name }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
                 </div>
                 <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
                 <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
                 <button type="submit">Dodaj</button>
-            </form>
-        </section>
-
-        <section class="company-create-section">
-            <h2>Nowa spółka</h2>
-            <form method="post">
-                <input type="hidden" name="form_kind" value="company">
-                <label>Nazwa spółki</label>
-                <input name="company_name" required>
-                <button type="submit" class="btn-secondary">Dodaj spółkę</button>
             </form>
         </section>
     </div>
@@ -121,8 +108,7 @@
                         · {{ u.department or "brak działu" }}
                     </p>
                     <small>
-                        {{ u.job_title or "brak stanowiska" }}
-                        · {{ u.contract_type or "Umowa o pracę" }}
+                        {{ u.contract_type or "Umowa o pracę" }}
                         {% if u.manager_name %} · menedżer: {{ u.manager_name }}{% endif %}
                     </small>
                 </div>
