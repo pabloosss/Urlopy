@@ -24,6 +24,11 @@ ZLECENIE_LEAVE_TYPES = [
     "Urlop bezpłatny",
 ]
 
+SPEDYCJA_LEAVE_TYPES = [
+    "Urlop wypoczynkowy",
+    "Inne",
+]
+
 LEAVE_TYPES = UOP_LEAVE_TYPES
 CONTRACT_LEAVE_TYPES = {
     CONTRACT_UOP: UOP_LEAVE_TYPES,
@@ -42,5 +47,15 @@ def normalize_contract_type(value):
     return CONTRACT_UOP
 
 
+def normalize_department(value):
+    return (value or "").strip().lower()
+
+
 def leave_types_for_contract(value):
     return CONTRACT_LEAVE_TYPES.get(normalize_contract_type(value), UOP_LEAVE_TYPES)
+
+
+def leave_types_for_user(contract_type, department):
+    if normalize_department(department) == "spedycja":
+        return SPEDYCJA_LEAVE_TYPES
+    return leave_types_for_contract(contract_type)
