@@ -27,6 +27,9 @@
     gap: 24px;
     padding: 20px;
 }
+.admin-create-grid-single {
+    grid-template-columns: minmax(0, 760px);
+}
 .admin-create-grid h2 { margin: 0 0 14px; }
 .company-create-section {
     padding-left: 24px;
