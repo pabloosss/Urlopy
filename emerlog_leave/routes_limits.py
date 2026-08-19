@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from .database import get_db
-from .services import login_required, role_required, vacation_summary, log_action
+from .services import login_required, role_required, vacation_summary, log_action, sync_user_year_balance
 
 bp = Blueprint("limits", __name__)
 
@@ -24,6 +24,7 @@ def limits_view():
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (user_id, session["user_id"], user["vacation_days"], vacation_days, user["carryover_days"], carryover_days, reason))
         conn.execute("UPDATE users SET vacation_days = ?, carryover_days = ? WHERE id = ?", (vacation_days, carryover_days, user_id))
+        sync_user_year_balance(conn, user_id, vacation_days, carryover_days)
         log_action(conn, "zmieniono limit urlopu", "user", user_id, reason)
         conn.commit()
         flash("Limit urlopu zapisany.")
