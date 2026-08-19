@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title backup-page-title">
+    <div>
+        <h1>Backup danych</h1>
+        <p>Kopie bazy programu zapisane na serwerze.</p>
+    </div>
+    <form method="post" action="{{ url_for('backups.create_backup_view') }}">
+        <button type="submit" class="btn-primary">Utwórz backup teraz</button>
+    </form>
+</section>
+
+<section class="backup-summary-grid">
+    <div class="card backup-summary-card backup-summary-main">
+        <span>Zapisane kopie</span>
+        <strong>{{ backups|length }}</strong>
+    </div>
+    <div class="card backup-summary-card">
+        <span>Ostatni backup</span>
+        <strong>{% if backups %}{{ backups[0].created_at.strftime('%d.%m.%Y %H:%M') }}{% else %}Brak{% endif %}</strong>
+    </div>
+</section>
+
+<section class="card backup-list-card">
+    <div class="section-head-row">
+        <div>
+            <h2>Zapisane backupy</h2>
+            <p class="muted">Przywrócenie zastępuje aktualne dane zawartością wybranej kopii.</p>
+        </div>
+    </div>
+
+    <div class="backup-list">
+        {% for item in backups %}
+        <article class="backup-item {% if item.kind == 'Backup bezpieczeństwa' %}backup-safety{% endif %}">
+            <div class="backup-item-main">
+                <div class="backup-icon">DB</div>
+                <div>
+                    <h3>{{ item.created_at.strftime('%d.%m.%Y · %H:%M:%S') }}</h3>
+                    <p>{{ item.kind }} · {{ item.size_kb }} KB</p>
+                    <small>{{ item.filename }}</small>
+                </div>
+            </div>
+
+            <div class="backup-actions">
+                <a class="btn-secondary btn-mini" href="{{ url_for('backups.download_backup', filename=item.filename) }}">Pobierz</a>
+                <form method="post" action="{{ url_for('backups.restore_backup', filename=item.filename) }}" onsubmit="return confirm('Przywrócić ten backup? Aktualna baza zostanie zastąpiona, ale najpierw system zapisze backup bezpieczeństwa.');">
+                    <button type="submit" class="btn-bad">Przywróć</button>
+                </form>
+            </div>
+        </article>
+        {% else %}
+        <div class="empty-state backup-empty">
+            Nie ma jeszcze żadnego backupu. Kliknij „Utwórz backup teraz”.
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="backup-note">
+    <strong>Bezpieczne przywracanie</strong>
+    <span>Przed każdym przywróceniem system automatycznie zapisuje dodatkową kopię aktualnej bazy.</span>
+</section>
+{% endblock %}
