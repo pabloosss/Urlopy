@@ -33,7 +33,7 @@
             <a href="{{ url_for('requests.new_leave_request') }}">Złóż wniosek</a>
             <a href="{{ url_for('main.my_leave') }}">Moje wnioski</a>
             {% if is_hr() %}
-                <a href="{{ url_for('requests.all_requests_view') }}">Wszystkie wnioski</a>
+                <a href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">Wszystkie wnioski</a>
             {% endif %}
 
             {% if is_manager() %}
