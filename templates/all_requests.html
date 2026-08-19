@@ -17,11 +17,11 @@
         <select name="manager_id"><option value="">Menedżer</option>{% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}</select>
         <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
         <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-        <input type="date" name="date_from" value="{{ selected_from }}">
-        <input type="date" name="date_to" value="{{ selected_to }}">
+        <input type="date" name="date_from" value="{{ selected_from }}" title="Termin urlopu od">
+        <input type="date" name="date_to" value="{{ selected_to }}" title="Termin urlopu do">
         <button type="submit">Filtruj</button>
-        <a class="btn-secondary" href="{{ url_for('requests.all_requests_view') }}">Dziś</a>
-        <a class="btn-secondary" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">Wszystkie daty</a>
+        <a class="btn-secondary" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">Wszystkie</a>
+        <a class="btn-secondary" href="{{ url_for('requests.all_requests_view') }}">Dziś na urlopie</a>
     </form>
 </div>
 
