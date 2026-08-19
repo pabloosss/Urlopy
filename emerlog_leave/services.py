@@ -50,7 +50,7 @@ def format_pl_date(value):
 def calculate_easter(year):
     a = year % 19; b = year // 100; c = year % 100; d = b // 4; e = b % 4
     f = (b + 8) // 25; g = (b - f + 1) // 3; h = (19 * a + b - d - g + 15) % 30
-    i = c // 4; k = c % 4; l = (32 + 2 * e + 2 * i - h - k) % 7; m = (a + 11 * h + 22 * l) // 451
+    i = c // 4; k = c % 4; l = (32 + 2 * e - h - k) % 7; m = (a + 11 * h + 22 * l) // 451
     month = (h + l - 7 * m + 114) // 31; day = ((h + l - 7 * m + 114) % 31) + 1
     return date(year, month, day)
 
@@ -193,25 +193,28 @@ def ensure_vacation_years(conn, current_year=None):
             )
 
             next_year = latest_year + 1
-            next_base = user["vacation_days"] if user["vacation_days"] is not None else default_days
             conn.execute(
                 """
                 INSERT OR IGNORE INTO vacation_year_balances
                     (user_id, year, base_days, opening_carryover)
                 VALUES (?, ?, ?, ?)
                 """,
-                (user["id"], next_year, int(next_base or 0), carried),
+                (user["id"], next_year, default_days, carried),
             )
             latest_year = next_year
 
         current_balance = conn.execute(
-            "SELECT opening_carryover FROM vacation_year_balances WHERE user_id = ? AND year = ?",
+            "SELECT base_days, opening_carryover FROM vacation_year_balances WHERE user_id = ? AND year = ?",
             (user["id"], current_year),
         ).fetchone()
         if current_balance:
             conn.execute(
-                "UPDATE users SET carryover_days = ? WHERE id = ?",
-                (current_balance["opening_carryover"] or 0, user["id"]),
+                "UPDATE users SET vacation_days = ?, carryover_days = ? WHERE id = ?",
+                (
+                    current_balance["base_days"] or 0,
+                    current_balance["opening_carryover"] or 0,
+                    user["id"],
+                ),
             )
 
 
@@ -229,7 +232,6 @@ def vacation_summary(conn, user, year=None):
     elif year == current_year:
         carryover = user["carryover_days"] or 0
     else:
-        # Dla przyszłego roku nie zakładamy z góry, ile dni zostanie przeniesionych.
         carryover = 0
 
     accepted = vacation_days_used_in_year(conn, user["id"], year)
