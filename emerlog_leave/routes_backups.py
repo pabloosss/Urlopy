@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-import os
 import sqlite3
 
 from flask import Blueprint, current_app, flash, redirect, render_template, send_file, session, url_for
@@ -28,14 +27,9 @@ def _verify_database(path):
         conn.close()
 
 
-def _create_backup(kind="manual"):
-    directory = _backup_directory()
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
-    filename = f"urlopy_{kind}_{timestamp}.db"
-    path = directory / filename
-
-    source = sqlite3.connect(DATABASE, timeout=30)
-    target = sqlite3.connect(str(path), timeout=30)
+def _copy_database(source_path, target_path):
+    source = sqlite3.connect(str(source_path), timeout=30)
+    target = sqlite3.connect(str(target_path), timeout=30)
     try:
         source.backup(target)
         target.commit()
@@ -43,6 +37,14 @@ def _create_backup(kind="manual"):
         target.close()
         source.close()
 
+
+def _create_backup(kind="manual"):
+    directory = _backup_directory()
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S_%f")
+    filename = f"urlopy_{kind}_{timestamp}.db"
+    path = directory / filename
+
+    _copy_database(DATABASE, path)
     _verify_database(path)
     return path
 
@@ -94,7 +96,6 @@ def backups_view():
     return render_template(
         "admin_backups.html",
         backups=_list_backups(),
-        backup_dir=str(_backup_directory()),
     )
 
 
@@ -134,22 +135,17 @@ def restore_backup(filename):
         flash("Nie znaleziono backupu.")
         return redirect(url_for("backups.backups_view"))
 
+    safety_path = None
+    restore_started = False
     try:
         _verify_database(path)
 
         # Zanim nadpiszemy bazę, zawsze zachowujemy aktualny stan.
         safety_path = _create_backup("safety")
 
-        source = sqlite3.connect(str(path), timeout=30)
-        target = sqlite3.connect(DATABASE, timeout=30)
-        try:
-            source.backup(target)
-            target.commit()
-        finally:
-            target.close()
-            source.close()
-
-        _verify_database(Path(DATABASE))
+        restore_started = True
+        _copy_database(path, DATABASE)
+        _verify_database(Path(DATABASE).resolve())
         current_app.config["VACATION_YEAR_CHECKED"] = None
 
         conn = get_db()
@@ -175,5 +171,14 @@ def restore_backup(filename):
         flash("Backup został przywrócony. Twoje konto nie ma w nim aktywnych uprawnień administratora — zaloguj się ponownie.")
         return redirect(url_for("main.login"))
     except Exception as error:
-        flash(f"Nie udało się przywrócić backupu: {error}")
+        rollback_note = ""
+        if safety_path and restore_started:
+            try:
+                _copy_database(safety_path, DATABASE)
+                _verify_database(Path(DATABASE).resolve())
+                current_app.config["VACATION_YEAR_CHECKED"] = None
+                rollback_note = " Aktualny stan został automatycznie odtworzony z backupu bezpieczeństwa."
+            except Exception:
+                rollback_note = " Backup bezpieczeństwa został zapisany, ale automatyczne odtworzenie nie powiodło się."
+        flash(f"Nie udało się przywrócić backupu: {error}.{rollback_note}")
         return redirect(url_for("backups.backups_view"))
