@@ -114,7 +114,7 @@
 
     document.querySelectorAll('.print-request-btn').forEach(button => {
         button.addEventListener('click', () => {
-            const source = document.getElementById('print-request-' + button.datasetRequestId);
+            const source = document.getElementById('print-request-' + button.dataset.requestId);
             if (!source) return;
             const win = window.open('', '_blank');
             win.document.write('<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"><title>Wniosek urlopowy</title><style>' + printStyle + '</style></head><body>' + source.innerHTML + '<script>window.onload=function(){window.print();}<\/script></body></html>');
