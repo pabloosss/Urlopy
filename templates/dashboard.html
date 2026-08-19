@@ -28,27 +28,14 @@
 
         <section class="home-quick-stats">
             <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
-            <div><span>Oczekujące</span><strong>{{ vacation_summary.pending }}</strong></div>
             <a href="{{ url_for('main.my_leave') }}"><span>Historia</span><strong>Moje wnioski</strong></a>
             {% if is_manager() or is_hr() %}
-                <a href="{{ url_for('requests.requests_view', status='oczekuje') }}"><span>Akceptacja</span><strong>{{ stats.pending }}</strong></a>
+                <a href="{{ url_for('main.calendar_view') }}"><span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span><strong>Kalendarz</strong></a>
             {% endif %}
-        </section>
-
-        {% if is_manager() or is_hr() %}
-        <section class="home-manager-tools">
-            <a href="{{ url_for('main.calendar_view') }}">
-                <span>{% if is_manager() %}Zespół{% else %}Firma{% endif %}</span>
-                <strong>Kalendarz</strong>
-            </a>
             {% if is_hr() %}
-            <a href="{{ url_for('requests.all_requests_view') }}">
-                <span>Admin</span>
-                <strong>Wszystkie wnioski</strong>
-            </a>
+                <a href="{{ url_for('requests.all_requests_view') }}"><span>Admin</span><strong>Wszystkie wnioski</strong></a>
             {% endif %}
         </section>
-        {% endif %}
     </div>
 </section>
 {% endblock %}
