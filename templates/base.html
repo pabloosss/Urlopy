@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='request-compact.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-panels.css') }}?v=5">
     <link rel="stylesheet" href="{{ url_for('static', filename='final-ui.css') }}?v=1">
-    <link rel="stylesheet" href="{{ url_for('static', filename='final-ui-extra.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='final-ui-extra.css') }}?v=4">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
@@ -49,6 +49,9 @@
                 <a class="{% if request.endpoint and request.endpoint.startswith('employees.') %}is-active{% endif %}" href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
 
                 <div class="menu-section">Administracja</div>
+                {% if session.get('role') == 'admin' %}
+                    <a class="{% if request.endpoint == 'admin.settings_view' %}is-active{% endif %}" href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
+                {% endif %}
                 <a class="{% if request.endpoint == 'admin.audit_view' %}is-active{% endif %}" href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
             {% endif %}
         </nav>
