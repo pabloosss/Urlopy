@@ -5,34 +5,156 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wniosek urlopowy</title>
     <style>
-        @page { size: A4; margin: 16mm; }
+        @page { size: A4; margin: 14mm; }
         * { box-sizing: border-box; }
-        body { margin: 0; background: #eef0f3; color: #111; font-family: Arial, sans-serif; }
-        .toolbar { max-width: 210mm; margin: 18px auto 0; display: flex; justify-content: flex-end; gap: 8px; padding: 0 8px; }
-        .toolbar button { border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 700; cursor: pointer; }
-        .sheet { width: 210mm; min-height: 297mm; margin: 12px auto 28px; padding: 18mm 20mm; background: #fff; }
-        .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-        .logo { width: 68mm; height: auto; }
-        .date { width: 48mm; text-align: right; }
-        .date strong { display: block; border-bottom: 1px dotted #222; padding-bottom: 4px; }
-        .date span, .field span { display: block; margin-top: 4px; font-size: 11px; color: #555; }
-        h1 { margin: 26mm 0 16mm; text-align: center; font-size: 22px; }
-        .field { width: 90mm; margin-bottom: 10mm; }
-        .field strong { display: block; min-height: 24px; border-bottom: 1px dotted #222; padding-bottom: 4px; font-size: 15px; }
-        .text { margin: 14mm 0 12mm; font-size: 16px; line-height: 1.7; }
-        .wide { width: 100%; }
-        .comment { margin-top: 10mm; padding: 8mm 0 0; border-top: 1px solid #ddd; }
-        .comment b { display: block; margin-bottom: 4px; }
-        .status { margin-top: 12mm; font-weight: 700; }
-        .approval { margin-top: 24mm; font-size: 15px; }
-        .approval-line { display: flex; align-items: flex-end; gap: 12px; }
-        .approval-line span:first-child { white-space: nowrap; }
-        .approval-line .line { flex: 1; border-bottom: 1px dotted #111; height: 20px; }
-        .approval-caption { margin-top: 5px; text-align: right; padding-right: 18mm; font-size: 11px; color: #444; }
+        body {
+            margin: 0;
+            background: #eef0f3;
+            color: #151515;
+            font-family: Arial, sans-serif;
+        }
+        .toolbar {
+            max-width: 210mm;
+            margin: 18px auto 0;
+            display: flex;
+            justify-content: flex-end;
+            padding: 0 8px;
+        }
+        .toolbar button {
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 16px;
+            background: #111;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .sheet {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 12px auto 28px;
+            padding: 17mm 19mm 18mm;
+            background: #fff;
+            box-shadow: 0 12px 34px rgba(0,0,0,.08);
+        }
+        .header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            padding-bottom: 8mm;
+            border-bottom: 1px solid #e2e2e2;
+        }
+        .logo {
+            width: 66mm;
+            height: auto;
+        }
+        .date {
+            min-width: 45mm;
+            text-align: right;
+        }
+        .date strong {
+            display: block;
+            font-size: 14px;
+        }
+        .date span,
+        .field span {
+            display: block;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        h1 {
+            margin: 11mm 0 9mm;
+            text-align: center;
+            font-size: 23px;
+            font-weight: 700;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12mm;
+            margin-bottom: 10mm;
+        }
+        .field {
+            min-width: 0;
+        }
+        .field strong {
+            display: block;
+            min-height: 24px;
+            padding: 0 0 5px;
+            border-bottom: 1px solid #aaa;
+            font-size: 14px;
+        }
+        .request-box {
+            margin: 0 0 9mm;
+            padding: 8mm 9mm;
+            border: 1px solid #dedede;
+            border-radius: 8px;
+            background: #fafafa;
+            font-size: 15px;
+            line-height: 1.65;
+        }
+        .replacement {
+            margin-top: 8mm;
+        }
+        .comment {
+            margin-top: 8mm;
+            padding: 7mm 0 0;
+            border-top: 1px solid #e0e0e0;
+        }
+        .comment b {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .status {
+            margin-top: 9mm;
+            display: inline-block;
+            padding: 7px 11px;
+            border: 1px solid #bdbdbd;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .approval {
+            margin-top: 24mm;
+            padding-top: 8mm;
+            border-top: 1px solid #ddd;
+        }
+        .approval-text {
+            margin-bottom: 12mm;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .approval-signature {
+            width: 78mm;
+            margin-left: auto;
+            text-align: center;
+        }
+        .approval-signature .line {
+            height: 10mm;
+            border-bottom: 1px dotted #111;
+        }
+        .approval-caption {
+            margin-top: 4px;
+            font-size: 10px;
+            color: #555;
+        }
         @media print {
             body { background: #fff; }
             .toolbar { display: none; }
-            .sheet { width: auto; min-height: auto; margin: 0; padding: 0; }
+            .sheet {
+                width: auto;
+                min-height: auto;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
         }
     </style>
 </head>
@@ -46,35 +168,36 @@
             <img class="logo" src="{{ url_for('static', filename='img/logo.svg') }}?v=2" alt="EMERLOG">
             <div class="date">
                 <strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong>
-                <span>data</span>
+                <span>data złożenia</span>
             </div>
         </header>
 
         <h1>Wniosek urlopowy</h1>
 
-        <div class="field">
-            <strong>{{ req.full_name }}</strong>
-            <span>pracownik</span>
+        <div class="meta-grid">
+            <div class="field">
+                <strong>{{ req.full_name }}</strong>
+                <span>pracownik</span>
+            </div>
+            <div class="field">
+                <strong>{{ req.company_name or "EMERLOG SP. Z O. O." }}</strong>
+                <span>spółka</span>
+            </div>
         </div>
 
-        <div class="field">
-            <strong>{{ req.company_name or "EMERLOG SP. Z O. O." }}</strong>
-            <span>spółka</span>
-        </div>
-
-        <p class="text">
+        <div class="request-box">
             Proszę o udzielenie
             {% if req.leave_type in ['Urlop wypoczynkowy', 'Urlop na żądanie'] %}
                 urlopu wypoczynkowego
             {% else %}
-                nieobecności: {{ req.leave_type }}
+                nieobecności: <b>{{ req.leave_type }}</b>
             {% endif %}
             w liczbie <b>{{ req.days_count }}</b> dni, w terminie od
             <b>{{ req.date_from|pldate }}</b> do <b>{{ req.date_to|pldate }}</b>.
-        </p>
+        </div>
 
         {% if req.department and req.department|lower == 'spedycja' %}
-        <div class="field wide">
+        <div class="field replacement">
             <strong>{{ req.replacement_name or "—" }}</strong>
             <span>W czasie urlopu zastępować będzie mnie</span>
         </div>
@@ -90,11 +213,11 @@
         <div class="status">Status: zaakceptowany</div>
 
         <div class="approval">
-            <div class="approval-line">
-                <span>Wyrażam zgodę na urlop we wskazanym terminie</span>
-                <span class="line"></span>
+            <div class="approval-text">Potwierdzam, że wyrażam zgodę na urlop wskazanej osoby.</div>
+            <div class="approval-signature">
+                <div class="line"></div>
+                <div class="approval-caption">podpis osoby upoważnionej</div>
             </div>
-            <div class="approval-caption">podpis osoby upoważnionej</div>
         </div>
     </main>
 
