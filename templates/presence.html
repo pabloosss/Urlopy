@@ -48,7 +48,7 @@
     <div class="section-head-row"><h2>Pracownicy</h2><span class="chip">{{ employees|length }}</span></div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Pracownik</th><th>Dział</th><th>Menedżer</th><th>Status</th><th>Typ</th><th>Termin</th><th>Komentarz</th></tr></thead>
+            <thead><tr><th>Pracownik</th><th>Dział</th><th>Menedżer</th><th>Status</th><th>Typ</th><th>Termin</th></tr></thead>
             <tbody>
             {% for row in employees %}
                 <tr>
@@ -58,10 +58,9 @@
                     <td><span class="status status-day-{{ row.day_status|replace(' ', '-') }}">{{ row.day_status }}</span></td>
                     <td>{{ row.type }}</td>
                     <td>{% if row.absence %}{{ row.absence.date_from|pldate }} – {{ row.absence.date_to|pldate }}{% else %}—{% endif %}</td>
-                    <td>{{ row.absence.comment if row.absence and row.absence.comment else "—" }}</td>
                 </tr>
             {% else %}
-                <tr><td colspan="7" class="empty-state">Brak osób.</td></tr>
+                <tr><td colspan="6" class="empty-state">Brak osób.</td></tr>
             {% endfor %}
             </tbody>
         </table>
