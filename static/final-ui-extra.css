@@ -1,0 +1,140 @@
+.admin-create-panel {
+    padding: 0;
+    overflow: hidden;
+}
+.admin-create-panel > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 900;
+    background: #fff;
+}
+.admin-create-panel > summary::-webkit-details-marker { display: none; }
+.admin-create-panel > summary::after {
+    content: "+";
+    float: right;
+    color: #6b7280;
+    font-size: 18px;
+}
+.admin-create-panel[open] > summary {
+    border-bottom: 1px solid #e5e7eb;
+}
+.admin-create-panel[open] > summary::after { content: "−"; }
+.admin-create-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+    gap: 24px;
+    padding: 20px;
+}
+.admin-create-grid h2 { margin: 0 0 14px; }
+.company-create-section {
+    padding-left: 24px;
+    border-left: 1px solid #e5e7eb;
+}
+
+.request-hero-status {
+    min-width: 118px;
+    text-align: right;
+}
+.request-hero-status span,
+.request-hero-status small {
+    display: block;
+    color: #69717d;
+    font-size: 11px;
+    font-weight: 800;
+}
+.request-hero-status strong {
+    display: block;
+    margin: 2px 0;
+    color: #d71920;
+    font-size: 32px;
+    line-height: 1;
+}
+.leave-form-grid {
+    grid-template-columns: minmax(0, 1fr) 285px;
+    gap: 14px;
+}
+.request-form-card,
+.live-summary-card { border-radius: 14px; }
+.form-step {
+    padding: 0 0 22px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid #eceef1;
+}
+.form-step:last-of-type { margin-bottom: 14px; }
+.step-head { margin-bottom: 14px; }
+.step-head > span {
+    width: 25px;
+    height: 25px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 7px;
+    background: #17191c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+}
+.step-head h2 { font-size: 16px; }
+.leave-type-grid { gap: 8px; }
+.leave-type-card {
+    min-height: 82px;
+    border-radius: 10px;
+    box-shadow: none;
+}
+.quick-date-buttons { gap: 6px; }
+.quick-date-buttons button {
+    background: #f0f2f4;
+    color: #343a42;
+    border: 1px solid #dde1e6;
+    font-size: 12px;
+}
+.quick-date-buttons button:hover { background: #e8eaed; }
+.request-submit-bar { margin-top: 4px; }
+.live-summary-card { position: sticky; top: 86px; }
+.live-days-number { font-size: 54px; }
+
+.profile-status-text { font-size: 20px !important; }
+.employee-profile-grid {
+    grid-template-columns: 390px minmax(0, 1fr);
+    gap: 14px;
+}
+.employee-profile-grid .form-card { top: 82px; }
+.employee-profile-actions form { border-radius: 10px; box-shadow: none; }
+.audit-item {
+    border-radius: 11px;
+    box-shadow: none;
+    padding: 13px;
+}
+.audit-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    box-shadow: none;
+    font-size: 15px;
+}
+.audit-content h3 { font-size: 14px; margin: 3px 0 5px; }
+.audit-details { font-size: 12px; }
+
+.my-request-item {
+    border-radius: 11px;
+    box-shadow: none;
+}
+.my-request-item h3 { font-size: 18px; }
+.my-request-footer { border-top-color: #eceef1; }
+
+@media (max-width: 1050px) {
+    .admin-create-grid,
+    .leave-form-grid,
+    .employee-profile-grid {
+        grid-template-columns: 1fr;
+    }
+    .company-create-section {
+        padding-left: 0;
+        padding-top: 20px;
+        border-left: 0;
+        border-top: 1px solid #e5e7eb;
+    }
+    .live-summary-card,
+    .employee-profile-grid .form-card { position: static; }
+}
