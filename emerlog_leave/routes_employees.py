@@ -32,7 +32,7 @@ def _next(default="employees.employees_view"):
 def _employee_lists(conn):
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
     managers = conn.execute("""
-        SELECT id, full_name, department, job_title
+        SELECT id, full_name, department
         FROM users
         WHERE role = 'menedzer' AND active = 1
         ORDER BY full_name
@@ -62,53 +62,36 @@ def employees_view():
     conn = get_db()
 
     if request.method == "POST":
-        form_kind = request.form.get("form_kind", "employee")
-        if form_kind == "company":
-            company_name = request.form.get("company_name", "").strip()
-            if not company_name:
-                flash("Podaj nazwę spółki.")
-            else:
-                try:
-                    conn.execute("INSERT OR IGNORE INTO companies (name) VALUES (?)", (company_name,))
-                    log_action(conn, "dodano spółkę", "company", None, company_name)
-                    conn.commit()
-                    flash("Spółka została dodana.")
-                except Exception as error:
-                    conn.rollback()
-                    flash(f"Nie udało się dodać spółki. Błąd: {error}")
+        login_value = request.form.get("login", "").strip()
+        full_name = request.form.get("full_name", "").strip()
+        password = request.form.get("password", "").strip() or "Start123!"
+        if not login_value or not full_name:
+            flash("Login i imię/nazwisko są wymagane.")
         else:
-            login_value = request.form.get("login", "").strip()
-            full_name = request.form.get("full_name", "").strip()
-            password = request.form.get("password", "").strip() or "Start123!"
-            if not login_value or not full_name:
-                flash("Login i imię/nazwisko są wymagane.")
-            else:
-                try:
-                    cur = conn.execute("""
-                        INSERT INTO users (
-                            login, password_hash, full_name, email, role, vacation_days,
-                            active, department, job_title, manager_id, contract_type, carryover_days, company_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        login_value,
-                        generate_password_hash(password),
-                        full_name,
-                        request.form.get("email", "").strip(),
-                        request.form.get("role") or "pracownik",
-                        _to_int(request.form.get("vacation_days"), 26),
-                        request.form.get("department", "").strip(),
-                        request.form.get("job_title", "").strip(),
-                        request.form.get("manager_id") or None,
-                        request.form.get("contract_type", "Umowa o pracę"),
-                        _to_int(request.form.get("carryover_days"), 0),
-                        _company_id_from_form(),
-                    ))
-                    log_action(conn, "dodano pracownika", "user", cur.lastrowid, full_name)
-                    conn.commit()
-                    flash("Pracownik dodany.")
-                except Exception as error:
-                    conn.rollback()
-                    flash(f"Nie udało się dodać pracownika. Sprawdź login. Błąd: {error}")
+            try:
+                cur = conn.execute("""
+                    INSERT INTO users (
+                        login, password_hash, full_name, email, role, vacation_days,
+                        active, department, job_title, manager_id, contract_type, carryover_days, company_id
+                    ) VALUES (?, ?, ?, '', ?, ?, 1, ?, '', ?, ?, ?, ?)
+                """, (
+                    login_value,
+                    generate_password_hash(password),
+                    full_name,
+                    request.form.get("role") or "pracownik",
+                    _to_int(request.form.get("vacation_days"), 26),
+                    request.form.get("department", "").strip(),
+                    request.form.get("manager_id") or None,
+                    request.form.get("contract_type", "Umowa o pracę"),
+                    _to_int(request.form.get("carryover_days"), 0),
+                    _company_id_from_form(),
+                ))
+                log_action(conn, "dodano pracownika", "user", cur.lastrowid, full_name)
+                conn.commit()
+                flash("Pracownik dodany.")
+            except Exception as error:
+                conn.rollback()
+                flash(f"Nie udało się dodać pracownika. Sprawdź login. Błąd: {error}")
 
     q = request.args.get("q", "").strip()
     role = request.args.get("role", "").strip()
@@ -120,8 +103,8 @@ def employees_view():
     filters = ["1=1"]
     params = []
     if q:
-        filters.append("(u.full_name LIKE ? OR u.login LIKE ? OR u.email LIKE ? OR u.job_title LIKE ? OR c.name LIKE ?)")
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        filters.append("(u.full_name LIKE ? OR u.login LIKE ? OR c.name LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
     if role:
         filters.append("u.role = ?")
         params.append(role)
@@ -255,18 +238,16 @@ def edit_employee(user_id):
         active = 1 if request.form.get("active") == "1" else 0
         conn.execute("""
             UPDATE users
-            SET login=?, full_name=?, email=?, role=?, vacation_days=?, active=?,
-                department=?, job_title=?, manager_id=?, contract_type=?, carryover_days=?, company_id=?
+            SET login=?, full_name=?, role=?, vacation_days=?, active=?,
+                department=?, manager_id=?, contract_type=?, carryover_days=?, company_id=?
             WHERE id=?
         """, (
             login_value,
             full_name,
-            request.form.get("email", "").strip(),
             request.form.get("role") or "pracownik",
             _to_int(request.form.get("vacation_days"), 26),
             active,
             request.form.get("department", "").strip(),
-            request.form.get("job_title", "").strip(),
             manager_id,
             request.form.get("contract_type", "Umowa o pracę"),
             _to_int(request.form.get("carryover_days"), 0),
