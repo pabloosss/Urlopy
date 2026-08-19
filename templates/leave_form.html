@@ -3,8 +3,8 @@
 {% block content %}
 <section class="page-title request-hero">
     <div>
-        <p class="eyebrow">Nowy wniosek</p>
-        <h1>Złóż wniosek</h1>
+        <h1>Nowy wniosek</h1>
+        <p>{{ user.full_name }} · {{ user.department or "—" }}</p>
     </div>
     <div class="request-hero-status">
         <span>Dostępne</span>
@@ -19,7 +19,7 @@
             <section class="form-step">
                 <div class="step-head">
                     <span>1</span>
-                    <div><h2>Typ</h2></div>
+                    <div><h2>Rodzaj</h2></div>
                 </div>
 
                 <div class="leave-type-grid">
@@ -41,11 +41,11 @@
 
                 <div class="date-grid request-date-grid">
                     <div>
-                        <label>Data od</label>
+                        <label>Od</label>
                         <input type="date" name="date_from" id="dateFrom" value="{{ form_data.date_from }}" required>
                     </div>
                     <div>
-                        <label>Data do</label>
+                        <label>Do</label>
                         <input type="date" name="date_to" id="dateTo" value="{{ form_data.date_to }}" required>
                     </div>
                 </div>
@@ -69,9 +69,7 @@
                 <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz imię lub nazwisko" value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name }}{% endif %}{% endfor %}">
                 <input type="hidden" name="replacement_user_id" id="replacementUserId" value="{{ form_data.replacement_user_id }}">
                 <datalist id="replacementOptions">
-                    {% for employee in employees %}
-                    <option value="{{ employee.full_name }}"></option>
-                    {% endfor %}
+                    {% for employee in employees %}<option value="{{ employee.full_name }}"></option>{% endfor %}
                 </datalist>
                 {% endif %}
 
@@ -80,29 +78,20 @@
             </section>
 
             <div class="request-submit-bar">
-                <button type="submit" id="submitRequestBtn">Wyślij wniosek</button>
-                <a class="btn-secondary" href="{{ url_for('requests.requests_view') }}">Wróć</a>
+                <button type="submit" id="submitRequestBtn">Zapisz wniosek</button>
+                <a class="btn-secondary" href="{{ url_for('main.my_leave') }}">Anuluj</a>
             </div>
         </form>
     </div>
 
     <aside class="request-side-panel">
         <div class="card live-summary-card">
-            <p class="eyebrow">Podsumowanie</p>
-            <h2 id="summaryTitle">Daty</h2>
+            <h2 id="summaryTitle">Podsumowanie</h2>
             <div class="live-days-number" id="liveDays">0</div>
             <p id="liveDaysText">dni roboczych</p>
             <div class="summary-line"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong></div>
             <div class="summary-line"><span>Po wniosku</span><strong id="afterRequestDays">{{ vacation_summary.available }}</strong></div>
             <div class="summary-alert" id="summaryAlert">Wybierz daty.</div>
-        </div>
-
-        <div class="card request-info-card">
-            <h2>Limity</h2>
-            <div class="mini-summary compact-summary">
-                <div><span>Limit</span><strong>{{ vacation_summary.total }}</strong></div>
-                <div><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
-            </div>
         </div>
     </aside>
 </div>
@@ -170,17 +159,10 @@
     function holidaySet(year) {
         const e = easter(year);
         const dates = [
-            new Date(year, 0, 1, 12),
-            new Date(year, 0, 6, 12),
-            addDays(e, 1),
-            new Date(year, 4, 1, 12),
-            new Date(year, 4, 3, 12),
-            addDays(e, 60),
-            new Date(year, 7, 15, 12),
-            new Date(year, 10, 1, 12),
-            new Date(year, 10, 11, 12),
-            new Date(year, 11, 25, 12),
-            new Date(year, 11, 26, 12)
+            new Date(year, 0, 1, 12), new Date(year, 0, 6, 12), addDays(e, 1),
+            new Date(year, 4, 1, 12), new Date(year, 4, 3, 12), addDays(e, 60),
+            new Date(year, 7, 15, 12), new Date(year, 10, 1, 12),
+            new Date(year, 10, 11, 12), new Date(year, 11, 25, 12), new Date(year, 11, 26, 12)
         ];
         return new Set(dates.map(formatDate));
     }
@@ -192,7 +174,7 @@
 
     function countWorkdays(start, end) {
         if (!start || !end || end < start) return null;
-        let holidays = new Set();
+        const holidays = new Set();
         for (let year = start.getFullYear(); year <= end.getFullYear(); year++) {
             holidaySet(year).forEach(day => holidays.add(day));
         }
@@ -209,10 +191,7 @@
     function syncReplacement() {
         if (!replacementSearch || !replacementUserId) return;
         const typed = replacementSearch.value.trim().toLowerCase();
-        if (!typed) {
-            replacementUserId.value = '';
-            return;
-        }
+        if (!typed) { replacementUserId.value = ''; return; }
         const match = replacementPeople.find(person => person.name.toLowerCase() === typed);
         replacementUserId.value = match ? match.id : '';
     }
@@ -229,7 +208,7 @@
             liveDays.textContent = '0';
             liveDaysText.textContent = 'dni roboczych';
             afterRequestDays.textContent = availableDays;
-            summaryTitle.textContent = 'Daty';
+            summaryTitle.textContent = 'Podsumowanie';
             summaryAlert.textContent = 'Sprawdź daty.';
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = false;
@@ -240,7 +219,7 @@
         liveDays.textContent = days;
         liveDaysText.textContent = days === 1 ? 'dzień roboczy' : 'dni roboczych';
         afterRequestDays.textContent = after;
-        summaryTitle.textContent = type || 'Wniosek';
+        summaryTitle.textContent = type || 'Podsumowanie';
 
         if (days <= 0) {
             summaryAlert.textContent = 'Brak dni roboczych.';
@@ -251,15 +230,15 @@
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = true;
         } else if (type === 'Inne') {
-            summaryAlert.textContent = 'Wymagany komentarz.';
+            summaryAlert.textContent = 'Komentarz jest wymagany.';
             summaryAlert.className = 'summary-alert is-neutral';
             submitBtn.disabled = false;
         } else if (usesLimit) {
-            summaryAlert.textContent = `Zostanie ${after} dni.`;
+            summaryAlert.textContent = `Pozostanie ${after} dni.`;
             summaryAlert.className = 'summary-alert is-ok';
             submitBtn.disabled = false;
         } else {
-            summaryAlert.textContent = 'Bez limitu urlopu.';
+            summaryAlert.textContent = 'Bez pomniejszania limitu.';
             summaryAlert.className = 'summary-alert is-neutral';
             submitBtn.disabled = false;
         }
@@ -272,19 +251,14 @@
             let start = new Date(today);
             let end = new Date(today);
 
-            if (button.dataset.range === 'tomorrow') {
-                start = addDays(today, 1);
-                end = addDays(today, 1);
-            }
+            if (button.dataset.range === 'tomorrow') { start = addDays(today, 1); end = addDays(today, 1); }
             if (button.dataset.range === 'week') {
                 const mondayOffset = day === 0 ? -6 : 1 - day;
-                start = addDays(today, mondayOffset);
-                end = addDays(start, 4);
+                start = addDays(today, mondayOffset); end = addDays(start, 4);
             }
             if (button.dataset.range === 'next-week') {
                 const mondayOffset = day === 0 ? 1 : 8 - day;
-                start = addDays(today, mondayOffset);
-                end = addDays(start, 4);
+                start = addDays(today, mondayOffset); end = addDays(start, 4);
             }
 
             dateFrom.value = formatDate(start);
@@ -302,7 +276,7 @@
         syncReplacement();
         if (replacementSearch && replacementSearch.value.trim() && !replacementUserId.value) {
             event.preventDefault();
-            alert('Wybierz zastępstwo z podpowiedzi albo zostaw pole puste.');
+            alert('Wybierz osobę z listy podpowiedzi albo pozostaw pole puste.');
         }
     });
 
