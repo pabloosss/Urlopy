@@ -199,7 +199,7 @@ def employee_profile(user_id):
     summary = vacation_summary(conn, user)
     conn.close()
     return render_template(
-        "employee_profile.html",
+        "employee_profile_clean.html",
         user=user,
         requests_list=requests_list,
         request_stats=request_stats,
