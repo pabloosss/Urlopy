@@ -58,7 +58,7 @@
         <div class="section-head-row"><h2>Historia wniosków</h2><span class="chip">{{ requests_list|length }}</span></div>
         <div class="table-wrapper">
             <table>
-                <thead><tr><th>Złożono</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Komentarz</th><th>Akcje</th></tr></thead>
+                <thead><tr><th>Złożono</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th>{% if session.get('role') == 'admin' %}<th>Komentarz</th>{% endif %}<th>Akcje</th></tr></thead>
                 <tbody>
                 {% for req in requests_list %}
                     <tr>
@@ -67,7 +67,7 @@
                         <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
                         <td><b>{{ req.days_count }}</b></td>
                         <td><span class="status status-{{ req.status }}">{{ req.status }}</span></td>
-                        <td>{{ req.comment or "—" }}</td>
+                        {% if session.get('role') == 'admin' %}<td>{{ req.comment or "—" }}</td>{% endif %}
                         <td class="request-admin-actions">
                             {% if req.status == 'zaakceptowany' %}<a class="btn-secondary btn-mini" target="_blank" href="{{ url_for('request_pdf.print_request_pdf', request_id=req.id) }}">PDF</a>{% endif %}
                             <form class="inline-form" method="post" action="{{ url_for('requests.change_request_status', request_id=req.id, action='delete') }}" onsubmit="return confirm('Na pewno usunąć ten wniosek?');">
@@ -77,7 +77,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="7" class="empty-state">Brak wniosków.</td></tr>
+                    <tr><td colspan="{% if session.get('role') == 'admin' %}7{% else %}6{% endif %}" class="empty-state">Brak wniosków.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
