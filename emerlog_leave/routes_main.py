@@ -12,6 +12,7 @@ from .services import (
     visible_user_ids,
     vacation_summary,
     parse_date,
+    surname_first,
     is_hr,
     is_manager,
 )
@@ -199,8 +200,10 @@ def presence_view():
             filters.append("u.department = ?")
             params.append(department)
         if employee:
-            filters.append("u.full_name LIKE ?")
-            params.append(f"%{employee}%")
+            parts = employee.split()
+            reversed_employee = " ".join(parts[1:] + parts[:1]) if len(parts) > 1 else employee
+            filters.append("(u.full_name LIKE ? OR u.full_name LIKE ?)")
+            params.extend([f"%{employee}%", f"%{reversed_employee}%"])
 
         people = conn.execute(
             f"""
@@ -208,10 +211,13 @@ def presence_view():
             FROM users u
             LEFT JOIN users m ON u.manager_id = m.id
             WHERE {' AND '.join(filters)}
-            ORDER BY u.department, u.full_name
             """,
             params,
         ).fetchall()
+        people = sorted(
+            people,
+            key=lambda person: ((person["department"] or "").casefold(), surname_first(person["full_name"]).casefold()),
+        )
 
         for person in people:
             absence = conn.execute(
@@ -303,8 +309,10 @@ def calendar_view():
             filters.append("u.department = ?")
             params.append(department)
         if employee:
-            filters.append("u.full_name LIKE ?")
-            params.append(f"%{employee}%")
+            parts = employee.split()
+            reversed_employee = " ".join(parts[1:] + parts[:1]) if len(parts) > 1 else employee
+            filters.append("(u.full_name LIKE ? OR u.full_name LIKE ?)")
+            params.extend([f"%{employee}%", f"%{reversed_employee}%"])
         if leave_type:
             filters.append("lr.leave_type = ?")
             params.append(leave_type)
@@ -315,10 +323,10 @@ def calendar_view():
             FROM leave_requests lr
             JOIN users u ON u.id = lr.user_id
             WHERE {' AND '.join(filters)}
-            ORDER BY lr.date_from, u.full_name
             """,
             params,
         ).fetchall()
+        rows = sorted(rows, key=lambda row: (row["date_from"], surname_first(row["full_name"]).casefold()))
 
         team_stats["requests"] = len(rows)
         team_stats["days"] = sum((row["days_count"] or 0) for row in rows)
