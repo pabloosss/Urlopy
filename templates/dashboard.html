@@ -4,7 +4,7 @@
 <section class="home-panel-layout dashboard-pretty">
     <aside class="home-user-panel">
         <p class="panel-label">Mój panel</p>
-        <h1>{{ user.full_name }}</h1>
+        <h1>{{ user.full_name|surname_first }}</h1>
 
         <div class="panel-info-list">
             <div><span>Spółka</span><strong>{{ user.company_name or "—" }}</strong></div>
