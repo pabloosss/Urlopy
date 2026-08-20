@@ -159,6 +159,8 @@ def init_db():
             year INTEGER NOT NULL,
             base_days INTEGER NOT NULL DEFAULT 0,
             opening_carryover INTEGER NOT NULL DEFAULT 0,
+            opening_used_days INTEGER NOT NULL DEFAULT 0,
+            availability_adjustment INTEGER NOT NULL DEFAULT 0,
             used_days INTEGER,
             carried_to_next INTEGER,
             processed_at TEXT,
@@ -166,6 +168,11 @@ def init_db():
             PRIMARY KEY (user_id, year)
         )
     """)
+    for name, definition in {
+        "opening_used_days": "INTEGER NOT NULL DEFAULT 0",
+        "availability_adjustment": "INTEGER NOT NULL DEFAULT 0",
+    }.items():
+        _ensure_column(cur, "vacation_year_balances", name, definition)
 
     for dep in ["Spedycja", "Księgowość", "Kadry", "Administracja", "IT", "Zarząd"]:
         cur.execute("INSERT OR IGNORE INTO departments (name) VALUES (?)", (dep,))
