@@ -14,7 +14,7 @@
         <input name="employee" placeholder="Pracownik" value="{{ request.args.get('employee','') }}">
         <select name="company_id"><option value="">Spółka</option>{% for c in companies %}<option value="{{ c.id }}" {% if request.args.get('company_id') == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
         <select name="department"><option value="">Dział</option>{% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
-        <select name="manager_id"><option value="">Menedżer</option>{% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name }}</option>{% endfor %}</select>
+        <select name="manager_id"><option value="">Menedżer</option>{% for m in managers %}<option value="{{ m.id }}" {% if request.args.get('manager_id') == m.id|string %}selected{% endif %}>{{ m.full_name|surname_first }}</option>{% endfor %}</select>
         <select name="status"><option value="">Status</option>{% for s in statuses %}<option value="{{ s }}" {% if request.args.get('status') == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
         <select name="leave_type"><option value="">Typ</option>{% for t in leave_types %}<option value="{{ t }}" {% if request.args.get('leave_type') == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
         <input type="date" name="date_from" title="Termin od" value="{{ request.args.get('date_from','') }}">
@@ -32,7 +32,7 @@
             <tbody>
             {% for req in requests_list %}
                 <tr>
-                    <td><b>{{ req.full_name }}</b><br><small>{{ req.department or "—" }}</small></td>
+                    <td><b>{{ req.full_name|surname_first }}</b><br><small>{{ req.department or "—" }}</small></td>
                     <td>{{ req.company_name or "—" }}</td>
                     <td>{{ req.leave_type }}</td>
                     <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
