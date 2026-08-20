@@ -5,7 +5,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import SECRET_KEY, LEAVE_TYPES, FORCE_HTTPS, SESSION_COOKIE_SECURE
 from .database import get_db, init_db
-from .services import format_pl_date, get_app_setting, is_hr, is_manager, ensure_vacation_years
+from .services import format_pl_date, get_app_setting, is_hr, is_manager, ensure_vacation_years, surname_first
 from .routes_main import bp as main_bp
 from .routes_requests import bp as requests_bp
 from .routes_pdf import bp as request_pdf_bp
@@ -47,6 +47,7 @@ def create_app():
     app.register_blueprint(backups_bp)
 
     app.template_filter("pldate")(format_pl_date)
+    app.template_filter("surname_first")(surname_first)
 
     @app.before_request
     def enforce_https_year_and_policies():
