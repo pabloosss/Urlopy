@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <h1>Import pracowników</h1>
+        <p>Jednorazowy import kont, haseł i bilansu urlopowego z pliku XLSX.</p>
+    </div>
+</section>
+
+<div class="card form-card" style="max-width:760px;">
+    <div class="section-head-row">
+        <h2>Plik Excel</h2>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="employee-form-grid">
+        <label>Wybierz plik XLSX</label>
+        <input type="file" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+
+        <div class="settings-info-box form-field-full">
+            <strong>Co zrobi import</strong>
+            <p>
+                Konta są dopasowywane najpierw po loginie, a potem po nazwisku i imieniu. Istniejące role, działy, spółki i menedżerowie zostają zachowane. Nowe osoby są dodawane jako pracownicy EMERLOG. Hasła są od razu zapisywane jako hash.
+            </p>
+        </div>
+
+        <button type="submit" onclick="return confirm('Uruchomić import? Przed operacją zostanie automatycznie utworzony backup bazy.');">Importuj pracowników</button>
+    </form>
+</div>
+
+{% if result %}
+<section class="stats-grid" style="margin-top:18px;">
+    <div class="stat-card accent"><span>Razem</span><strong>{{ result.total or 0 }}</strong></div>
+    <div class="stat-card"><span>Dodano</span><strong>{{ result.added or 0 }}</strong></div>
+    <div class="stat-card"><span>Zaktualizowano</span><strong>{{ result.updated or 0 }}</strong></div>
+    <div class="stat-card"><span>Pominięto</span><strong>{{ result.skipped or 0 }}</strong></div>
+</section>
+
+{% if result.backup %}
+<div class="card" style="margin-top:16px;">
+    <div class="section-head-row"><h2>Backup przed importem</h2></div>
+    <p><b>{{ result.backup }}</b></p>
+</div>
+{% endif %}
+
+{% if result.errors %}
+<div class="card" style="margin-top:16px;">
+    <div class="section-head-row"><h2>Uwagi do pliku</h2></div>
+    <div class="audit-list">
+        {% for error in result.errors %}
+        <article class="audit-item"><div class="audit-content"><p>{{ error }}</p></div></article>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if result.rows %}
+<div class="card" style="margin-top:16px;">
+    <div class="section-head-row"><h2>Wynik importu</h2><span class="chip">{{ result.rows|length }}</span></div>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Pracownik</th><th>Login</th><th>Wynik</th><th>Bilans</th></tr></thead>
+            <tbody>
+                {% for row in result.rows %}
+                <tr>
+                    <td><b>{{ row.name }}</b></td>
+                    <td>{{ row.login }}</td>
+                    <td>
+                        {% if row.status == 'Pominięto' %}
+                            <span class="status status-anulowany">{{ row.status }}</span>
+                        {% elif row.status == 'Dodano' %}
+                            <span class="status status-zaakceptowany">{{ row.status }}</span>
+                        {% else %}
+                            <span class="status">{{ row.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.details }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
