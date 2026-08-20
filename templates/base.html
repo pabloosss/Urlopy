@@ -53,6 +53,7 @@
                 <div class="menu-section">Administracja</div>
                 {% if session.get('role') == 'admin' %}
                     <a class="{% if request.endpoint == 'admin.settings_view' %}is-active{% endif %}" href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
+                    <a class="{% if request.endpoint and request.endpoint.startswith('employee_import.') %}is-active{% endif %}" href="{{ url_for('employee_import.import_employees_view') }}">Import pracowników</a>
                     <a class="{% if request.endpoint and request.endpoint.startswith('backups.') %}is-active{% endif %}" href="{{ url_for('backups.backups_view') }}">Backup</a>
                 {% endif %}
                 <a class="{% if request.endpoint == 'admin.audit_view' %}is-active{% endif %}" href="{{ url_for('admin.audit_view') }}">Historia zmian</a>
