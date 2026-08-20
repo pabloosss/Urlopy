@@ -47,6 +47,15 @@ def format_pl_date(value):
         return value
 
 
+def surname_first(value):
+    """Wyświetla nazwisko przed imieniem bez zmiany danych zapisanych w bazie."""
+    text = " ".join(str(value or "").split())
+    parts = text.split(" ") if text else []
+    if len(parts) < 2:
+        return text
+    return f"{parts[-1]} {' '.join(parts[:-1])}"
+
+
 def calculate_easter(year):
     a = year % 19; b = year // 100; c = year % 100; d = b // 4; e = b % 4
     f = (b + 8) // 25; g = (b - f + 1) // 3; h = (19 * a + b - d - g + 15) % 30
