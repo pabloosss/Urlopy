@@ -8,6 +8,7 @@ from .services import (
     login_required,
     role_required,
     log_action,
+    surname_first,
     sync_user_year_balance,
     vacation_summary,
 )
@@ -42,8 +43,8 @@ def _employee_lists(conn):
         SELECT id, full_name, department
         FROM users
         WHERE role = 'menedzer' AND active = 1
-        ORDER BY full_name
     """).fetchall()
+    managers = sorted(managers, key=lambda row: surname_first(row["full_name"]).casefold())
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     return departments, managers, companies
 
@@ -114,8 +115,10 @@ def employees_view():
     filters = ["1=1"]
     params = []
     if q:
-        filters.append("(u.full_name LIKE ? OR u.login LIKE ? OR c.name LIKE ?)")
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        parts = q.split()
+        reversed_q = " ".join(parts[1:] + parts[:1]) if len(parts) > 1 else q
+        filters.append("(u.full_name LIKE ? OR u.full_name LIKE ? OR u.login LIKE ? OR c.name LIKE ?)")
+        params.extend([f"%{q}%", f"%{reversed_q}%", f"%{q}%", f"%{q}%"])
     if role:
         filters.append("u.role = ?")
         params.append(role)
@@ -145,8 +148,8 @@ def employees_view():
             GROUP BY user_id
         ) lr ON lr.user_id = u.id
         WHERE {' AND '.join(filters)}
-        ORDER BY u.active DESC, u.full_name
     """, params).fetchall()
+    users = sorted(users, key=lambda row: (not bool(row["active"]), surname_first(row["full_name"]).casefold()))
 
     stats = conn.execute("""
         SELECT
