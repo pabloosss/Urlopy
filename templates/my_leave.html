@@ -28,7 +28,7 @@
                     <h3>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</h3>
                     <p>
                         <b>{{ req.days_count }}</b> dni roboczych
-                        {% if req.replacement_name %} · zastępuje: {{ req.replacement_name }}{% endif %}
+                        {% if req.replacement_name %} · zastępuje: {{ req.replacement_name|surname_first }}{% endif %}
                     </p>
                 </div>
                 <span class="status status-{{ req.status }}">{{ req.status }}</span>
