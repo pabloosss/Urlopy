@@ -72,7 +72,7 @@
             <form method="post" class="employee-form-grid">
                 <label>Login</label><input name="login" required>
                 <label>Hasło startowe</label><input name="password" placeholder="Start123!">
-                <label>Imię i nazwisko</label><input name="full_name" required>
+                <label>Nazwisko i imię</label><input name="full_name" placeholder="np. Kowalski Jan" required>
                 <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
                 <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
                 <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
@@ -99,7 +99,7 @@
         {% for u in users %}
         <article class="employee-card role-card-{{ u.role }} {% if not u.active %}is-inactive{% endif %}">
             <div class="employee-card-main">
-                <div class="employee-avatar">{{ (u.full_name|surname_first)[:1] }}</div>
+                <div class="employee-avatar">{{ u.full_name|surname_first|first }}</div>
                 <div>
                     <h3><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name|surname_first }}</a></h3>
                     <p>
