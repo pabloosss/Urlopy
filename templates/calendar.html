@@ -26,7 +26,7 @@
                 {% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
             </select>
         </div>
-        <div><label>Pracownik</label><input name="employee" placeholder="Imię lub nazwisko" value="{{ request.args.get('employee','') }}"></div>
+        <div><label>Pracownik</label><input name="employee" placeholder="Nazwisko lub imię" value="{{ request.args.get('employee','') }}"></div>
         <div>
             <label>Typ</label>
             <select name="leave_type">
@@ -51,7 +51,7 @@
                     </div>
                     {% for req in day_items[:3] %}
                         <div class="calendar-event compact-event">
-                            <b>{{ req.full_name }}</b>
+                            <b>{{ req.full_name|surname_first }}</b>
                             <small>{{ req.leave_type }}</small>
                         </div>
                     {% endfor %}
@@ -70,7 +70,7 @@
             <tbody>
                 {% for req in requests_list %}
                 <tr>
-                    <td><b>{{ req.full_name }}</b></td>
+                    <td><b>{{ req.full_name|surname_first }}</b></td>
                     <td>{{ req.department or "—" }}</td>
                     <td>{{ req.leave_type }}</td>
                     <td>{{ req.date_from|pldate }} – {{ req.date_to|pldate }}</td>
