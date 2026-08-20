@@ -15,6 +15,7 @@ from .routes_limits import bp as limits_bp
 from .routes_reports import bp as reports_bp
 from .routes_admin_alias import bp as admin_alias_bp
 from .routes_backups import bp as backups_bp
+from .routes_employee_import import bp as employee_import_bp
 
 
 def create_app():
@@ -45,6 +46,7 @@ def create_app():
     app.register_blueprint(reports_bp)
     app.register_blueprint(admin_alias_bp)
     app.register_blueprint(backups_bp)
+    app.register_blueprint(employee_import_bp)
 
     app.template_filter("pldate")(format_pl_date)
     app.template_filter("surname_first")(surname_first)
