@@ -30,6 +30,15 @@ def _to_int(value, default=0):
         return default
 
 
+def _name_to_storage(value):
+    """Formularze przyjmują 'Nazwisko Imię', baza zachowuje dotychczasowy układ 'Imię Nazwisko'."""
+    text = " ".join((value or "").split())
+    parts = text.split(" ") if text else []
+    if len(parts) < 2:
+        return text
+    return f"{' '.join(parts[1:])} {parts[0]}"
+
+
 def _next(default="employees.employees_view"):
     target = request.form.get("next", "")
     if target.startswith("/"):
@@ -72,12 +81,12 @@ def employees_view():
 
     if request.method == "POST":
         login_value = request.form.get("login", "").strip()
-        full_name = request.form.get("full_name", "").strip()
+        full_name = _name_to_storage(request.form.get("full_name", ""))
         password = request.form.get("password", "").strip() or "Start123!"
         vacation_days = _to_int(request.form.get("vacation_days"), default_vacation_days)
         carryover_days = _to_int(request.form.get("carryover_days"), 0)
         if not login_value or not full_name:
-            flash("Login i imię/nazwisko są wymagane.")
+            flash("Login oraz nazwisko i imię są wymagane.")
         else:
             try:
                 cur = conn.execute("""
@@ -236,10 +245,10 @@ def edit_employee(user_id):
         return redirect(url_for("employees.employees_view"))
 
     login_value = request.form.get("login", "").strip()
-    full_name = request.form.get("full_name", "").strip()
+    full_name = _name_to_storage(request.form.get("full_name", ""))
     if not login_value or not full_name:
         conn.close()
-        flash("Login i imię/nazwisko są wymagane.")
+        flash("Login oraz nazwisko i imię są wymagane.")
         return _next()
 
     try:
