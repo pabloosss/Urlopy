@@ -18,7 +18,7 @@
             <label>Kto</label>
             <select name="actor_id">
                 <option value="">Wszyscy</option>
-                {% for actor in actors %}<option value="{{ actor.id }}" {% if request.args.get('actor_id') == actor.id|string %}selected{% endif %}>{{ actor.full_name }}</option>{% endfor %}
+                {% for actor in actors %}<option value="{{ actor.id }}" {% if request.args.get('actor_id') == actor.id|string %}selected{% endif %}>{{ actor.full_name|surname_first }}</option>{% endfor %}
             </select>
         </div>
         <div>
@@ -51,10 +51,10 @@
     <div class="audit-list">
         {% for log in logs %}
         <article class="audit-item">
-            <div class="audit-icon">{{ (log.actor_name or 'S')[:1] }}</div>
+            <div class="audit-icon">{{ (((log.actor_name or 'S')|surname_first)[:1]) }}</div>
             <div class="audit-content">
                 <div class="audit-topline">
-                    <strong>{{ log.actor_name or "system" }}</strong>
+                    <strong>{{ (log.actor_name|surname_first) if log.actor_name else "system" }}</strong>
                     <span>{{ log.created_at }}</span>
                 </div>
                 <h3>{{ log.action }}</h3>
