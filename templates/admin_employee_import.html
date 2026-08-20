@@ -16,16 +16,74 @@
     <form method="post" enctype="multipart/form-data" class="employee-form-grid">
         <label>Wybierz plik XLSX</label>
         <input type="file" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
-
-        <div class="settings-info-box form-field-full">
-            <strong>Co zrobi import</strong>
-            <p>
-                Konta są dopasowywane najpierw po loginie, a potem po nazwisku i imieniu. Istniejące role, działy, spółki i menedżerowie zostają zachowane. Nowe osoby są dodawane jako pracownicy EMERLOG. Hasła są od razu zapisywane jako hash.
-            </p>
-        </div>
-
         <button type="submit" onclick="return confirm('Uruchomić import? Przed operacją zostanie automatycznie utworzony backup bazy.');">Importuj pracowników</button>
     </form>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <div class="section-head-row">
+        <h2>Wzór pliku na przyszłość</h2>
+    </div>
+
+    <p><b>Umowa o pracę</b> — dane wpisuj w pierwszej części arkusza. Najważniejsze są kolumny C–I.</p>
+    <div class="table-wrapper" style="margin-top:10px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>opcjonalnie</td>
+                    <td>opcjonalnie</td>
+                    <td><b>Login</b></td>
+                    <td><b>Hasło</b></td>
+                    <td><b>Nazwisko i imię</b></td>
+                    <td><b>Pula roczna</b></td>
+                    <td><b>Zaległe</b></td>
+                    <td><b>Wykorzystane</b></td>
+                    <td><b>Pozostało</b></td>
+                </tr>
+                <tr>
+                    <td></td><td></td><td>KOWALSKI.J</td><td>Start123!</td><td>Kowalski Jan</td><td>26</td><td>5</td><td>8</td><td>23</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p style="margin-top:22px;"><b>Umowa zlecenie</b> — przed pierwszą osobą na zleceniu dodaj osobny wiersz z napisem <b>Zlecenie</b> w kolumnie A. Od tego miejsca importer używa układu poniżej.</p>
+    <div class="table-wrapper" style="margin-top:10px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>opcjonalnie</td>
+                    <td><b>Nazwisko i imię</b></td>
+                    <td><b>Login</b></td>
+                    <td><b>Hasło</b></td>
+                    <td><b>Pula roczna</b></td>
+                    <td><b>Zaległe</b></td>
+                    <td><b>Wykorzystane</b></td>
+                    <td><b>Pozostało</b></td>
+                </tr>
+                <tr>
+                    <td></td><td>Nowak Anna</td><td>NOWAK.A</td><td>Start456!</td><td>20</td><td>0</td><td>4</td><td>16</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="settings-info-box" style="margin-top:18px;">
+        <strong>Reguła przygotowania pliku</strong>
+        <p>
+            Nie zmieniaj kolejności kolumn. Login i hasło są obowiązkowe. Nazwisko wpisuj przed imieniem. W polach urlopowych wpisuj liczby całkowite. Kolumna „Pozostało” może zostać pusta — wtedy system policzy ją jako: pula roczna + zaległe − wykorzystane. Plik zapisuj jako XLSX i trzymaj wszystkie osoby w pierwszym arkuszu.
+        </p>
+    </div>
 </div>
 
 {% if result %}
