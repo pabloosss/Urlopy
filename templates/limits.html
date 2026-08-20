@@ -18,7 +18,7 @@
             <tbody>
                 {% for row in summaries %}
                 <tr>
-                    <td><b>{{ row.user.full_name }}</b><br><small>{{ row.user.department }}</small></td>
+                    <td><b>{{ row.user.full_name|surname_first }}</b><br><small>{{ row.user.department }}</small></td>
                     <td>{{ row.summary.base }}</td>
                     <td>{{ row.summary.carryover }}</td>
                     <td>{{ row.summary.accepted }}</td>
@@ -35,7 +35,7 @@
     <h2>Ręczna korekta limitu</h2>
     <form method="post" class="filters-form">
         <select name="user_id" required>
-            {% for row in summaries %}<option value="{{ row.user.id }}">{{ row.user.full_name }}</option>{% endfor %}
+            {% for row in summaries %}<option value="{{ row.user.id }}">{{ row.user.full_name|surname_first }}</option>{% endfor %}
         </select>
         <input type="number" name="vacation_days" placeholder="Limit roczny" required>
         <input type="number" name="carryover_days" placeholder="Zaległe" value="0">
@@ -51,7 +51,7 @@
             <thead><tr><th>Pracownik</th><th>Kto</th><th>Limit</th><th>Zaległe</th><th>Powód</th><th>Data</th></tr></thead>
             <tbody>
             {% for a in adjustments %}
-                <tr><td>{{ a.employee_name }}</td><td>{{ a.actor_name or "—" }}</td><td>{{ a.old_vacation_days }} → {{ a.new_vacation_days }}</td><td>{{ a.old_carryover_days }} → {{ a.new_carryover_days }}</td><td>{{ a.reason or "—" }}</td><td>{{ a.created_at }}</td></tr>
+                <tr><td>{{ a.employee_name|surname_first }}</td><td>{{ (a.actor_name|surname_first) if a.actor_name else "—" }}</td><td>{{ a.old_vacation_days }} → {{ a.new_vacation_days }}</td><td>{{ a.old_carryover_days }} → {{ a.new_carryover_days }}</td><td>{{ a.reason or "—" }}</td><td>{{ a.created_at }}</td></tr>
             {% else %}
                 <tr><td colspan="6" class="empty-state">Brak korekt.</td></tr>
             {% endfor %}
