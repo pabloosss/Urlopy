@@ -56,6 +56,15 @@ def surname_first(value):
     return f"{parts[-1]} {' '.join(parts[:-1])}"
 
 
+def surname_first_to_storage(value):
+    """Zamienia formularz 'Nazwisko Imię' na wewnętrzny format 'Imię Nazwisko'."""
+    text = " ".join(str(value or "").split())
+    parts = text.split(" ") if text else []
+    if len(parts) < 2:
+        return text
+    return f"{' '.join(parts[1:])} {parts[0]}"
+
+
 def calculate_easter(year):
     a = year % 19; b = year // 100; c = year % 100; d = b // 4; e = b % 4
     f = (b + 8) // 25; g = (b - f + 1) // 3; h = (19 * a + b - d - g + 15) % 30
@@ -187,10 +196,17 @@ def ensure_vacation_years(conn, current_year=None):
                 "SELECT * FROM vacation_year_balances WHERE user_id = ? AND year = ?",
                 (user["id"], latest_year),
             ).fetchone()
-            used = vacation_days_used_in_year(conn, user["id"], latest_year)
-            available = (previous["base_days"] or 0) + (previous["opening_carryover"] or 0)
-            unused = max(0, available - used)
-            carried = unused if carryover_enabled else 0
+            request_used = vacation_days_used_in_year(conn, user["id"], latest_year)
+            opening_used = previous["opening_used_days"] or 0
+            adjustment = previous["availability_adjustment"] or 0
+            used = opening_used + request_used
+            available = (
+                (previous["base_days"] or 0)
+                + (previous["opening_carryover"] or 0)
+                - used
+                + adjustment
+            )
+            carried = max(0, available) if carryover_enabled else 0
 
             conn.execute(
                 """
@@ -238,13 +254,21 @@ def vacation_summary(conn, user, year=None):
     base = (balance["base_days"] if balance else user["vacation_days"]) or 0
     if balance:
         carryover = balance["opening_carryover"] or 0
+        opening_used = balance["opening_used_days"] or 0
+        adjustment = balance["availability_adjustment"] or 0
     elif year == current_year:
         carryover = user["carryover_days"] or 0
+        opening_used = 0
+        adjustment = 0
     else:
         carryover = 0
+        opening_used = 0
+        adjustment = 0
 
-    accepted = vacation_days_used_in_year(conn, user["id"], year)
+    request_used = vacation_days_used_in_year(conn, user["id"], year)
+    accepted = opening_used + request_used
     total = base + carryover
+    available = total - accepted + adjustment
 
     return {
         "year": year,
@@ -253,8 +277,11 @@ def vacation_summary(conn, user, year=None):
         "carryover": carryover,
         "accepted": accepted,
         "pending": 0,
-        "available": total - accepted,
-        "unused": max(0, total - accepted),
+        "available": available,
+        "unused": max(0, available),
+        "opening_used": opening_used,
+        "request_used": request_used,
+        "availability_adjustment": adjustment,
     }
 
 
