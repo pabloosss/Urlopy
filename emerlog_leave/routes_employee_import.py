@@ -300,6 +300,8 @@ def import_employees_view():
                     })
                     continue
 
+                savepoint = f"import_row_{person['row_number']}"
+                conn.execute(f"SAVEPOINT {savepoint}")
                 try:
                     if existing:
                         login_conflict = conn.execute(
@@ -328,7 +330,6 @@ def import_employees_view():
                         )
                         user_id = existing["id"]
                         action = "Zaktualizowano"
-                        updated += 1
                     else:
                         cursor = conn.execute(
                             """
@@ -350,14 +351,20 @@ def import_employees_view():
                         )
                         user_id = cursor.lastrowid
                         action = "Dodano"
-                        added += 1
 
                     request_used, adjustment = _save_balance(conn, user_id, person, year)
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+
+                    if action == "Dodano":
+                        added += 1
+                    else:
+                        updated += 1
+
                     details = f"{person['base']} + {person['carryover']} zaległych, wykorzystane {person['used']}, pozostało {person['remaining']}"
                     if request_used:
                         details += f"; w systemie jest już {request_used} dni z wniosków"
                     if person["remaining_note"]:
-                        details += f"; zastosowano notatkę z Excela"
+                        details += "; zastosowano notatkę z Excela"
                     if adjustment:
                         details += f"; korekta bilansu {adjustment:+d}"
 
@@ -372,6 +379,8 @@ def import_employees_view():
                         session["login"] = person["login"]
                         session["full_name"] = person["storage_name"]
                 except Exception as row_error:
+                    conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                    conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     skipped += 1
                     imported_rows.append({
                         "name": person["display_name"],
