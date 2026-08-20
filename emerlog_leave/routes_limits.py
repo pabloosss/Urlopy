@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from .database import get_db
-from .services import login_required, role_required, vacation_summary, log_action, sync_user_year_balance
+from .services import login_required, role_required, vacation_summary, log_action, surname_first, sync_user_year_balance
 
 bp = Blueprint("limits", __name__)
 
@@ -29,7 +29,8 @@ def limits_view():
         conn.commit()
         flash("Limit urlopu zapisany.")
 
-    users = conn.execute("SELECT * FROM users WHERE active = 1 ORDER BY full_name").fetchall()
+    users = conn.execute("SELECT * FROM users WHERE active = 1").fetchall()
+    users = sorted(users, key=lambda user: surname_first(user["full_name"]).casefold())
     summaries = [{"user": user, "summary": vacation_summary(conn, user)} for user in users]
     adjustments = conn.execute("""
         SELECT la.*, u.full_name AS employee_name, a.full_name AS actor_name
