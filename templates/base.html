@@ -65,7 +65,7 @@
             <div class="topbar-app-name">EMERLOG <span>Urlopy</span></div>
             <div class="topbar-user">
                 <div>
-                    <strong>{{ session.get("full_name") }}</strong>
+                    <strong>{{ session.get("full_name")|surname_first }}</strong>
                     <span>{{ session.get("role") }}</span>
                 </div>
                 <a class="logout" href="{{ url_for('main.logout') }}">Wyloguj</a>
