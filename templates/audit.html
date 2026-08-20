@@ -51,14 +51,14 @@
     <div class="audit-list">
         {% for log in logs %}
         <article class="audit-item">
-            <div class="audit-icon">{{ (((log.actor_name or 'S')|surname_first)[:1]) }}</div>
+            <div class="audit-icon">{{ (log.actor_name or 'S')|surname_first|first }}</div>
             <div class="audit-content">
                 <div class="audit-topline">
                     <strong>{{ (log.actor_name|surname_first) if log.actor_name else "system" }}</strong>
                     <span>{{ log.created_at }}</span>
                 </div>
                 <h3>{{ log.action }}</h3>
-                <p><b>Obiekt:</b> {{ log.object_label }}</p>
+                <p><b>Obiekt:</b> {% if log.entity_type == 'user' and log.target_user_name %}{{ log.target_user_name|surname_first }}{% else %}{{ log.object_label }}{% endif %}</p>
                 {% if log.details %}<p class="audit-details">{{ log.details }}</p>{% endif %}
             </div>
         </article>
