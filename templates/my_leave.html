@@ -10,10 +10,10 @@
 </section>
 
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Dostępne</span><strong>{{ vacation_summary.available }}</strong></div>
-    <div class="stat-card"><span>Limit</span><strong>{{ vacation_summary.base }}</strong></div>
-    <div class="stat-card"><span>Zaległe</span><strong>{{ vacation_summary.carryover }}</strong></div>
-    <div class="stat-card"><span>Wykorzystane</span><strong>{{ vacation_summary.accepted }}</strong></div>
+    <div class="stat-card accent"><span>Dostępne łącznie</span><strong>{{ vacation_summary.available }}</strong></div>
+    <div class="stat-card"><span>Dostępne na rok {{ vacation_summary.year }}</span><strong>{{ vacation_summary.base }}</strong></div>
+    <div class="stat-card"><span>Zaległe urlopy z {{ vacation_summary.year - 1 }}</span><strong>{{ vacation_summary.carryover }}</strong></div>
+    <div class="stat-card"><span>Wykorzystane w {{ vacation_summary.year }}</span><strong>{{ vacation_summary.accepted }}</strong></div>
 </section>
 
 <div class="card my-requests-card">
