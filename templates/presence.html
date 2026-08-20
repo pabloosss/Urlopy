@@ -24,7 +24,7 @@
                 {% for d in departments %}<option value="{{ d.name }}" {% if request.args.get('department') == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
             </select>
         </div>
-        <div><label>Pracownik</label><input name="employee" placeholder="Imię lub nazwisko" value="{{ request.args.get('employee','') }}"></div>
+        <div><label>Pracownik</label><input name="employee" placeholder="Nazwisko lub imię" value="{{ request.args.get('employee','') }}"></div>
         <div>
             <label>Status</label>
             <select name="day_status">
@@ -52,9 +52,9 @@
             <tbody>
             {% for row in employees %}
                 <tr>
-                    <td><b>{{ row.user.full_name }}</b></td>
+                    <td><b>{{ row.user.full_name|surname_first }}</b></td>
                     <td>{{ row.user.department or "—" }}</td>
-                    <td>{{ row.user.manager_name or "—" }}</td>
+                    <td>{{ (row.user.manager_name|surname_first) if row.user.manager_name else "—" }}</td>
                     <td><span class="status status-day-{{ row.day_status|replace(' ', '-') }}">{{ row.day_status }}</span></td>
                     <td>{{ row.type }}</td>
                     <td>{% if row.absence %}{{ row.absence.date_from|pldate }} – {{ row.absence.date_to|pldate }}{% else %}—{% endif %}</td>
