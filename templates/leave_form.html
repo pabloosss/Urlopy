@@ -4,7 +4,7 @@
 <section class="page-title request-hero">
     <div>
         <h1>Nowy wniosek</h1>
-        <p>{{ user.full_name }} · {{ user.department or "—" }}</p>
+        <p>{{ user.full_name|surname_first }} · {{ user.department or "—" }}</p>
     </div>
     <div class="request-hero-status">
         <span>Dostępne</span>
@@ -53,10 +53,10 @@
                 <div class="step-head"><span>3</span><div><h2>Szczegóły</h2></div></div>
                 {% if user.department and user.department|lower == 'spedycja' %}
                 <label>W czasie urlopu zastępować będzie mnie{% if require_spedycja_replacement %} *{% endif %}</label>
-                <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz imię lub nazwisko" {% if require_spedycja_replacement %}required{% endif %} value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name }}{% endif %}{% endfor %}">
+                <input type="search" id="replacementSearch" list="replacementOptions" autocomplete="off" placeholder="Wpisz nazwisko lub imię" {% if require_spedycja_replacement %}required{% endif %} value="{% for employee in employees %}{% if form_data.replacement_user_id|string == employee.id|string %}{{ employee.full_name|surname_first }}{% endif %}{% endfor %}">
                 <input type="hidden" name="replacement_user_id" id="replacementUserId" value="{{ form_data.replacement_user_id }}">
                 <datalist id="replacementOptions">
-                    {% for employee in employees %}<option value="{{ employee.full_name }}"></option>{% endfor %}
+                    {% for employee in employees %}<option value="{{ employee.full_name|surname_first }}"></option>{% endfor %}
                 </datalist>
                 {% endif %}
 
@@ -89,7 +89,7 @@
     const limitTypes = {{ limit_types|tojson }};
     const replacementRequired = {{ require_spedycja_replacement|tojson }};
     const replacementPeople = [
-        {% for employee in employees %}{ id: "{{ employee.id }}", name: {{ employee.full_name|tojson }} }{% if not loop.last %},{% endif %}{% endfor %}
+        {% for employee in employees %}{ id: "{{ employee.id }}", name: {{ (employee.full_name|surname_first)|tojson }} }{% if not loop.last %},{% endif %}{% endfor %}
     ];
 
     const form = document.getElementById('leaveRequestForm');
