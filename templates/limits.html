@@ -31,12 +31,14 @@
 
 <div class="card">
     <h2>Ręczna korekta</h2>
-    <form method="post" class="filters-form">
-        <select name="user_id" required>
-            {% for row in summaries %}<option value="{{ row.user.id }}">{{ row.user.full_name|surname_first }}</option>{% endfor %}
+    <form method="post" class="filters-form" id="limitCorrectionForm">
+        <select name="user_id" id="limitUser" required>
+            {% for row in summaries %}
+            <option value="{{ row.user.id }}" data-limit="{{ row.summary.base }}" data-carryover="{{ row.summary.carryover }}" {% if selected_user_id == row.user.id|string %}selected{% endif %}>{{ row.user.full_name|surname_first }}</option>
+            {% endfor %}
         </select>
-        <input type="number" name="vacation_days" min="0" placeholder="Limit roczny" required>
-        <input type="number" name="carryover_days" min="0" placeholder="Zaległe" value="0" required>
+        <input id="limitValue" type="number" name="vacation_days" min="0" placeholder="Limit roczny" required>
+        <input id="carryoverValue" type="number" name="carryover_days" min="0" placeholder="Zaległe" required>
         <input name="reason" placeholder="Powód korekty" required>
         <button>Zapisz</button>
     </form>
@@ -57,4 +59,23 @@
         </table>
     </div>
 </div>
+
+<script>
+(function () {
+    const select = document.getElementById('limitUser');
+    const limit = document.getElementById('limitValue');
+    const carryover = document.getElementById('carryoverValue');
+    if (!select || !limit || !carryover) return;
+
+    function fillValues() {
+        const option = select.options[select.selectedIndex];
+        if (!option) return;
+        limit.value = option.dataset.limit || 0;
+        carryover.value = option.dataset.carryover || 0;
+    }
+
+    select.addEventListener('change', fillValues);
+    fillValues();
+})();
+</script>
 {% endblock %}
