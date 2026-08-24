@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 from functools import wraps
 from flask import flash, redirect, session, url_for
 
-from .config import HR_ROLES, LIMIT_TYPES
+from .config import CONTRACT_ZLECENIE, HR_ROLES, LIMIT_TYPES
 
 
 def login_required(fn):
@@ -167,14 +167,24 @@ def sync_user_year_balance(conn, user_id, base_days, carryover_days, year=None):
     )
 
 
+def _default_days_for_contract(conn, contract_type):
+    legacy = int(get_app_setting(conn, "default_vacation_days", "26") or 26)
+    if contract_type == CONTRACT_ZLECENIE:
+        return int(get_app_setting(conn, "default_vacation_days_zlecenie", str(legacy)) or legacy)
+    return int(get_app_setting(conn, "default_vacation_days_uop", str(legacy)) or legacy)
+
+
 def ensure_vacation_years(conn, current_year=None):
     """Tworzy bieżący rok i wykonuje rollover tylko raz przy zmianie roku."""
     current_year = current_year or date.today().year
     carryover_enabled = get_app_setting(conn, "carryover_enabled", "1") == "1"
-    default_days = int(get_app_setting(conn, "default_vacation_days", "26") or 26)
-    users = conn.execute("SELECT id, vacation_days, carryover_days FROM users ORDER BY id").fetchall()
+    max_carryover = int(get_app_setting(conn, "max_carryover_days", "0") or 0)
+    users = conn.execute(
+        "SELECT id, vacation_days, carryover_days, contract_type FROM users ORDER BY id"
+    ).fetchall()
 
     for user in users:
+        default_days = _default_days_for_contract(conn, user["contract_type"])
         balances = conn.execute(
             "SELECT * FROM vacation_year_balances WHERE user_id = ? ORDER BY year",
             (user["id"],),
@@ -207,6 +217,8 @@ def ensure_vacation_years(conn, current_year=None):
                 + adjustment
             )
             carried = max(0, available) if carryover_enabled else 0
+            if max_carryover > 0:
+                carried = min(carried, max_carryover)
 
             conn.execute(
                 """
@@ -218,13 +230,14 @@ def ensure_vacation_years(conn, current_year=None):
             )
 
             next_year = latest_year + 1
+            next_default_days = _default_days_for_contract(conn, user["contract_type"])
             conn.execute(
                 """
                 INSERT OR IGNORE INTO vacation_year_balances
                     (user_id, year, base_days, opening_carryover)
                 VALUES (?, ?, ?, ?)
                 """,
-                (user["id"], next_year, default_days, carried),
+                (user["id"], next_year, next_default_days, carried),
             )
             latest_year = next_year
 
