@@ -27,6 +27,11 @@ bp = Blueprint("employee_import", __name__)
 MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+MAX_XLSX_BYTES = 8 * 1024 * 1024
+MAX_XLSX_UNCOMPRESSED = 64 * 1024 * 1024
+MAX_XLSX_ENTRIES = 250
+MAX_ROWS = 5000
+MAX_COLUMNS = 100
 
 TEMPLATE_HEADERS = [
     "Typ",
@@ -109,11 +114,21 @@ def _column_index(cell_ref):
     return result - 1
 
 
+def _safe_archive_read(archive, name):
+    try:
+        info = archive.getinfo(name)
+    except KeyError as error:
+        raise ValueError("Plik XLSX jest niekompletny.") from error
+    if info.file_size > 32 * 1024 * 1024:
+        raise ValueError("Jeden z elementów pliku XLSX jest zbyt duży.")
+    return archive.read(name)
+
+
 def _xlsx_rows(file_storage):
-    payload = file_storage.read()
+    payload = file_storage.read(MAX_XLSX_BYTES + 1)
     if not payload:
         raise ValueError("Plik jest pusty.")
-    if len(payload) > 8 * 1024 * 1024:
+    if len(payload) > MAX_XLSX_BYTES:
         raise ValueError("Plik jest za duży. Maksymalny rozmiar to 8 MB.")
 
     try:
@@ -122,19 +137,27 @@ def _xlsx_rows(file_storage):
         raise ValueError("To nie jest poprawny plik XLSX.") from error
 
     with archive:
+        infos = archive.infolist()
+        if len(infos) > MAX_XLSX_ENTRIES:
+            raise ValueError("Plik XLSX zawiera zbyt dużo elementów.")
+        if any(info.flag_bits & 0x1 for info in infos):
+            raise ValueError("Szyfrowane pliki XLSX nie są obsługiwane.")
+        if sum(info.file_size for info in infos) > MAX_XLSX_UNCOMPRESSED:
+            raise ValueError("Plik XLSX po rozpakowaniu jest zbyt duży.")
+
         shared_strings = []
         if "xl/sharedStrings.xml" in archive.namelist():
-            shared_root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+            shared_root = ET.fromstring(_safe_archive_read(archive, "xl/sharedStrings.xml"))
             for item in shared_root.findall(f"{{{MAIN_NS}}}si"):
                 shared_strings.append("".join(node.text or "" for node in item.iter(f"{{{MAIN_NS}}}t")))
 
-        workbook_root = ET.fromstring(archive.read("xl/workbook.xml"))
+        workbook_root = ET.fromstring(_safe_archive_read(archive, "xl/workbook.xml"))
         sheet = workbook_root.find(f".//{{{MAIN_NS}}}sheet")
         if sheet is None:
             raise ValueError("Nie znaleziono arkusza w pliku.")
         relation_id = sheet.attrib.get(f"{{{REL_NS}}}id")
 
-        rels_root = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+        rels_root = ET.fromstring(_safe_archive_read(archive, "xl/_rels/workbook.xml.rels"))
         target = None
         for rel in rels_root.findall(f"{{{PKG_REL_NS}}}Relationship"):
             if rel.attrib.get("Id") == relation_id:
@@ -143,20 +166,25 @@ def _xlsx_rows(file_storage):
         if not target:
             raise ValueError("Nie udało się odczytać pierwszego arkusza.")
 
+        target = str(PurePosixPath(target)).lstrip("/")
         sheet_path = str(PurePosixPath("xl") / target).replace("xl/../", "")
-        if sheet_path not in archive.namelist():
+        if not sheet_path.startswith("xl/") or sheet_path not in archive.namelist():
             sheet_path = "xl/worksheets/sheet1.xml"
         if sheet_path not in archive.namelist():
             raise ValueError("Nie znaleziono danych arkusza.")
 
-        sheet_root = ET.fromstring(archive.read(sheet_path))
+        sheet_root = ET.fromstring(_safe_archive_read(archive, sheet_path))
         rows = []
         for row_node in sheet_root.findall(f".//{{{MAIN_NS}}}sheetData/{{{MAIN_NS}}}row"):
+            if len(rows) >= MAX_ROWS:
+                raise ValueError(f"Plik zawiera więcej niż {MAX_ROWS} wierszy.")
             values = {}
             max_col = -1
             for cell in row_node.findall(f"{{{MAIN_NS}}}c"):
                 ref = cell.attrib.get("r", "A1")
                 col = _column_index(ref)
+                if col < 0 or col >= MAX_COLUMNS:
+                    continue
                 max_col = max(max_col, col)
                 cell_type = cell.attrib.get("t")
                 value_node = cell.find(f"{{{MAIN_NS}}}v")
@@ -167,7 +195,10 @@ def _xlsx_rows(file_storage):
                 elif value_node is None:
                     value = ""
                 elif cell_type == "s":
-                    index = int(value_node.text or 0)
+                    try:
+                        index = int(value_node.text or 0)
+                    except ValueError:
+                        index = -1
                     value = shared_strings[index] if 0 <= index < len(shared_strings) else ""
                 elif cell_type in {"str", "e"}:
                     value = value_node.text or ""
@@ -220,6 +251,7 @@ def _contract_type(value):
 def _parse_people(rows):
     people = []
     errors = []
+    seen_logins = {}
     header_row, columns = _find_header_row(rows)
 
     for row_number, row in enumerate(rows[header_row:], start=header_row + 1):
@@ -236,29 +268,35 @@ def _parse_people(rows):
         base = _to_int(_value(row, columns, "base"))
         carryover = _to_int(_value(row, columns, "carryover"), 0)
         used = _to_int(_value(row, columns, "used"), 0)
-        remaining_raw = _value(row, columns, "remaining")
-        remaining = _to_int(remaining_raw)
-        notes = _clean(_value(row, columns, "notes"))
+        remaining = _to_int(_value(row, columns, "remaining"))
+        notes = _clean(_value(row, columns, "notes"))[:1000]
 
         contract_type = _contract_type(type_value)
         row_errors = []
         if not contract_type:
             row_errors.append("Typ musi być „Pracownik” albo „Zlecenie”")
-        if not current_name:
-            row_errors.append("brak kolumny „Nazwisko i imię”")
-        if not login:
-            row_errors.append("brak loginu")
-        if base is None:
-            row_errors.append("brak „Urlop należny”")
-        if carryover is None:
-            row_errors.append("niepoprawny „Urlop zaległy”")
-        if used is None:
-            row_errors.append("niepoprawny „Urlop wykorzystany”")
+        if not current_name or len(current_name) > 160:
+            row_errors.append("niepoprawne „Nazwisko i imię”")
+        if not login or len(login) > 120 or any(ch.isspace() for ch in login):
+            row_errors.append("niepoprawny login")
+        if login and login.casefold() in seen_logins:
+            row_errors.append(f"login powtarza się z wierszem {seen_logins[login.casefold()]}")
+        if base is None or not 0 <= base <= 366:
+            row_errors.append("„Urlop należny” musi być liczbą 0–366")
+        if carryover is None or not 0 <= carryover <= 366:
+            row_errors.append("„Urlop zaległy” musi być liczbą 0–366")
+        if used is None or not 0 <= used <= 732:
+            row_errors.append("„Urlop wykorzystany” musi być liczbą 0–732")
+        if remaining is not None and not -732 <= remaining <= 1098:
+            row_errors.append("niepoprawny „Urlop pozostały”")
+        if password and len(password) < 8:
+            row_errors.append("hasło musi mieć minimum 8 znaków")
 
         if row_errors:
             errors.append(f"Wiersz {row_number}: " + "; ".join(row_errors) + ".")
             continue
 
+        seen_logins[login.casefold()] = row_number
         if remaining is None:
             remaining = base + carryover - used
 
@@ -271,9 +309,9 @@ def _parse_people(rows):
                 "storage_name": surname_first_to_storage(current_name),
                 "aliases": [value for value in [source_name, current_name] if value],
                 "contract_type": contract_type,
-                "base": max(0, base),
-                "carryover": max(0, carryover),
-                "used": max(0, used),
+                "base": base,
+                "carryover": carryover,
+                "used": used,
                 "remaining": remaining,
                 "notes": notes,
             }
@@ -368,66 +406,22 @@ def _template_xlsx():
     sheet_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="{MAIN_NS}">
   <dimension ref="A1:J1"/>
-  <sheetViews>
-    <sheetView workbookViewId="0">
-      <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
-    </sheetView>
-  </sheetViews>
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
   <cols>{cols_xml}</cols>
-  <sheetData>
-    <row r="1" ht="24" customHeight="1">{''.join(sheet_cells)}</row>
-  </sheetData>
+  <sheetData><row r="1" ht="24" customHeight="1">{''.join(sheet_cells)}</row></sheetData>
   <autoFilter ref="A1:J1"/>
 </worksheet>'''
 
     workbook_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="{MAIN_NS}" xmlns:r="{REL_NS}">
-  <sheets>
-    <sheet name="Dane" sheetId="1" r:id="rId1"/>
-  </sheets>
-</workbook>'''
-
+<workbook xmlns="{MAIN_NS}" xmlns:r="{REL_NS}"><sheets><sheet name="Dane" sheetId="1" r:id="rId1"/></sheets></workbook>'''
     workbook_rels = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="{PKG_REL_NS}">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>'''
-
+<Relationships xmlns="{PKG_REL_NS}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'''
     root_rels = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="{PKG_REL_NS}">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>'''
-
+<Relationships xmlns="{PKG_REL_NS}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'''
     content_types = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-</Types>'''
-
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'''
     styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="2">
-    <font><sz val="11"/><name val="Calibri"/></font>
-    <font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font>
-  </fonts>
-  <fills count="3">
-    <fill><patternFill patternType="none"/></fill>
-    <fill><patternFill patternType="gray125"/></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/><bgColor indexed="64"/></patternFill></fill>
-  </fills>
-  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="2">
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1">
-      <alignment horizontal="center" vertical="center" wrapText="1"/>
-    </xf>
-  </cellXfs>
-  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
-</styleSheet>'''
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F2937"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'''
 
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", content_types)
@@ -477,10 +471,7 @@ def import_employees_view():
 
         if not people:
             flash("W pliku nie znaleziono kont do importu.")
-            return render_template(
-                "admin_employee_import.html",
-                result={"errors": parse_errors, "rows": []},
-            )
+            return render_template("admin_employee_import.html", result={"errors": parse_errors, "rows": []})
 
         conn = get_db()
         imported_rows = []
@@ -500,14 +491,11 @@ def import_employees_view():
                 existing, match_error = _find_existing_user(conn, person)
                 if match_error:
                     skipped += 1
-                    imported_rows.append(
-                        {
-                            "name": person["display_name"],
-                            "login": person["login"],
-                            "status": "Pominięto",
-                            "details": match_error,
-                        }
-                    )
+                    imported_rows.append({"name": person["display_name"], "login": person["login"], "status": "Pominięto", "details": match_error})
+                    continue
+                if existing and existing["role"] == "admin":
+                    skipped += 1
+                    imported_rows.append({"name": person["display_name"], "login": person["login"], "status": "Pominięto", "details": "konto administratora nie jest aktualizowane przez importer"})
                     continue
 
                 savepoint = f"import_row_{person['row_number']}"
@@ -523,45 +511,19 @@ def import_employees_view():
 
                         if person["password"]:
                             conn.execute(
-                                """
-                                UPDATE users
-                                SET login=?, password_hash=?, full_name=?, vacation_days=?,
-                                    carryover_days=?, contract_type=?
-                                WHERE id=?
-                                """,
-                                (
-                                    person["login"],
-                                    generate_password_hash(person["password"]),
-                                    person["storage_name"],
-                                    person["base"],
-                                    person["carryover"],
-                                    person["contract_type"],
-                                    existing["id"],
-                                ),
+                                """UPDATE users SET login=?, password_hash=?, full_name=?, vacation_days=?, carryover_days=?, contract_type=? WHERE id=?""",
+                                (person["login"], generate_password_hash(person["password"]), person["storage_name"], person["base"], person["carryover"], person["contract_type"], existing["id"]),
                             )
                         else:
                             conn.execute(
-                                """
-                                UPDATE users
-                                SET login=?, full_name=?, vacation_days=?,
-                                    carryover_days=?, contract_type=?
-                                WHERE id=?
-                                """,
-                                (
-                                    person["login"],
-                                    person["storage_name"],
-                                    person["base"],
-                                    person["carryover"],
-                                    person["contract_type"],
-                                    existing["id"],
-                                ),
+                                """UPDATE users SET login=?, full_name=?, vacation_days=?, carryover_days=?, contract_type=? WHERE id=?""",
+                                (person["login"], person["storage_name"], person["base"], person["carryover"], person["contract_type"], existing["id"]),
                             )
                         user_id = existing["id"]
                         action = "Zaktualizowano"
                     else:
                         if not person["password"]:
                             raise ValueError("nowe konto wymaga hasła")
-
                         cursor = conn.execute(
                             """
                             INSERT INTO users (
@@ -570,31 +532,19 @@ def import_employees_view():
                                 carryover_days, company_id
                             ) VALUES (?, ?, ?, '', 'pracownik', ?, 1, '', '', NULL, ?, ?, ?)
                             """,
-                            (
-                                person["login"],
-                                generate_password_hash(person["password"]),
-                                person["storage_name"],
-                                person["base"],
-                                person["contract_type"],
-                                person["carryover"],
-                                default_company_id,
-                            ),
+                            (person["login"], generate_password_hash(person["password"]), person["storage_name"], person["base"], person["contract_type"], person["carryover"], default_company_id),
                         )
                         user_id = cursor.lastrowid
                         action = "Dodano"
 
                     request_used, adjustment = _save_balance(conn, user_id, person, year)
                     conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-
                     if action == "Dodano":
                         added += 1
                     else:
                         updated += 1
 
-                    details = (
-                        f"{person['base']} + {person['carryover']} zaległych, "
-                        f"wykorzystane {person['used']}, pozostało {person['remaining']}"
-                    )
+                    details = f"{person['base']} + {person['carryover']} zaległych, wykorzystane {person['used']}, pozostało {person['remaining']}"
                     if request_used:
                         details += f"; w systemie jest już {request_used} dni z wniosków"
                     if person["notes"]:
@@ -604,15 +554,7 @@ def import_employees_view():
                     if existing and not person["password"]:
                         details += "; hasło bez zmian"
 
-                    imported_rows.append(
-                        {
-                            "name": person["display_name"],
-                            "login": person["login"],
-                            "status": action,
-                            "details": details,
-                        }
-                    )
-
+                    imported_rows.append({"name": person["display_name"], "login": person["login"], "status": action, "details": details})
                     if user_id == session.get("user_id"):
                         session["login"] = person["login"]
                         session["full_name"] = person["storage_name"]
@@ -620,14 +562,7 @@ def import_employees_view():
                     conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
                     conn.execute(f"RELEASE SAVEPOINT {savepoint}")
                     skipped += 1
-                    imported_rows.append(
-                        {
-                            "name": person["display_name"],
-                            "login": person["login"],
-                            "status": "Pominięto",
-                            "details": str(row_error),
-                        }
-                    )
+                    imported_rows.append({"name": person["display_name"], "login": person["login"], "status": "Pominięto", "details": str(row_error)})
 
             log_action(
                 conn,
@@ -637,7 +572,6 @@ def import_employees_view():
                 f"dodano={added}, zaktualizowano={updated}, pominięto={skipped}, backup={backup_path.name}",
             )
             conn.commit()
-
             result = {
                 "added": added,
                 "updated": updated,
