@@ -7,13 +7,12 @@ from flask import Blueprint, Response, render_template, request
 
 from .database import get_db
 from .services import (
-    count_workdays,
     get_app_setting,
     login_required,
-    parse_date,
     role_required,
     surname_first,
     vacation_summary,
+    workdays_in_period,
 )
 
 bp = Blueprint("hr_tools", __name__)
@@ -22,7 +21,7 @@ bp = Blueprint("hr_tools", __name__)
 def _month_range(value):
     try:
         year, month = [int(part) for part in value.split("-", 1)]
-        if month < 1 or month > 12:
+        if year < 2000 or year > 2100 or month < 1 or month > 12:
             raise ValueError
         last_day = calendar.monthrange(year, month)[1]
         return date(year, month, 1), date(year, month, last_day)
@@ -30,12 +29,31 @@ def _month_range(value):
         raise ValueError("Niepoprawny miesiąc. Użyj formatu RRRR-MM.") from error
 
 
+def _safe_year(value):
+    try:
+        year = int(value) if value else date.today().year
+        if year < 2000 or year > 2100:
+            raise ValueError
+        return year
+    except (TypeError, ValueError):
+        return date.today().year
+
+
+def _csv_cell(value):
+    if value is None:
+        return ""
+    text = str(value)
+    if text.startswith(("=", "+", "-", "@")):
+        return "'" + text
+    return text
+
+
 def _csv_response(rows, filename):
     output = io.StringIO()
     output.write("\ufeff")
     writer = csv.writer(output, delimiter=";", lineterminator="\n")
     for row in rows:
-        writer.writerow(row)
+        writer.writerow([_csv_cell(value) for value in row])
     return Response(
         output.getvalue(),
         content_type="text/csv; charset=utf-8",
@@ -50,8 +68,14 @@ def dashboard():
     conn = get_db()
     today = date.today()
     today_iso = today.isoformat()
-    alert_days = int(get_app_setting(conn, "contract_alert_days", "45") or 45)
-    carryover_threshold = int(get_app_setting(conn, "carryover_alert_threshold", "1") or 0)
+    try:
+        alert_days = max(1, min(365, int(get_app_setting(conn, "contract_alert_days", "45") or 45)))
+    except (TypeError, ValueError):
+        alert_days = 45
+    try:
+        carryover_threshold = max(0, min(366, int(get_app_setting(conn, "carryover_alert_threshold", "1") or 0)))
+    except (TypeError, ValueError):
+        carryover_threshold = 1
     ending_iso = (today + timedelta(days=alert_days)).isoformat()
 
     employees = conn.execute("""
@@ -152,11 +176,7 @@ def dashboard():
 @login_required
 @role_required("admin", "kadry")
 def export_balances():
-    year = request.args.get("year", "").strip()
-    try:
-        year = int(year) if year else date.today().year
-    except ValueError:
-        year = date.today().year
+    year = _safe_year(request.args.get("year", "").strip())
 
     conn = get_db()
     include_inactive = get_app_setting(conn, "include_inactive_in_hr_exports", "0") == "1"
@@ -202,7 +222,11 @@ def export_balances():
 @role_required("admin", "kadry")
 def export_absences():
     selected_month = request.args.get("month", "").strip() or date.today().strftime("%Y-%m")
-    start, end = _month_range(selected_month)
+    try:
+        start, end = _month_range(selected_month)
+    except ValueError:
+        selected_month = date.today().strftime("%Y-%m")
+        start, end = _month_range(selected_month)
 
     conn = get_db()
     include_inactive = get_app_setting(conn, "include_inactive_in_hr_exports", "0") == "1"
@@ -225,9 +249,7 @@ def export_absences():
         "Rodzaj nieobecności", "Od", "Do", "Dni robocze w miesiącu"
     ]]
     for entry in entries:
-        entry_start = max(parse_date(entry["date_from"]), start)
-        entry_end = min(parse_date(entry["date_to"]), end)
-        days = count_workdays(entry_start, entry_end) if entry_start <= entry_end else 0
+        days = workdays_in_period(entry["date_from"], entry["date_to"], start, end)
         rows.append([
             surname_first(entry["full_name"]),
             entry["login"],
