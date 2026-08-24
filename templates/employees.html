@@ -71,23 +71,29 @@
             <h2>Nowy pracownik</h2>
             <form method="post" class="employee-form-grid">
                 <label>Login</label><input name="login" required>
-                <label>Hasło startowe</label><input name="password" placeholder="Start123!">
+                <label>Hasło startowe</label><input name="password" type="password" minlength="8" required autocomplete="new-password">
                 <label>Nazwisko i imię</label><input name="full_name" placeholder="np. Kowalski Jan" required>
                 <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-                <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
-                <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
+                <label>Spółka</label><select name="company_id" required>{% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
+                <label>Dział</label><select name="department" required>{% for d in departments %}<option value="{{ d.name }}">{{ d.name }}</option>{% endfor %}</select>
                 <div class="manager-search-block form-field-full">
                     <label>Menedżer</label>
                     <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
                     <select name="manager_id" class="manager-select"><option value="">Brak</option>{% for m in managers %}<option value="{{ m.id }}" data-search="{{ m.full_name }} {{ m.full_name|surname_first }} {{ m.department or '' }}">{{ m.full_name|surname_first }}{% if m.department %} — {{ m.department }}{% endif %}</option>{% endfor %}</select>
                 </div>
-                <label>Typ umowy</label><select name="contract_type">{% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select>
+                <label>Typ umowy</label>
+                <select name="contract_type" id="newContractType">
+                    {% for type in contract_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
+                </select>
                 <div class="date-grid">
                     <div><label>Data zatrudnienia</label><input name="employment_start" type="date"></div>
                     <div><label>Data zakończenia</label><input name="employment_end" type="date"></div>
                 </div>
                 <label>Wymiar etatu</label><input name="fte_percent" type="number" min="1" max="100" value="100">
-                <div class="date-grid"><div><label>Limit</label><input name="vacation_days" type="number" value="26"></div><div><label>Zaległe</label><input name="carryover_days" type="number" value="0"></div></div>
+                <div class="date-grid">
+                    <div><label>Limit</label><input id="newVacationDays" name="vacation_days" type="number" min="0" max="366" value="{{ default_vacation_days_uop }}" data-uop="{{ default_vacation_days_uop }}" data-zlecenie="{{ default_vacation_days_zlecenie }}"></div>
+                    <div><label>Zaległe</label><input name="carryover_days" type="number" min="0" max="366" value="0"></div>
+                </div>
                 <label>Notatka kadrowa</label><textarea name="hr_note" maxlength="2000" rows="3" placeholder="Tylko dla Kadr/Admina"></textarea>
                 <button type="submit">Dodaj</button>
             </form>
@@ -151,6 +157,19 @@
             });
         });
     });
+
+    const contract = document.getElementById('newContractType');
+    const limit = document.getElementById('newVacationDays');
+    if (contract && limit) {
+        let manualLimit = false;
+        limit.addEventListener('input', () => { manualLimit = true; });
+        contract.addEventListener('change', () => {
+            if (manualLimit) return;
+            limit.value = contract.value.toLowerCase().includes('zlecen')
+                ? limit.dataset.zlecenie
+                : limit.dataset.uop;
+        });
+    }
 })();
 </script>
 {% endblock %}
