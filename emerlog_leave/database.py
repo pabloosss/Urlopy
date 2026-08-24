@@ -1,12 +1,13 @@
 import sqlite3
-from werkzeug.security import generate_password_hash
 
 from .config import DATABASE
 
 
 def get_db():
-    conn = sqlite3.connect(DATABASE)
+    conn = sqlite3.connect(DATABASE, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 10000")
     return conn
 
 
@@ -22,6 +23,11 @@ def _ensure_column(cur, table, name, definition):
 def init_db():
     conn = get_db()
     cur = conn.cursor()
+
+    # WAL ogranicza błędy "database is locked" przy równoległej pracy Gunicorna,
+    # a NORMAL jest bezpiecznym kompromisem dla bazy działającej w WAL.
+    cur.execute("PRAGMA journal_mode = WAL")
+    cur.execute("PRAGMA synchronous = NORMAL")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -164,6 +170,13 @@ def init_db():
         ("carryover_alert_threshold", "1"),
         ("auto_deactivate_after_end_date", "0"),
         ("include_inactive_in_hr_exports", "0"),
+        ("backup_auto_enabled", "0"),
+        ("backup_auto_frequency", "daily"),
+        ("backup_auto_time", "02:00"),
+        ("backup_auto_weekday", "0"),
+        ("backup_auto_keep", "14"),
+        ("backup_preimport_keep", "10"),
+        ("backup_safety_keep", "10"),
     ]:
         cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
 
@@ -188,37 +201,27 @@ def init_db():
     }.items():
         _ensure_column(cur, "vacation_year_balances", name, definition)
 
+    # Indeksy pod najczęstsze widoki: kalendarz, obecność, limity, historia i powiadomienia.
+    for statement in [
+        "CREATE INDEX IF NOT EXISTS idx_users_active ON users(active)",
+        "CREATE INDEX IF NOT EXISTS idx_users_manager ON users(manager_id)",
+        "CREATE INDEX IF NOT EXISTS idx_users_department ON users(department)",
+        "CREATE INDEX IF NOT EXISTS idx_leave_user_status_dates ON leave_requests(user_id, status, date_from, date_to)",
+        "CREATE INDEX IF NOT EXISTS idx_leave_status_dates ON leave_requests(status, date_from, date_to)",
+        "CREATE INDEX IF NOT EXISTS idx_notifications_recipient_seen ON request_notifications(recipient_user_id, seen_at)",
+        "CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id)",
+        "CREATE INDEX IF NOT EXISTS idx_limit_adjustments_user ON limit_adjustments(user_id, created_at)",
+    ]:
+        cur.execute(statement)
+
     for dep in ["Spedycja", "Księgowość", "Kadry", "Administracja", "IT", "Zarząd"]:
         cur.execute("INSERT OR IGNORE INTO departments (name) VALUES (?)", (dep,))
 
-    demo_users = [
-        ("jan", "jan123", "Jan Kowalski", "jan.kowalski@emerlog.pl", "pracownik", "Spedycja", "Spedytor", "anna", 26, 0),
-        ("anna", "anna123", "Anna Nowak", "anna.nowak@emerlog.pl", "menedzer", "Spedycja", "Kierownik spedycji", "ewa", 26, 2),
-        ("pawel", "pawel123", "Paweł Pisarczyk", "pawel.pisarczyk@emerlog.pl", "menedzer", "IT", "Menedżer IT", "ewa", 26, 0),
-        ("ewa", "ewa123", "Ewa Dusińska", "ewa.dusinska@emerlog.pl", "admin", "Kadry", "Kadry / Admin", None, 26, 0),
-        ("kadry", "kadry123", "Kadry EMERLOG", "kadry@emerlog.pl", "kadry", "Kadry", "Kadry", "ewa", 26, 0),
-        ("admin", "admin123", "Administrator", "admin@emerlog.pl", "admin", "IT", "Administrator", None, 26, 0),
-    ]
-
-    for login, password, full_name, email, role, dep, job, manager_login, vacation, carry in demo_users:
-        if not cur.execute("SELECT id FROM users WHERE login = ?", (login,)).fetchone():
-            cur.execute("""
-                INSERT INTO users (
-                    login, password_hash, full_name, email, role, vacation_days,
-                    active, department, job_title, contract_type, carryover_days, company_id
-                ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'Umowa o pracę', ?, ?)
-            """, (login, generate_password_hash(password), full_name, email, role, vacation, dep, job, carry, default_company_id))
-
+    # Nie tworzymy żadnych kont demonstracyjnych ani haseł domyślnych.
+    # Konta produkcyjne powstają wyłącznie z panelu Kadr/Admina albo przez importer.
     if default_company_id:
         cur.execute("UPDATE users SET company_id = ? WHERE company_id IS NULL", (default_company_id,))
-
-    conn.commit()
-    for login, _, _, _, _, _, _, manager_login, _, _ in demo_users:
-        if manager_login:
-            manager = cur.execute("SELECT id FROM users WHERE login = ?", (manager_login,)).fetchone()
-            employee = cur.execute("SELECT id FROM users WHERE login = ?", (login,)).fetchone()
-            if manager and employee:
-                cur.execute("UPDATE users SET manager_id = ? WHERE id = ?", (manager["id"], employee["id"]))
 
     conn.commit()
     conn.close()
