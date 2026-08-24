@@ -45,14 +45,16 @@
                 <a class="{% if request.endpoint == 'requests.requests_view' %}is-active{% endif %}" href="{{ url_for('requests.requests_view') }}">Wnioski zespołu</a>
                 <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
             {% elif is_hr() %}
-                <div class="menu-section">Organizacja</div>
+                <div class="menu-section">Kadry</div>
+                <a class="{% if request.endpoint and request.endpoint.startswith('hr_tools.') %}is-active{% endif %}" href="{{ url_for('hr_tools.dashboard') }}">Panel Kadr</a>
                 <a class="{% if request.endpoint == 'main.calendar_view' %}is-active{% endif %}" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
                 <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
                 <a class="{% if request.endpoint and request.endpoint.startswith('employees.') %}is-active{% endif %}" href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
+                <a class="{% if request.endpoint and request.endpoint.startswith('limits.') %}is-active{% endif %}" href="{{ url_for('limits.limits_view') }}">Limity</a>
 
                 <div class="menu-section">Administracja</div>
+                <a class="{% if request.endpoint == 'admin.settings_view' %}is-active{% endif %}" href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
                 {% if session.get('role') == 'admin' %}
-                    <a class="{% if request.endpoint == 'admin.settings_view' %}is-active{% endif %}" href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
                     <a class="{% if request.endpoint and request.endpoint.startswith('employee_import.') %}is-active{% endif %}" href="{{ url_for('employee_import.import_employees_view') }}">Import pracowników</a>
                     <a class="{% if request.endpoint and request.endpoint.startswith('backups.') %}is-active{% endif %}" href="{{ url_for('backups.backups_view') }}">Backup</a>
                 {% endif %}
