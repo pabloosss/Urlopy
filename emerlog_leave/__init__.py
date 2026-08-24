@@ -1,5 +1,7 @@
 from calendar import monthrange
 from datetime import date
+import threading
+import time
 
 from flask import Flask, flash, redirect, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -71,6 +73,17 @@ def _auto_deactivate_finished_users(conn):
     return ids
 
 
+def _backup_scheduler_loop(app):
+    """Niezależny scheduler backupów. Blokada w routes_backups chroni przed duplikatami między workerami."""
+    while True:
+        try:
+            with app.app_context():
+                maybe_run_automatic_backup()
+        except Exception:
+            app.logger.exception("Błąd schedulera automatycznych backupów")
+        time.sleep(60)
+
+
 def create_app():
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
     app.secret_key = SECRET_KEY
@@ -106,12 +119,18 @@ def create_app():
     app.template_filter("pldate")(format_pl_date)
     app.template_filter("surname_first")(surname_first)
 
+    backup_thread = threading.Thread(
+        target=_backup_scheduler_loop,
+        args=(app,),
+        name="urlopy-backup-scheduler",
+        daemon=True,
+    )
+    backup_thread.start()
+
     @app.before_request
     def enforce_https_year_and_policies():
         if FORCE_HTTPS and not request.is_secure:
             return redirect(request.url.replace("http://", "https://", 1), code=301)
-
-        maybe_run_automatic_backup()
 
         current_year = date.today().year
         if app.config.get("VACATION_YEAR_CHECKED") != current_year:
