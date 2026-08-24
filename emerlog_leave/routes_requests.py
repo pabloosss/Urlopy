@@ -1,20 +1,22 @@
+import csv
+import io
 from datetime import date
-from io import BytesIO
-import os
 
-from flask import Blueprint, flash, redirect, render_template, request, send_file, session, url_for
+from flask import Blueprint, Response, flash, redirect, render_template, request, session, url_for
 
 from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_user
 from .database import get_db
 from .services import (
-    login_required,
-    current_user,
-    visible_user_ids,
-    vacation_summary,
     count_workdays,
-    parse_date,
-    log_action,
+    current_user,
     is_hr,
+    is_safe_local_path,
+    log_action,
+    login_required,
+    parse_date,
+    surname_first,
+    vacation_summary,
+    visible_user_ids,
 )
 
 bp = Blueprint("requests", __name__)
@@ -31,9 +33,19 @@ LEAVE_TYPE_DESCRIPTIONS = {
 
 
 def _safe_redirect(next_url, default="requests.requests_view"):
-    if next_url and next_url.startswith("/"):
+    if is_safe_local_path(next_url):
         return redirect(next_url)
     return redirect(url_for(default))
+
+
+def _apply_employee_search(filters, params, employee):
+    employee = (employee or "").strip()
+    if not employee:
+        return
+    parts = employee.split()
+    reversed_employee = " ".join(parts[1:] + parts[:1]) if len(parts) > 1 else employee
+    filters.append("(u.full_name LIKE ? OR u.full_name LIKE ? OR u.login LIKE ?)")
+    params.extend([f"%{employee}%", f"%{reversed_employee}%", f"%{employee}%"])
 
 
 def _query_requests(conn):
@@ -56,10 +68,7 @@ def _query_requests(conn):
             filters.append(f"{column}=?")
             params.append(value)
 
-    employee = request.args.get("employee", "").strip()
-    if employee:
-        filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
-        params.extend([f"%{employee}%", f"%{employee}%"])
+    _apply_employee_search(filters, params, request.args.get("employee", ""))
 
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
@@ -92,10 +101,7 @@ def _query_all_requests(conn, default_today=True):
     filters = ["1=1"]
     params = []
 
-    employee = request.args.get("employee", "").strip()
-    if employee:
-        filters.append("(u.full_name LIKE ? OR u.login LIKE ?)")
-        params.extend([f"%{employee}%", f"%{employee}%"])
+    _apply_employee_search(filters, params, request.args.get("employee", ""))
 
     for field, column in [
         ("department", "u.department"),
@@ -144,96 +150,36 @@ def _query_all_requests(conn, default_today=True):
     return rows, date_from, date_to
 
 
-def _request_for_pdf(conn, request_id):
-    return conn.execute(
-        """
-        SELECT lr.*, u.full_name, u.department, c.name AS company_name,
-               r.full_name AS replacement_name
-        FROM leave_requests lr
-        JOIN users u ON u.id = lr.user_id
-        LEFT JOIN companies c ON u.company_id = c.id
-        LEFT JOIN users r ON lr.replacement_user_id = r.id
-        WHERE lr.id = ?
+def _replacement_conflict(conn, replacement_id, start, end, exclude_request_id=None):
+    if not replacement_id:
+        return False
+    params = [replacement_id, end.isoformat(), start.isoformat()]
+    extra = ""
+    if exclude_request_id:
+        extra = "AND id <> ?"
+        params.append(exclude_request_id)
+    return bool(conn.execute(
+        f"""
+        SELECT 1
+        FROM leave_requests
+        WHERE user_id = ?
+          AND status = 'zaakceptowany'
+          AND date_from <= ?
+          AND date_to >= ?
+          {extra}
+        LIMIT 1
         """,
-        (request_id,),
-    ).fetchone()
+        params,
+    ).fetchone())
 
 
-def _register_pdf_fonts():
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-
-    regular = "Helvetica"
-    bold = "Helvetica-Bold"
-    regular_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    bold_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-
-    try:
-        if os.path.exists(regular_path) and "UrlopySans" not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont("UrlopySans", regular_path))
-        if os.path.exists(bold_path) and "UrlopySansBold" not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont("UrlopySansBold", bold_path))
-        if "UrlopySans" in pdfmetrics.getRegisteredFontNames():
-            regular = "UrlopySans"
-        if "UrlopySansBold" in pdfmetrics.getRegisteredFontNames():
-            bold = "UrlopySansBold"
-    except Exception:
-        pass
-
-    return regular, bold
-
-
-def _draw_logo(canvas, x, y, width, bold_font):
-    from reportlab.lib.colors import HexColor
-
-    scale = width / 760.0
-    canvas.saveState()
-    canvas.translate(x, y)
-    canvas.scale(scale, scale)
-
-    def polygon(points, color):
-        path = canvas.beginPath()
-        path.moveTo(points[0][0], points[0][1])
-        for px, py in points[1:]:
-            path.lineTo(px, py)
-        path.close()
-        canvas.setFillColor(HexColor(color))
-        canvas.drawPath(path, fill=1, stroke=0)
-
-    polygon([(46, 126), (116, 126), (88, 86), (66, 86), (28, 18), (0, 64)], "#111111")
-    polygon([(24, 18), (118, 18), (136, 0), (45, 0)], "#d71920")
-    polygon([(104, 86), (176, 86), (190, 52), (170, 24), (86, 24), (98, 46), (142, 46), (142, 62), (88, 62)], "#d71920")
-    canvas.setFillColor(HexColor("#050505"))
-    canvas.setFont(bold_font, 68)
-    canvas.drawString(215, 34, "EMERLOG")
-    canvas.restoreState()
-
-
-def _draw_wrapped_text(canvas, text, x, y, max_width, font_name, font_size=11, leading=16):
-    from reportlab.pdfbase.pdfmetrics import stringWidth
-
-    words = (text or "").split()
-    line = ""
-    for word in words:
-        candidate = word if not line else f"{line} {word}"
-        if stringWidth(candidate, font_name, font_size) <= max_width:
-            line = candidate
-        else:
-            canvas.drawString(x, y, line)
-            y -= leading
-            line = word
-    if line:
-        canvas.drawString(x, y, line)
-        y -= leading
-    return y
-
-
-def _pdf_date(value):
-    raw = (value or "")[:10]
-    try:
-        return parse_date(raw).strftime("%d.%m.%Y")
-    except Exception:
-        return raw
+def _csv_cell(value):
+    if value is None:
+        return ""
+    text = str(value)
+    if text.startswith(("=", "+", "-", "@")):
+        return "'" + text
+    return text
 
 
 @bp.route("/leave/new", methods=["GET", "POST"])
@@ -303,8 +249,24 @@ def new_leave_request():
             except Exception as error:
                 errors.append(str(error))
 
+        if start and end and start.year != end.year:
+            errors.append("Wniosek nie może przechodzić przez dwa lata. Złóż osobny wniosek dla każdego roku.")
+
         if days <= 0 and start and end:
             errors.append("Wybrany zakres nie zawiera dni roboczych.")
+
+        if start and user["employment_start"]:
+            try:
+                if start < parse_date(user["employment_start"]):
+                    errors.append("Wniosek zaczyna się przed datą zatrudnienia.")
+            except Exception:
+                pass
+        if end and user["employment_end"]:
+            try:
+                if end > parse_date(user["employment_end"]):
+                    errors.append("Wniosek kończy się po dacie zakończenia współpracy.")
+            except Exception:
+                pass
 
         if is_spedycja and form_data["replacement_user_id"]:
             try:
@@ -322,6 +284,11 @@ def new_leave_request():
                 ).fetchone()
                 if not replacement:
                     errors.append("Wybrana osoba na zastępstwo nie istnieje albo jest nieaktywna.")
+                elif start and end and _replacement_conflict(conn, replacement_id, start, end):
+                    errors.append("Wybrana osoba zastępująca ma już nieobecność w tym terminie.")
+
+        if start and end and start.year == end.year:
+            summary = vacation_summary(conn, user, start.year)
 
         if not errors and form_data["leave_type"] in LIMIT_TYPES and days > summary["available"]:
             errors.append(f"Brak limitu. Dostępne: {summary['available']} dni, wybrano: {days} dni.")
@@ -396,121 +363,8 @@ def new_request():
 @bp.route("/request/<int:request_id>/pdf")
 @login_required
 def download_request_pdf(request_id):
-    from reportlab.lib.colors import HexColor
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas as pdf_canvas
-
-    conn = get_db()
-    row = _request_for_pdf(conn, request_id)
-    if not row:
-        conn.close()
-        flash("Nie znaleziono wniosku.")
-        return redirect(url_for("main.my_leave"))
-
-    visible_ids = set(visible_user_ids(conn))
-    if row["user_id"] != session.get("user_id") and row["user_id"] not in visible_ids:
-        conn.close()
-        flash("Brak uprawnień do tego wniosku.")
-        return redirect(url_for("main.dashboard"))
-    conn.close()
-
-    regular_font, bold_font = _register_pdf_fonts()
-    buffer = BytesIO()
-    pdf = pdf_canvas.Canvas(buffer, pagesize=A4)
-    page_width, page_height = A4
-    left = 22 * mm
-    right = page_width - 22 * mm
-    y = page_height - 22 * mm
-
-    _draw_logo(pdf, left, y - 12 * mm, 70 * mm, bold_font)
-    pdf.setFillColor(HexColor("#555555"))
-    pdf.setFont(regular_font, 9)
-    pdf.drawRightString(right, y - 2 * mm, "data")
-    pdf.setFillColor(HexColor("#111111"))
-    pdf.setFont(bold_font, 10)
-    pdf.drawRightString(right, y - 7 * mm, _pdf_date(row["created_at"]))
-
-    y -= 36 * mm
-    pdf.setFont(bold_font, 17)
-    pdf.drawCentredString(page_width / 2, y, "Wniosek urlopowy")
-
-    y -= 18 * mm
-    pdf.setFont(regular_font, 8)
-    pdf.setFillColor(HexColor("#666666"))
-    pdf.drawString(left, y, "Pracownik")
-    y -= 6 * mm
-    pdf.setFont(bold_font, 11)
-    pdf.setFillColor(HexColor("#111111"))
-    pdf.drawString(left, y, row["full_name"])
-
-    y -= 12 * mm
-    pdf.setFont(regular_font, 8)
-    pdf.setFillColor(HexColor("#666666"))
-    pdf.drawString(left, y, "Spółka")
-    y -= 6 * mm
-    pdf.setFont(bold_font, 11)
-    pdf.setFillColor(HexColor("#111111"))
-    pdf.drawString(left, y, row["company_name"] or "EMERLOG SP. Z O. O.")
-
-    y -= 18 * mm
-    if row["leave_type"] in {"Urlop wypoczynkowy", "Urlop na żądanie"}:
-        leave_text = "urlopu wypoczynkowego"
-    else:
-        leave_text = f"nieobecności: {row['leave_type']}"
-
-    request_text = (
-        f"Proszę o udzielenie {leave_text} w liczbie {row['days_count']} dni, "
-        f"w terminie od {_pdf_date(row['date_from'])} do {_pdf_date(row['date_to'])}."
-    )
-    pdf.setFont(regular_font, 11)
-    pdf.setFillColor(HexColor("#111111"))
-    y = _draw_wrapped_text(pdf, request_text, left, y, right - left, regular_font, 11, 17)
-
-    if (row["department"] or "").strip().lower() == "spedycja":
-        y -= 7 * mm
-        pdf.setFont(regular_font, 8)
-        pdf.setFillColor(HexColor("#666666"))
-        pdf.drawString(left, y, "W czasie urlopu zastępować będzie mnie")
-        y -= 6 * mm
-        pdf.setFont(bold_font, 11)
-        pdf.setFillColor(HexColor("#111111"))
-        pdf.drawString(left, y, row["replacement_name"] or "—")
-
-    if row["comment"]:
-        y -= 14 * mm
-        pdf.setFont(regular_font, 8)
-        pdf.setFillColor(HexColor("#666666"))
-        pdf.drawString(left, y, "Komentarz")
-        y -= 6 * mm
-        pdf.setFillColor(HexColor("#111111"))
-        y = _draw_wrapped_text(pdf, row["comment"], left, y, right - left, regular_font, 10, 15)
-
-    y -= 10 * mm
-    pdf.setFont(bold_font, 11)
-    pdf.setFillColor(HexColor("#111111"))
-    pdf.drawString(left, y, "Status: zaakceptowany")
-
-    y -= 24 * mm
-    pdf.setFont(regular_font, 10)
-    pdf.drawString(left, y, "Wyrażam zgodę na urlop we wskazanym terminie")
-    signature_left = left + 92 * mm
-    pdf.setDash(1, 2)
-    pdf.line(signature_left, y - 1 * mm, right, y - 1 * mm)
-    pdf.setDash()
-    pdf.setFont(regular_font, 8)
-    pdf.setFillColor(HexColor("#555555"))
-    pdf.drawCentredString((signature_left + right) / 2, y - 6 * mm, "podpis osoby upoważnionej")
-
-    pdf.showPage()
-    pdf.save()
-    buffer.seek(0)
-    return send_file(
-        buffer,
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=f"wniosek_{request_id}.pdf",
-    )
+    # Zachowujemy stary adres, ale mamy tylko jeden generator PDF w aplikacji.
+    return redirect(url_for("request_pdf.print_request_pdf", request_id=request_id))
 
 
 @bp.route("/requests")
@@ -519,7 +373,7 @@ def requests_view():
     conn = get_db()
     rows = _query_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
-    managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
+    managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' AND active = 1 ORDER BY full_name").fetchall()
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
     return render_template(
@@ -543,7 +397,7 @@ def all_requests_view():
     conn = get_db()
     rows, selected_from, selected_to = _query_all_requests(conn)
     departments = conn.execute("SELECT name FROM departments ORDER BY name").fetchall()
-    managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' ORDER BY full_name").fetchall()
+    managers = conn.execute("SELECT id, full_name FROM users WHERE role = 'menedzer' AND active = 1 ORDER BY full_name").fetchall()
     companies = conn.execute("SELECT id, name FROM companies ORDER BY name").fetchall()
     conn.close()
 
@@ -607,6 +461,60 @@ def change_request_status(request_id, action):
             conn.close()
             flash("Brak uprawnień do tej operacji.")
             return _safe_redirect(next_url)
+        if leave_request["status"] == "zaakceptowany":
+            conn.close()
+            flash("Wniosek jest już zaakceptowany.")
+            return _safe_redirect(next_url)
+        if not owner:
+            conn.close()
+            flash("Nie znaleziono właściciela wniosku.")
+            return _safe_redirect(next_url)
+
+        try:
+            start = parse_date(leave_request["date_from"])
+            end = parse_date(leave_request["date_to"])
+            days = count_workdays(start, end)
+        except Exception as error:
+            conn.close()
+            flash(f"Nie można przywrócić wniosku: {error}")
+            return _safe_redirect(next_url)
+
+        if start.year != end.year:
+            conn.close()
+            flash("Nie można przywrócić wniosku obejmującego dwa lata. Rozdziel go na dwa wpisy.")
+            return _safe_redirect(next_url)
+
+        overlap = conn.execute(
+            """
+            SELECT id, leave_type, date_from, date_to
+            FROM leave_requests
+            WHERE user_id = ?
+              AND id <> ?
+              AND status = 'zaakceptowany'
+              AND date_from <= ?
+              AND date_to >= ?
+            LIMIT 1
+            """,
+            (owner["id"], request_id, end.isoformat(), start.isoformat()),
+        ).fetchone()
+        if overlap:
+            conn.close()
+            flash("Nie można przywrócić wniosku — pracownik ma już inną zaakceptowaną nieobecność w tym terminie.")
+            return _safe_redirect(next_url)
+
+        if leave_request["leave_type"] in LIMIT_TYPES:
+            summary = vacation_summary(conn, owner, start.year)
+            if days > summary["available"]:
+                conn.close()
+                flash(f"Nie można przywrócić wniosku — dostępne saldo to {summary['available']} dni, a wniosek ma {days} dni.")
+                return _safe_redirect(next_url)
+
+        replacement_id = leave_request["replacement_user_id"]
+        if replacement_id and _replacement_conflict(conn, replacement_id, start, end, request_id):
+            conn.close()
+            flash("Nie można przywrócić wniosku — osoba zastępująca ma nieobecność w tym terminie.")
+            return _safe_redirect(next_url)
+
         new_status = "zaakceptowany"
     else:
         conn.close()
@@ -627,33 +535,30 @@ def change_request_status(request_id, action):
 @bp.route("/reports/export.csv")
 @login_required
 def export_report_csv():
-    import csv
-    import io
-    from flask import Response
-
     conn = get_db()
     rows = _query_requests(conn)
     conn.close()
 
     output = io.StringIO()
-    writer = csv.writer(output, delimiter=";")
+    output.write("\ufeff")
+    writer = csv.writer(output, delimiter=";", lineterminator="\n")
     writer.writerow(["Pracownik", "Spółka", "Dział", "Typ", "Od", "Do", "Dni", "Status", "Menedżer", "Data złożenia"])
     for row in rows:
         writer.writerow([
-            row["full_name"],
-            row["company_name"] or "",
-            row["department"],
-            row["leave_type"],
+            _csv_cell(surname_first(row["full_name"])),
+            _csv_cell(row["company_name"] or ""),
+            _csv_cell(row["department"] or ""),
+            _csv_cell(row["leave_type"]),
             row["date_from"],
             row["date_to"],
             row["days_count"],
-            row["status"],
-            row["manager_name"] or "",
+            _csv_cell(row["status"]),
+            _csv_cell(surname_first(row["manager_name"]) if row["manager_name"] else ""),
             row["created_at"],
         ])
 
     return Response(
         output.getvalue(),
-        mimetype="text/csv",
+        content_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=emerlog_urlopy.csv"},
     )
