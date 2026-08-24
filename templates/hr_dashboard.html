@@ -14,7 +14,7 @@
 
 <section class="stats-grid">
     <div class="stat-card accent"><span>Aktywni</span><strong>{{ stats.active }}</strong></div>
-    <div class="stat-card"><span>Umowy do 45 dni</span><strong>{{ stats.expiring }}</strong></div>
+    <div class="stat-card"><span>Umowy do {{ contract_alert_days }} dni</span><strong>{{ stats.expiring }}</strong></div>
     <div class="stat-card"><span>Po dacie zakończenia</span><strong>{{ stats.should_archive }}</strong></div>
     <div class="stat-card"><span>Braki w danych</span><strong>{{ stats.incomplete }}</strong></div>
 </section>
@@ -92,7 +92,7 @@
 
 <div class="employees-grid" style="margin-top:18px;">
     <section class="card">
-        <div class="section-head-row"><h2>Zaległe urlopy</h2><span class="chip">{{ stats.carryover }}</span></div>
+        <div class="section-head-row"><h2>Zaległe urlopy od {{ carryover_alert_threshold }} dni</h2><span class="chip">{{ stats.carryover }}</span></div>
         <div class="audit-list">
             {% for item in carryover_people %}
             <article class="audit-item">
