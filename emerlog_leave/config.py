@@ -5,9 +5,20 @@ BACKUP_DIR = os.environ.get(
     "BACKUP_DIR",
     os.path.join(os.path.dirname(os.path.abspath(DATABASE)), "backups"),
 )
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-before-production")
+
+DEFAULT_SECRET_KEY = "dev-secret-change-before-production"
+SECRET_KEY = os.environ.get("SECRET_KEY", DEFAULT_SECRET_KEY)
+USING_DEFAULT_SECRET_KEY = SECRET_KEY == DEFAULT_SECRET_KEY
+
 FORCE_HTTPS = os.environ.get("FORCE_HTTPS", "0") == "1"
-SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
+_secure_cookie_env = os.environ.get("SESSION_COOKIE_SECURE")
+SESSION_COOKIE_SECURE = (
+    _secure_cookie_env == "1" if _secure_cookie_env is not None else FORCE_HTTPS
+)
+try:
+    SESSION_HOURS = max(1, min(72, int(os.environ.get("SESSION_HOURS", "12"))))
+except ValueError:
+    SESSION_HOURS = 12
 
 CONTRACT_UOP = "Umowa o pracę"
 CONTRACT_ZLECENIE = "Umowa zlecenie"
