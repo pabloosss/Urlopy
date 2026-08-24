@@ -36,7 +36,7 @@ from .routes_employees import bp as employees_bp
 from .routes_limits import bp as limits_bp
 from .routes_reports import bp as reports_bp
 from .routes_admin_alias import bp as admin_alias_bp
-from .routes_backups import bp as backups_bp, maybe_run_automatic_backup
+from .routes_backups import bp as backups_bp, maybe_run_automatic_backup, restore_in_progress
 from .routes_employee_import import bp as employee_import_bp
 from .routes_hr import bp as hr_tools_bp
 
@@ -167,6 +167,15 @@ def create_app():
         if FORCE_HTTPS and not request.is_secure:
             return redirect(request.url.replace("http://", "https://", 1), code=308)
 
+        # Przywracanie bazy jest krótką operacją administracyjną. W tym czasie
+        # nie dopuszczamy innych żądań do pracy na częściowo odtworzonych danychch.
+        if restore_in_progress():
+            return (
+                "Trwa przywracanie danych. Spróbuj ponownie za kilka sekund.",
+                503,
+                {"Retry-After": "5", "Cache-Control": "no-store"},
+            )
+
         current_year = date.today().year
         if app.config.get("VACATION_YEAR_CHECKED") != current_year:
             conn = get_db()
@@ -175,7 +184,6 @@ def create_app():
             conn.close()
             app.config["VACATION_YEAR_CHECKED"] = current_year
 
-        # Raz na godzinę wykonujemy lekkie utrzymanie kont. Nie skanujemy tabeli przy każdym żądaniu.
         maintenance_hour = datetime.now().strftime("%Y-%m-%d-%H")
         if app.config.get("LAST_ACCOUNT_MAINTENANCE_HOUR") != maintenance_hour:
             conn = get_db()
