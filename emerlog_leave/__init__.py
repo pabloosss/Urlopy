@@ -1,12 +1,21 @@
 from calendar import monthrange
-from datetime import date
+from datetime import date, datetime, timedelta
+import hmac
+import secrets
 import threading
 import time
 
-from flask import Flask, flash, redirect, request, session, url_for
+from flask import Flask, abort, flash, redirect, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from .config import SECRET_KEY, LEAVE_TYPES, FORCE_HTTPS, SESSION_COOKIE_SECURE
+from .config import (
+    FORCE_HTTPS,
+    LEAVE_TYPES,
+    SECRET_KEY,
+    SESSION_COOKIE_SECURE,
+    SESSION_HOURS,
+    USING_DEFAULT_SECRET_KEY,
+)
 from .database import get_db, init_db
 from .services import (
     count_workdays,
@@ -16,6 +25,7 @@ from .services import (
     is_hr,
     is_manager,
     parse_date,
+    repair_leave_request_day_counts,
     surname_first,
 )
 from .routes_main import bp as main_bp
@@ -74,7 +84,7 @@ def _auto_deactivate_finished_users(conn):
 
 
 def _backup_scheduler_loop(app):
-    """Niezależny scheduler backupów. Blokada w routes_backups chroni przed duplikatami między workerami."""
+    """Niezależny scheduler backupów; blokada plikowa chroni przed duplikatami workerów."""
     while True:
         try:
             with app.app_context():
@@ -82,6 +92,14 @@ def _backup_scheduler_loop(app):
         except Exception:
             app.logger.exception("Błąd schedulera automatycznych backupów")
         time.sleep(60)
+
+
+def _ensure_csrf_token():
+    token = session.get("_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
 
 
 def create_app():
@@ -93,16 +111,33 @@ def create_app():
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=SESSION_COOKIE_SECURE,
+        SESSION_COOKIE_NAME="emerlog_urlopy_session",
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=SESSION_HOURS),
         PREFERRED_URL_SCHEME="https" if FORCE_HTTPS else "http",
     )
+
+    if USING_DEFAULT_SECRET_KEY:
+        app.logger.warning(
+            "Aplikacja używa domyślnego SECRET_KEY. Na produkcji ustaw zmienną środowiskową SECRET_KEY."
+        )
 
     init_db()
     conn = get_db()
     ensure_vacation_years(conn)
+    repaired_days = repair_leave_request_day_counts(conn)
     _auto_deactivate_finished_users(conn)
+    if repaired_days:
+        conn.execute(
+            """
+            INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details)
+            VALUES (NULL, 'przeliczono dni wniosków', 'maintenance', NULL, ?)
+            """,
+            (f"poprawiono {repaired_days} wpisów",),
+        )
     conn.commit()
     conn.close()
     app.config["VACATION_YEAR_CHECKED"] = date.today().year
+    app.config["LAST_ACCOUNT_MAINTENANCE_HOUR"] = None
 
     app.register_blueprint(main_bp)
     app.register_blueprint(requests_bp)
@@ -128,9 +163,9 @@ def create_app():
     backup_thread.start()
 
     @app.before_request
-    def enforce_https_year_and_policies():
+    def security_and_business_policies():
         if FORCE_HTTPS and not request.is_secure:
-            return redirect(request.url.replace("http://", "https://", 1), code=301)
+            return redirect(request.url.replace("http://", "https://", 1), code=308)
 
         current_year = date.today().year
         if app.config.get("VACATION_YEAR_CHECKED") != current_year:
@@ -140,13 +175,37 @@ def create_app():
             conn.close()
             app.config["VACATION_YEAR_CHECKED"] = current_year
 
-        conn = get_db()
-        deactivated_ids = _auto_deactivate_finished_users(conn)
-        conn.close()
-        if session.get("user_id") in deactivated_ids:
-            session.clear()
-            flash("Konto zostało wyłączone po dacie zakończenia współpracy.")
-            return redirect(url_for("main.login"))
+        # Raz na godzinę wykonujemy lekkie utrzymanie kont. Nie skanujemy tabeli przy każdym żądaniu.
+        maintenance_hour = datetime.now().strftime("%Y-%m-%d-%H")
+        if app.config.get("LAST_ACCOUNT_MAINTENANCE_HOUR") != maintenance_hour:
+            conn = get_db()
+            _auto_deactivate_finished_users(conn)
+            conn.close()
+            app.config["LAST_ACCOUNT_MAINTENANCE_HOUR"] = maintenance_hour
+
+        # Sesja nie jest źródłem prawdy o roli i aktywności. Odświeżamy ją z bazy.
+        if session.get("user_id"):
+            conn = get_db()
+            db_user = conn.execute(
+                "SELECT id, login, full_name, role, active FROM users WHERE id = ?",
+                (session["user_id"],),
+            ).fetchone()
+            conn.close()
+            if not db_user or not db_user["active"]:
+                session.clear()
+                flash("Konto jest nieaktywne albo nie istnieje. Zaloguj się ponownie.")
+                return redirect(url_for("main.login"))
+            session["login"] = db_user["login"]
+            session["full_name"] = db_user["full_name"]
+            session["role"] = db_user["role"]
+            session.permanent = True
+
+        # Ochrona wszystkich operacji modyfikujących dane, także logowania i uploadów.
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            expected = session.get("_csrf_token")
+            provided = request.headers.get("X-CSRF-Token") or request.form.get("_csrf_token")
+            if not expected or not provided or not hmac.compare_digest(str(expected), str(provided)):
+                abort(400, description="Nieprawidłowy lub wygasły token formularza. Odśwież stronę i spróbuj ponownie.")
 
         if request.method != "POST" or not session.get("user_id"):
             return None
@@ -158,43 +217,104 @@ def create_app():
             min_notice_days = int(get_app_setting(conn, "min_notice_days", "0") or 0)
             max_request_days = int(get_app_setting(conn, "max_request_days", "0") or 0)
             closed_cutoff = _closed_through_cutoff(conn)
-            user = conn.execute("SELECT department FROM users WHERE id = ?", (session["user_id"],)).fetchone()
-            conn.close()
+            user = conn.execute(
+                "SELECT department, employment_start, employment_end FROM users WHERE id = ?",
+                (session["user_id"],),
+            ).fetchone()
 
             date_from = request.form.get("date_from", "").strip()
             date_to = request.form.get("date_to", "").strip()
             leave_type = request.form.get("leave_type", "").strip()
+            start = None
+            end = None
+            try:
+                if date_from:
+                    start = parse_date(date_from)
+                if date_to:
+                    end = parse_date(date_to)
+            except Exception:
+                pass
 
-            if not allow_past and date_from and date_from < date.today().isoformat():
+            if not allow_past and start and start < date.today():
+                conn.close()
                 flash("Nie można złożyć wniosku z datą wcześniejszą niż dzisiejsza.")
                 return redirect(url_for("requests.new_leave_request"))
 
-            if not is_hr() and closed_cutoff and date_from and date_from <= closed_cutoff.isoformat():
+            if start and end and start.year != end.year:
+                conn.close()
+                flash("Wniosek nie może przechodzić przez dwa lata. Złóż osobny wniosek dla każdego roku.")
+                return redirect(url_for("requests.new_leave_request"))
+
+            if user and start and user["employment_start"]:
+                try:
+                    employment_start = parse_date(user["employment_start"])
+                except Exception:
+                    employment_start = None
+                if employment_start and start < employment_start:
+                    conn.close()
+                    flash("Wniosek zaczyna się przed datą zatrudnienia.")
+                    return redirect(url_for("requests.new_leave_request"))
+
+            if user and end and user["employment_end"]:
+                try:
+                    employment_end = parse_date(user["employment_end"])
+                except Exception:
+                    employment_end = None
+                if employment_end and end > employment_end:
+                    conn.close()
+                    flash("Wniosek kończy się po dacie zakończenia współpracy.")
+                    return redirect(url_for("requests.new_leave_request"))
+
+            if not is_hr() and closed_cutoff and start and start <= closed_cutoff:
+                conn.close()
                 flash(f"Okres do {closed_cutoff.strftime('%m.%Y')} jest zamknięty przez Kadry.")
                 return redirect(url_for("requests.new_leave_request"))
 
-            if not is_hr() and min_notice_days > 0 and date_from and leave_type != "Urlop na żądanie":
-                try:
-                    notice = (parse_date(date_from) - date.today()).days
-                except Exception:
-                    notice = None
-                if notice is not None and notice < min_notice_days:
+            if not is_hr() and min_notice_days > 0 and start and leave_type != "Urlop na żądanie":
+                notice = (start - date.today()).days
+                if notice < min_notice_days:
+                    conn.close()
                     flash(f"Ten wniosek trzeba złożyć co najmniej {min_notice_days} dni wcześniej.")
                     return redirect(url_for("requests.new_leave_request"))
 
-            if max_request_days > 0 and date_from and date_to:
-                try:
-                    request_days = count_workdays(parse_date(date_from), parse_date(date_to))
-                except Exception:
-                    request_days = 0
+            if max_request_days > 0 and start and end and end >= start:
+                request_days = count_workdays(start, end)
                 if request_days > max_request_days:
+                    conn.close()
                     flash(f"Jeden wniosek może obejmować maksymalnie {max_request_days} dni roboczych.")
                     return redirect(url_for("requests.new_leave_request"))
 
             is_spedycja = user and (user["department"] or "").strip().lower() == "spedycja"
-            if require_replacement and is_spedycja and not request.form.get("replacement_user_id", "").strip():
+            replacement_raw = request.form.get("replacement_user_id", "").strip()
+            if require_replacement and is_spedycja and not replacement_raw:
+                conn.close()
                 flash("Dla Spedycji wybór osoby zastępującej jest wymagany.")
                 return redirect(url_for("requests.new_leave_request"))
+
+            if replacement_raw and start and end:
+                try:
+                    replacement_id = int(replacement_raw)
+                except ValueError:
+                    replacement_id = None
+                if replacement_id:
+                    conflict = conn.execute(
+                        """
+                        SELECT 1
+                        FROM leave_requests
+                        WHERE user_id = ?
+                          AND status = 'zaakceptowany'
+                          AND date_from <= ?
+                          AND date_to >= ?
+                        LIMIT 1
+                        """,
+                        (replacement_id, end.isoformat(), start.isoformat()),
+                    ).fetchone()
+                    if conflict:
+                        conn.close()
+                        flash("Wybrana osoba zastępująca ma już nieobecność w tym terminie.")
+                        return redirect(url_for("requests.new_leave_request"))
+
+            conn.close()
 
         if request.endpoint == "requests.change_request_status" and request.view_args:
             if request.view_args.get("action") == "cancel" and not is_hr():
@@ -210,14 +330,14 @@ def create_app():
                 if not allow_cancel:
                     flash("Samodzielne anulowanie wniosków jest wyłączone przez administratora.")
                     next_url = request.form.get("next", "")
-                    if next_url.startswith("/"):
+                    if next_url.startswith("/") and not next_url.startswith("//"):
                         return redirect(next_url)
                     return redirect(url_for("main.my_leave"))
 
                 if closed_cutoff and leave_request and leave_request["date_from"] <= closed_cutoff.isoformat():
                     flash(f"Okres do {closed_cutoff.strftime('%m.%Y')} jest zamknięty przez Kadry.")
                     next_url = request.form.get("next", "")
-                    if next_url.startswith("/"):
+                    if next_url.startswith("/") and not next_url.startswith("//"):
                         return redirect(next_url)
                     return redirect(url_for("main.my_leave"))
 
@@ -229,6 +349,9 @@ def create_app():
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        if session.get("user_id"):
+            response.headers.setdefault("Cache-Control", "no-store, private")
         if request.is_secure:
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
@@ -244,6 +367,7 @@ def create_app():
             "allow_employee_cancel": True,
             "allow_past_requests": True,
             "require_spedycja_replacement": True,
+            "csrf_token": _ensure_csrf_token(),
         }
 
         if session.get("user_id"):
