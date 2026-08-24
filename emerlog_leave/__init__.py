@@ -1,3 +1,4 @@
+from calendar import monthrange
 from datetime import date
 
 from flask import Flask, flash, redirect, request, session, url_for
@@ -16,6 +17,18 @@ from .routes_reports import bp as reports_bp
 from .routes_admin_alias import bp as admin_alias_bp
 from .routes_backups import bp as backups_bp
 from .routes_employee_import import bp as employee_import_bp
+from .routes_hr import bp as hr_tools_bp
+
+
+def _closed_through_cutoff(conn):
+    value = (get_app_setting(conn, "hr_closed_through", "") or "").strip()
+    if not value:
+        return None
+    try:
+        year, month = [int(part) for part in value.split("-", 1)]
+        return date(year, month, monthrange(year, month)[1])
+    except Exception:
+        return None
 
 
 def create_app():
@@ -47,6 +60,7 @@ def create_app():
     app.register_blueprint(admin_alias_bp)
     app.register_blueprint(backups_bp)
     app.register_blueprint(employee_import_bp)
+    app.register_blueprint(hr_tools_bp)
 
     app.template_filter("pldate")(format_pl_date)
     app.template_filter("surname_first")(surname_first)
@@ -71,12 +85,17 @@ def create_app():
             conn = get_db()
             allow_past = get_app_setting(conn, "allow_past_requests", "1") == "1"
             require_replacement = get_app_setting(conn, "require_spedycja_replacement", "1") == "1"
+            closed_cutoff = _closed_through_cutoff(conn)
             user = conn.execute("SELECT department FROM users WHERE id = ?", (session["user_id"],)).fetchone()
             conn.close()
 
             date_from = request.form.get("date_from", "").strip()
             if not allow_past and date_from and date_from < date.today().isoformat():
                 flash("Nie można złożyć wniosku z datą wcześniejszą niż dzisiejsza.")
+                return redirect(url_for("requests.new_leave_request"))
+
+            if not is_hr() and closed_cutoff and date_from and date_from <= closed_cutoff.isoformat():
+                flash(f"Okres do {closed_cutoff.strftime('%m.%Y')} jest zamknięty przez Kadry.")
                 return redirect(url_for("requests.new_leave_request"))
 
             is_spedycja = user and (user["department"] or "").strip().lower() == "spedycja"
@@ -88,9 +107,22 @@ def create_app():
             if request.view_args.get("action") == "cancel" and not is_hr():
                 conn = get_db()
                 allow_cancel = get_app_setting(conn, "allow_employee_cancel", "1") == "1"
+                closed_cutoff = _closed_through_cutoff(conn)
+                leave_request = conn.execute(
+                    "SELECT date_from FROM leave_requests WHERE id = ?",
+                    (request.view_args.get("request_id"),),
+                ).fetchone()
                 conn.close()
+
                 if not allow_cancel:
                     flash("Samodzielne anulowanie wniosków jest wyłączone przez administratora.")
+                    next_url = request.form.get("next", "")
+                    if next_url.startswith("/"):
+                        return redirect(next_url)
+                    return redirect(url_for("main.my_leave"))
+
+                if closed_cutoff and leave_request and leave_request["date_from"] <= closed_cutoff.isoformat():
+                    flash(f"Okres do {closed_cutoff.strftime('%m.%Y')} jest zamknięty przez Kadry.")
                     next_url = request.form.get("next", "")
                     if next_url.startswith("/"):
                         return redirect(next_url)
