@@ -24,7 +24,7 @@ from .routes_employees import bp as employees_bp
 from .routes_limits import bp as limits_bp
 from .routes_reports import bp as reports_bp
 from .routes_admin_alias import bp as admin_alias_bp
-from .routes_backups import bp as backups_bp
+from .routes_backups import bp as backups_bp, maybe_run_automatic_backup
 from .routes_employee_import import bp as employee_import_bp
 from .routes_hr import bp as hr_tools_bp
 
@@ -110,6 +110,8 @@ def create_app():
     def enforce_https_year_and_policies():
         if FORCE_HTTPS and not request.is_secure:
             return redirect(request.url.replace("http://", "https://", 1), code=301)
+
+        maybe_run_automatic_backup()
 
         current_year = date.today().year
         if app.config.get("VACATION_YEAR_CHECKED") != current_year:
