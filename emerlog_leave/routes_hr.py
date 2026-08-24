@@ -50,7 +50,9 @@ def dashboard():
     conn = get_db()
     today = date.today()
     today_iso = today.isoformat()
-    ending_iso = (today + timedelta(days=45)).isoformat()
+    alert_days = int(get_app_setting(conn, "contract_alert_days", "45") or 45)
+    carryover_threshold = int(get_app_setting(conn, "carryover_alert_threshold", "1") or 0)
+    ending_iso = (today + timedelta(days=alert_days)).isoformat()
 
     employees = conn.execute("""
         SELECT u.*, c.name AS company_name
@@ -103,7 +105,7 @@ def dashboard():
         summary = vacation_summary(conn, employee)
         if summary["available"] < 0:
             negative_balances.append({"user": employee, "summary": summary})
-        if summary["carryover"] > 0:
+        if summary["carryover"] >= carryover_threshold and summary["carryover"] > 0:
             carryover_people.append({"user": employee, "summary": summary})
 
     incomplete.sort(key=lambda item: surname_first(item["user"]["full_name"]).casefold())
@@ -141,6 +143,8 @@ def dashboard():
         adjustments=adjustments,
         closed_through=closed_through,
         current_month=today.strftime("%Y-%m"),
+        contract_alert_days=alert_days,
+        carryover_alert_threshold=carryover_threshold,
     )
 
 
@@ -155,10 +159,13 @@ def export_balances():
         year = date.today().year
 
     conn = get_db()
-    users = conn.execute("""
+    include_inactive = get_app_setting(conn, "include_inactive_in_hr_exports", "0") == "1"
+    where = "1=1" if include_inactive else "u.active = 1"
+    users = conn.execute(f"""
         SELECT u.*, c.name AS company_name
         FROM users u
         LEFT JOIN companies c ON c.id = u.company_id
+        WHERE {where}
         ORDER BY u.active DESC, u.full_name
     """).fetchall()
     users = sorted(users, key=lambda user: (not bool(user["active"]), surname_first(user["full_name"]).casefold()))
@@ -198,7 +205,9 @@ def export_absences():
     start, end = _month_range(selected_month)
 
     conn = get_db()
-    entries = conn.execute("""
+    include_inactive = get_app_setting(conn, "include_inactive_in_hr_exports", "0") == "1"
+    active_filter = "" if include_inactive else "AND u.active = 1"
+    entries = conn.execute(f"""
         SELECT lr.*, u.full_name, u.login, u.department, u.contract_type,
                c.name AS company_name
         FROM leave_requests lr
@@ -207,6 +216,7 @@ def export_absences():
         WHERE lr.status = 'zaakceptowany'
           AND lr.date_from <= ?
           AND lr.date_to >= ?
+          {active_filter}
         ORDER BY u.full_name, lr.date_from
     """, (end.isoformat(), start.isoformat())).fetchall()
 
