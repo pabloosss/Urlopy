@@ -3,9 +3,8 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <p class="eyebrow">Limity</p>
         <h1>Limity urlopowe</h1>
-        <p>Roczny limit, zaległe dni, wykorzystane, oczekujące i dostępne.</p>
+        <p>Salda i ręczne korekty.</p>
     </div>
 </section>
 
@@ -13,7 +12,7 @@
     <div class="table-wrapper">
         <table>
             <thead>
-                <tr><th>Pracownik</th><th>Limit</th><th>Zaległe</th><th>Wykorzystane</th><th>Oczekujące</th><th>Dostępne</th></tr>
+                <tr><th>Pracownik</th><th>Limit</th><th>Zaległe</th><th>Wykorzystane</th><th>Dostępne</th></tr>
             </thead>
             <tbody>
                 {% for row in summaries %}
@@ -22,7 +21,6 @@
                     <td>{{ row.summary.base }}</td>
                     <td>{{ row.summary.carryover }}</td>
                     <td>{{ row.summary.accepted }}</td>
-                    <td>{{ row.summary.pending }}</td>
                     <td><b>{{ row.summary.available }}</b></td>
                 </tr>
                 {% endfor %}
@@ -32,14 +30,14 @@
 </div>
 
 <div class="card">
-    <h2>Ręczna korekta limitu</h2>
+    <h2>Ręczna korekta</h2>
     <form method="post" class="filters-form">
         <select name="user_id" required>
             {% for row in summaries %}<option value="{{ row.user.id }}">{{ row.user.full_name|surname_first }}</option>{% endfor %}
         </select>
-        <input type="number" name="vacation_days" placeholder="Limit roczny" required>
-        <input type="number" name="carryover_days" placeholder="Zaległe" value="0">
-        <input name="reason" placeholder="Powód korekty">
+        <input type="number" name="vacation_days" min="0" placeholder="Limit roczny" required>
+        <input type="number" name="carryover_days" min="0" placeholder="Zaległe" value="0" required>
+        <input name="reason" placeholder="Powód korekty" required>
         <button>Zapisz</button>
     </form>
 </div>
