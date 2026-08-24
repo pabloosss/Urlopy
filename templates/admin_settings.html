@@ -4,7 +4,7 @@
 <section class="page-title admin-settings-hero">
     <div>
         <h1>Ustawienia Kadr</h1>
-        <p>Zasady urlopów i obsługi okresów.</p>
+        <p>Limity, wnioski, okresy i alerty.</p>
     </div>
 </section>
 
@@ -13,14 +13,23 @@
         <section class="card system-settings-card">
             <div class="settings-card-head">
                 <span class="settings-card-number">01</span>
-                <div><h2>Nowy rok</h2></div>
+                <div><h2>Limity urlopowe</h2></div>
             </div>
 
-            <div class="settings-field-main">
-                <label for="defaultVacationDays">Domyślny limit od {{ next_year }}</label>
-                <div class="settings-number-input">
-                    <input id="defaultVacationDays" type="number" name="default_vacation_days" min="0" max="60" value="{{ default_vacation_days }}" required>
-                    <span>dni</span>
+            <div class="date-grid">
+                <div class="settings-field-main">
+                    <label for="defaultUop">UoP od {{ next_year }}</label>
+                    <div class="settings-number-input">
+                        <input id="defaultUop" type="number" name="default_vacation_days_uop" min="0" max="60" value="{{ default_vacation_days_uop }}" required>
+                        <span>dni</span>
+                    </div>
+                </div>
+                <div class="settings-field-main">
+                    <label for="defaultZlecenie">Zlecenie od {{ next_year }}</label>
+                    <div class="settings-number-input">
+                        <input id="defaultZlecenie" type="number" name="default_vacation_days_zlecenie" min="0" max="60" value="{{ default_vacation_days_zlecenie }}" required>
+                        <span>dni</span>
+                    </div>
                 </div>
             </div>
 
@@ -29,6 +38,15 @@
                 <span class="settings-toggle-control"></span>
                 <span class="settings-toggle-copy"><strong>Przenoś niewykorzystane dni</strong></span>
             </label>
+
+            <div class="settings-field-main">
+                <label for="maxCarryover">Maksymalnie przenieś</label>
+                <div class="settings-number-input">
+                    <input id="maxCarryover" type="number" name="max_carryover_days" min="0" max="60" value="{{ max_carryover_days }}" required>
+                    <span>dni</span>
+                </div>
+                <small>0 = bez limitu.</small>
+            </div>
         </section>
 
         <section class="card system-settings-card">
@@ -56,18 +74,82 @@
                     <span class="settings-toggle-copy"><strong>Pracownik może anulować własny wniosek</strong></span>
                 </label>
             </div>
+
+            <div class="date-grid">
+                <div class="settings-field-main">
+                    <label for="minNoticeDays">Minimalne wyprzedzenie</label>
+                    <div class="settings-number-input">
+                        <input id="minNoticeDays" type="number" name="min_notice_days" min="0" max="90" value="{{ min_notice_days }}" required>
+                        <span>dni</span>
+                    </div>
+                    <small>Nie dotyczy urlopu na żądanie. 0 = brak.</small>
+                </div>
+                <div class="settings-field-main">
+                    <label for="maxRequestDays">Maksymalny jeden wniosek</label>
+                    <div class="settings-number-input">
+                        <input id="maxRequestDays" type="number" name="max_request_days" min="0" max="60" value="{{ max_request_days }}" required>
+                        <span>dni</span>
+                    </div>
+                    <small>0 = bez limitu.</small>
+                </div>
+            </div>
         </section>
 
         <section class="card system-settings-card">
             <div class="settings-card-head">
                 <span class="settings-card-number">03</span>
-                <div><h2>Zamknięcie miesiąca</h2></div>
+                <div><h2>Zamknięcie okresu</h2></div>
             </div>
 
             <div class="settings-field-main">
                 <label for="hrClosedThrough">Zamknięte do miesiąca</label>
                 <input id="hrClosedThrough" type="month" name="hr_closed_through" value="{{ hr_closed_through }}">
-                <small>Pracownik nie doda ani nie anuluje wniosku w zamkniętym okresie. Kadry nadal mogą robić korekty. Wyczyść pole, aby zdjąć blokadę.</small>
+                <small>Pracownik nie doda ani nie anuluje wniosku w zamkniętym okresie.</small>
+            </div>
+        </section>
+
+        <section class="card system-settings-card">
+            <div class="settings-card-head">
+                <span class="settings-card-number">04</span>
+                <div><h2>Alerty Kadr</h2></div>
+            </div>
+
+            <div class="date-grid">
+                <div class="settings-field-main">
+                    <label for="contractAlertDays">Kończące się umowy</label>
+                    <div class="settings-number-input">
+                        <input id="contractAlertDays" type="number" name="contract_alert_days" min="1" max="365" value="{{ contract_alert_days }}" required>
+                        <span>dni</span>
+                    </div>
+                </div>
+                <div class="settings-field-main">
+                    <label for="carryoverAlert">Alert zaległego urlopu od</label>
+                    <div class="settings-number-input">
+                        <input id="carryoverAlert" type="number" name="carryover_alert_threshold" min="0" max="60" value="{{ carryover_alert_threshold }}" required>
+                        <span>dni</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card system-settings-card">
+            <div class="settings-card-head">
+                <span class="settings-card-number">05</span>
+                <div><h2>Konta i raporty</h2></div>
+            </div>
+
+            <div class="settings-toggle-list">
+                <label class="settings-toggle">
+                    <input type="checkbox" name="auto_deactivate_after_end_date" value="1" {% if auto_deactivate_after_end_date %}checked{% endif %}>
+                    <span class="settings-toggle-control"></span>
+                    <span class="settings-toggle-copy"><strong>Wyłącz konto po dacie zakończenia</strong></span>
+                </label>
+
+                <label class="settings-toggle">
+                    <input type="checkbox" name="include_inactive_in_hr_exports" value="1" {% if include_inactive_in_hr_exports %}checked{% endif %}>
+                    <span class="settings-toggle-control"></span>
+                    <span class="settings-toggle-copy"><strong>Uwzględniaj nieaktywnych w eksportach Kadr</strong></span>
+                </label>
             </div>
         </section>
     </div>
