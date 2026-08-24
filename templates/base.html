@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>EMERLOG Urlopy</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
     <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.svg') }}?v=1">
@@ -97,5 +98,23 @@
 </main>
 {% endif %}
 
+<script>
+(function () {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    const token = meta ? meta.content : '';
+    window.UrlopyCSRFToken = token;
+    if (!token) return;
+
+    document.querySelectorAll('form').forEach(form => {
+        if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+        if (form.querySelector('input[name="_csrf_token"]')) return;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = '_csrf_token';
+        input.value = token;
+        form.appendChild(input);
+    });
+})();
+</script>
 </body>
 </html>
