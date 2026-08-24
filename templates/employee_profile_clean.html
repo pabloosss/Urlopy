@@ -51,7 +51,7 @@
                 <div><label>Limit</label><input value="{{ vacation_summary.base }}" readonly></div>
                 <div><label>Zaległe</label><input value="{{ vacation_summary.carryover }}" readonly></div>
             </div>
-            <a class="btn-secondary btn-mini" href="{{ url_for('limits.limits_view') }}">Korekta limitu</a>
+            <a class="btn-secondary btn-mini" href="{{ url_for('limits.limits_view', user_id=user.id) }}">Korekta limitu</a>
 
             <label>Notatka kadrowa</label>
             <textarea name="hr_note" maxlength="2000" rows="4" placeholder="Widoczna tylko dla Kadr i Admina">{{ user.hr_note or '' }}</textarea>
