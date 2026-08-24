@@ -78,10 +78,11 @@
         .map(row => Number(row.dataset.newRequestId))
         .filter(Number.isInteger);
     if (!ids.length) return;
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     fetch('{{ url_for('request_notifications.mark_requests_seen') }}', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
         body: JSON.stringify({request_ids: ids})
     }).catch(() => {});
 })();
