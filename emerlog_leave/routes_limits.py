@@ -12,11 +12,32 @@ bp = Blueprint("limits", __name__)
 def limits_view():
     conn = get_db()
     if request.method == "POST":
-        user_id = int(request.form.get("user_id"))
+        reason = request.form.get("reason", "").strip()
+        if not reason:
+            conn.close()
+            flash("Podaj powód korekty.")
+            return redirect(url_for("limits.limits_view"))
+
+        try:
+            user_id = int(request.form.get("user_id"))
+            vacation_days = int(request.form.get("vacation_days") or 0)
+            carryover_days = int(request.form.get("carryover_days") or 0)
+        except (TypeError, ValueError):
+            conn.close()
+            flash("Niepoprawne dane korekty.")
+            return redirect(url_for("limits.limits_view"))
+
+        if vacation_days < 0 or carryover_days < 0:
+            conn.close()
+            flash("Limit i zaległe dni nie mogą być ujemne.")
+            return redirect(url_for("limits.limits_view"))
+
         user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        vacation_days = int(request.form.get("vacation_days") or 0)
-        carryover_days = int(request.form.get("carryover_days") or 0)
-        reason = request.form.get("reason", "")
+        if not user:
+            conn.close()
+            flash("Nie znaleziono pracownika.")
+            return redirect(url_for("limits.limits_view"))
+
         conn.execute("""
             INSERT INTO limit_adjustments (
                 user_id, changed_by, old_vacation_days, new_vacation_days,
