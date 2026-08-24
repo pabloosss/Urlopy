@@ -150,11 +150,20 @@ def init_db():
     """)
     for key, value in [
         ("default_vacation_days", "26"),
+        ("default_vacation_days_uop", "26"),
+        ("default_vacation_days_zlecenie", "20"),
         ("carryover_enabled", "1"),
+        ("max_carryover_days", "0"),
         ("require_spedycja_replacement", "1"),
         ("allow_past_requests", "1"),
         ("allow_employee_cancel", "1"),
+        ("min_notice_days", "0"),
+        ("max_request_days", "0"),
         ("hr_closed_through", ""),
+        ("contract_alert_days", "45"),
+        ("carryover_alert_threshold", "1"),
+        ("auto_deactivate_after_end_date", "0"),
+        ("include_inactive_in_hr_exports", "0"),
     ]:
         cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
 
