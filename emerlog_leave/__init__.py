@@ -81,7 +81,7 @@ def create_app():
         if request.method != "POST" or not session.get("user_id"):
             return None
 
-        if request.endpoint == "requests.new_leave_request":
+        if request.endpoint in {"requests.new_leave_request", "requests.new_request"}:
             conn = get_db()
             allow_past = get_app_setting(conn, "allow_past_requests", "1") == "1"
             require_replacement = get_app_setting(conn, "require_spedycja_replacement", "1") == "1"
