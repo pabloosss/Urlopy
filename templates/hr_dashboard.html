@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <h1>Kadry</h1>
+        <p>Najważniejsze rzeczy wymagające uwagi.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="btn-secondary" href="{{ url_for('hr_tools.export_balances') }}">Eksport sald</a>
+        <a class="btn-secondary" href="{{ url_for('admin.settings_view') }}">Ustawienia</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <div class="stat-card accent"><span>Aktywni</span><strong>{{ stats.active }}</strong></div>
+    <div class="stat-card"><span>Umowy do 45 dni</span><strong>{{ stats.expiring }}</strong></div>
+    <div class="stat-card"><span>Po dacie zakończenia</span><strong>{{ stats.should_archive }}</strong></div>
+    <div class="stat-card"><span>Braki w danych</span><strong>{{ stats.incomplete }}</strong></div>
+</section>
+
+<div class="card" style="margin-bottom:18px;">
+    <div class="section-head-row">
+        <h2>Eksport miesięczny</h2>
+        {% if closed_through %}<span class="chip">Zamknięte do {{ closed_through }}</span>{% endif %}
+    </div>
+    <form method="get" action="{{ url_for('hr_tools.export_absences') }}" class="filters-form">
+        <input type="month" name="month" value="{{ current_month }}" required>
+        <button type="submit">Pobierz nieobecności</button>
+    </form>
+</div>
+
+<div class="employees-grid">
+    <section class="card">
+        <div class="section-head-row"><h2>Kończące się umowy</h2><span class="chip">{{ stats.expiring }}</span></div>
+        <div class="audit-list">
+            {% for u in expiring %}
+            <article class="audit-item">
+                <div class="audit-content">
+                    <div class="audit-topline"><strong><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name|surname_first }}</a></strong><span>{{ u.employment_end|pldate }}</span></div>
+                    <p>{{ u.company_name or '—' }} · {{ u.department or '—' }}</p>
+                </div>
+            </article>
+            {% else %}<div class="empty-state">Brak.</div>{% endfor %}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="section-head-row"><h2>Do wyłączenia</h2><span class="chip">{{ stats.should_archive }}</span></div>
+        <div class="audit-list">
+            {% for u in should_archive %}
+            <article class="audit-item">
+                <div class="audit-content">
+                    <div class="audit-topline"><strong><a href="{{ url_for('employees.employee_profile', user_id=u.id) }}">{{ u.full_name|surname_first }}</a></strong><span>{{ u.employment_end|pldate }}</span></div>
+                    <p>Konto nadal aktywne po dacie zakończenia.</p>
+                </div>
+            </article>
+            {% else %}<div class="empty-state">Brak.</div>{% endfor %}
+        </div>
+    </section>
+</div>
+
+<div class="employees-grid" style="margin-top:18px;">
+    <section class="card">
+        <div class="section-head-row"><h2>Braki w danych</h2><span class="chip">{{ stats.incomplete }}</span></div>
+        <div class="audit-list">
+            {% for item in incomplete %}
+            <article class="audit-item">
+                <div class="audit-content">
+                    <strong><a href="{{ url_for('employees.employee_profile', user_id=item.user.id) }}">{{ item.user.full_name|surname_first }}</a></strong>
+                    <p>{{ item.missing }}</p>
+                </div>
+            </article>
+            {% else %}<div class="empty-state">Brak.</div>{% endfor %}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="section-head-row"><h2>Ujemne saldo</h2><span class="chip">{{ stats.negative }}</span></div>
+        <div class="audit-list">
+            {% for item in negative_balances %}
+            <article class="audit-item">
+                <div class="audit-content">
+                    <div class="audit-topline"><strong><a href="{{ url_for('employees.employee_profile', user_id=item.user.id) }}">{{ item.user.full_name|surname_first }}</a></strong><span>{{ item.summary.available }} dni</span></div>
+                    <p>Limit {{ item.summary.base }} · zaległe {{ item.summary.carryover }} · wykorzystane {{ item.summary.accepted }}</p>
+                </div>
+            </article>
+            {% else %}<div class="empty-state">Brak.</div>{% endfor %}
+        </div>
+    </section>
+</div>
+
+<div class="employees-grid" style="margin-top:18px;">
+    <section class="card">
+        <div class="section-head-row"><h2>Zaległe urlopy</h2><span class="chip">{{ stats.carryover }}</span></div>
+        <div class="audit-list">
+            {% for item in carryover_people %}
+            <article class="audit-item">
+                <div class="audit-content">
+                    <div class="audit-topline"><strong><a href="{{ url_for('employees.employee_profile', user_id=item.user.id) }}">{{ item.user.full_name|surname_first }}</a></strong><span>{{ item.summary.carryover }} dni</span></div>
+                    <p>Dostępne łącznie: {{ item.summary.available }}</p>
+                </div>
+            </article>
+            {% else %}<div class="empty-state">Brak.</div>{% endfor %}
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="section-head-row"><h2>Ostatnie korekty</h2><a class="btn-secondary btn-mini" href="{{ url_for('limits.limits_view') }}">Limity</a></div>
+        <div class="audit-list">
+            {% for a in adjustments %}
+            <article class="audit-item">
+                <div class="audit-content">
+                    <div class="audit-topline"><strong>{{ a.employee_name|surname_first }}</strong><span>{{ a.created_at[:10] }}</span></div>
+                    <p>{{ a.old_vacation_days }} → {{ a.new_vacation_days }} · {{ a.reason or '—' }}</p>
+                </div>
+            </article>
+            {% else %}<div class="empty-state">Brak.</div>{% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}
