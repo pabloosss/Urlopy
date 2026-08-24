@@ -12,10 +12,14 @@ bp = Blueprint("limits", __name__)
 def limits_view():
     conn = get_db()
     if request.method == "POST":
-        reason = request.form.get("reason", "").strip()
+        reason = " ".join(request.form.get("reason", "").split())
         if not reason:
             conn.close()
             flash("Podaj powód korekty.")
+            return redirect(url_for("limits.limits_view"))
+        if len(reason) > 500:
+            conn.close()
+            flash("Powód korekty może mieć maksymalnie 500 znaków.")
             return redirect(url_for("limits.limits_view"))
 
         try:
@@ -27,10 +31,10 @@ def limits_view():
             flash("Niepoprawne dane korekty.")
             return redirect(url_for("limits.limits_view"))
 
-        if vacation_days < 0 or carryover_days < 0:
+        if not 0 <= vacation_days <= 366 or not 0 <= carryover_days <= 366:
             conn.close()
-            flash("Limit i zaległe dni nie mogą być ujemne.")
-            return redirect(url_for("limits.limits_view"))
+            flash("Limit i zaległe dni muszą mieścić się w zakresie 0–366.")
+            return redirect(url_for("limits.limits_view", user_id=user_id))
 
         user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
@@ -38,15 +42,37 @@ def limits_view():
             flash("Nie znaleziono pracownika.")
             return redirect(url_for("limits.limits_view"))
 
+        if user["vacation_days"] == vacation_days and (user["carryover_days"] or 0) == carryover_days:
+            conn.close()
+            flash("Nie ma żadnej zmiany do zapisania.")
+            return redirect(url_for("limits.limits_view", user_id=user_id))
+
         conn.execute("""
             INSERT INTO limit_adjustments (
                 user_id, changed_by, old_vacation_days, new_vacation_days,
                 old_carryover_days, new_carryover_days, reason
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (user_id, session["user_id"], user["vacation_days"], vacation_days, user["carryover_days"], carryover_days, reason))
-        conn.execute("UPDATE users SET vacation_days = ?, carryover_days = ? WHERE id = ?", (vacation_days, carryover_days, user_id))
+        """, (
+            user_id,
+            session["user_id"],
+            user["vacation_days"],
+            vacation_days,
+            user["carryover_days"],
+            carryover_days,
+            reason,
+        ))
+        conn.execute(
+            "UPDATE users SET vacation_days = ?, carryover_days = ? WHERE id = ?",
+            (vacation_days, carryover_days, user_id),
+        )
         sync_user_year_balance(conn, user_id, vacation_days, carryover_days)
-        log_action(conn, "zmieniono limit urlopu", "user", user_id, reason)
+        log_action(
+            conn,
+            "zmieniono limit urlopu",
+            "user",
+            user_id,
+            f"limit {user['vacation_days']} → {vacation_days}; zaległe {user['carryover_days'] or 0} → {carryover_days}; powód: {reason}",
+        )
         conn.commit()
         conn.close()
         flash("Limit urlopu zapisany.")
@@ -63,6 +89,8 @@ def limits_view():
         ORDER BY la.created_at DESC LIMIT 30
     """).fetchall()
     selected_user_id = request.args.get("user_id", "").strip()
+    if selected_user_id and not selected_user_id.isdigit():
+        selected_user_id = ""
     conn.close()
     return render_template(
         "limits.html",
