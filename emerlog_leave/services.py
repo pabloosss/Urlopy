@@ -1,5 +1,7 @@
 from datetime import date, datetime, timedelta
 from functools import wraps
+from urllib.parse import urlsplit
+
 from flask import flash, redirect, session, url_for
 
 from .config import CONTRACT_ZLECENIE, HR_ROLES, LIMIT_TYPES
@@ -65,6 +67,16 @@ def surname_first_to_storage(value):
     return f"{' '.join(parts[1:])} {parts[0]}"
 
 
+def is_safe_local_path(value):
+    """Pozwala na przekierowania wyłącznie wewnątrz tej aplikacji."""
+    if not value or not value.startswith("/") or value.startswith("//"):
+        return False
+    if "\\" in value:
+        return False
+    parsed = urlsplit(value)
+    return not parsed.scheme and not parsed.netloc
+
+
 def calculate_easter(year):
     a = year % 19; b = year // 100; c = year % 100; d = b // 4; e = b % 4
     f = (b + 8) // 25; g = (b - f + 1) // 3; h = (19 * a + b - d - g + 15) % 30
@@ -75,7 +87,23 @@ def calculate_easter(year):
 
 def polish_holidays(year):
     e = calculate_easter(year)
-    return {date(year,1,1), date(year,1,6), e + timedelta(days=1), date(year,5,1), date(year,5,3), e + timedelta(days=60), date(year,8,15), date(year,11,1), date(year,11,11), date(year,12,25), date(year,12,26)}
+    holidays = {
+        date(year, 1, 1),
+        date(year, 1, 6),
+        e + timedelta(days=1),
+        date(year, 5, 1),
+        date(year, 5, 3),
+        e + timedelta(days=60),
+        date(year, 8, 15),
+        date(year, 11, 1),
+        date(year, 11, 11),
+        date(year, 12, 25),
+        date(year, 12, 26),
+    }
+    # Wigilia jest dniem ustawowo wolnym od pracy w Polsce od 2025 r.
+    if year >= 2025:
+        holidays.add(date(year, 12, 24))
+    return holidays
 
 
 def count_workdays(start, end):
@@ -91,6 +119,15 @@ def count_workdays(start, end):
             days += 1
         current += timedelta(days=1)
     return days
+
+
+def workdays_in_period(date_from, date_to, period_start, period_end):
+    """Liczba dni roboczych z wniosku przypadających faktycznie na wskazany okres."""
+    start = max(parse_date(date_from), period_start)
+    end = min(parse_date(date_to), period_end)
+    if start > end:
+        return 0
+    return count_workdays(start, end)
 
 
 def current_user(conn):
@@ -146,10 +183,7 @@ def vacation_days_used_in_year(conn, user_id, year):
 
     used = 0
     for row in rows:
-        start = max(parse_date(row["date_from"]), year_start)
-        end = min(parse_date(row["date_to"]), year_end)
-        if start <= end:
-            used += count_workdays(start, end)
+        used += workdays_in_period(row["date_from"], row["date_to"], year_start, year_end)
     return used
 
 
@@ -264,16 +298,26 @@ def vacation_summary(conn, user, year=None):
         (user["id"], year),
     ).fetchone()
 
-    base = (balance["base_days"] if balance else user["vacation_days"]) or 0
     if balance:
+        base = balance["base_days"] or 0
         carryover = balance["opening_carryover"] or 0
         opening_used = balance["opening_used_days"] or 0
         adjustment = balance["availability_adjustment"] or 0
     elif year == current_year:
+        base = user["vacation_days"] or 0
         carryover = user["carryover_days"] or 0
         opening_used = 0
         adjustment = 0
+    elif year > current_year:
+        # Przyszły rok może mieć już zaplanowane wnioski przed wykonaniem rolloveru.
+        # Używamy wtedy nowego limitu dla typu umowy, bez zgadywania przyszłych zaległości.
+        base = _default_days_for_contract(conn, user["contract_type"])
+        carryover = 0
+        opening_used = 0
+        adjustment = 0
     else:
+        # Brak historycznego rekordu oznacza, że nie znamy dawnego limitu.
+        base = 0
         carryover = 0
         opening_used = 0
         adjustment = 0
@@ -296,6 +340,21 @@ def vacation_summary(conn, user, year=None):
         "request_used": request_used,
         "availability_adjustment": adjustment,
     }
+
+
+def repair_leave_request_day_counts(conn):
+    """Ujednolica zapisane dni z aktualnym kalendarzem dni roboczych."""
+    changed = 0
+    rows = conn.execute("SELECT id, date_from, date_to, days_count FROM leave_requests").fetchall()
+    for row in rows:
+        try:
+            days = count_workdays(parse_date(row["date_from"]), parse_date(row["date_to"]))
+        except Exception:
+            continue
+        if int(row["days_count"] or 0) != days:
+            conn.execute("UPDATE leave_requests SET days_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (days, row["id"]))
+            changed += 1
+    return changed
 
 
 def log_action(conn, action, entity_type, entity_id=None, details=""):
