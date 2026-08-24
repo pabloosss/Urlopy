@@ -4,11 +4,12 @@
 <section class="page-title">
     <div>
         <h1>Import pracowników</h1>
-        <p>Jednorazowy import kont, haseł i bilansu urlopowego z pliku XLSX.</p>
+        <p>Import kont, haseł i bilansów urlopowych z jednej uporządkowanej listy XLSX.</p>
     </div>
+    <a class="btn-secondary" href="{{ url_for('employee_import.download_import_template') }}">Pobierz pusty wzór XLSX</a>
 </section>
 
-<div class="card form-card" style="max-width:760px;">
+<div class="card form-card" style="max-width:900px;">
     <div class="section-head-row">
         <h2>Plik Excel</h2>
     </div>
@@ -20,68 +21,69 @@
     </form>
 </div>
 
-<div class="card" style="margin-top:16px;">
+<div class="card" style="margin-top:18px;">
     <div class="section-head-row">
-        <h2>Wzór pliku na przyszłość</h2>
+        <div>
+            <h2>Wzór listy</h2>
+            <p style="margin:4px 0 0;">Nagłówki mogą być w tej kolejności lub innej — importer rozpoznaje je po nazwie.</p>
+        </div>
+        <a class="btn-secondary btn-mini" href="{{ url_for('employee_import.download_import_template') }}">Pobierz wzór</a>
     </div>
 
-    <p><b>Umowa o pracę</b> — dane wpisuj w pierwszej części arkusza. Najważniejsze są kolumny C–I.</p>
-    <div class="table-wrapper" style="margin-top:10px;">
+    <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
-                    <th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th>
+                    <th>Typ</th>
+                    <th>Pracownik (nazwa źródłowa)</th>
+                    <th>Nazwisko i imię</th>
+                    <th>Login</th>
+                    <th>Hasło</th>
+                    <th>Urlop należny</th>
+                    <th>Urlop zaległy</th>
+                    <th>Urlop wykorzystany</th>
+                    <th>Urlop pozostały</th>
+                    <th>Uwagi</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td>opcjonalnie</td>
-                    <td>opcjonalnie</td>
-                    <td><b>Login</b></td>
-                    <td><b>Hasło</b></td>
-                    <td><b>Nazwisko i imię</b></td>
-                    <td><b>Pula roczna</b></td>
-                    <td><b>Zaległe</b></td>
-                    <td><b>Wykorzystane</b></td>
-                    <td><b>Pozostało</b></td>
+                    <td>Pracownik</td>
+                    <td>Kowalski Jan</td>
+                    <td>Kowalski Jan</td>
+                    <td>JKOWALSKI</td>
+                    <td>Jan@321</td>
+                    <td>26</td>
+                    <td>8</td>
+                    <td>10</td>
+                    <td>24</td>
+                    <td>—</td>
                 </tr>
                 <tr>
-                    <td></td><td></td><td>KOWALSKI.J</td><td>Start123!</td><td>Kowalski Jan</td><td>26</td><td>5</td><td>8</td><td>23</td>
+                    <td>Zlecenie</td>
+                    <td>Nowak Anna</td>
+                    <td>Nowak Anna</td>
+                    <td>ANOWAK</td>
+                    <td>Anna@321</td>
+                    <td>20</td>
+                    <td>0</td>
+                    <td>5</td>
+                    <td>15</td>
+                    <td>—</td>
                 </tr>
             </tbody>
         </table>
     </div>
 
-    <p style="margin-top:22px;"><b>Umowa zlecenie</b> — przed pierwszą osobą na zleceniu dodaj osobny wiersz z napisem <b>Zlecenie</b> w kolumnie A. Od tego miejsca importer używa układu poniżej.</p>
-    <div class="table-wrapper" style="margin-top:10px;">
-        <table>
-            <thead>
-                <tr>
-                    <th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>opcjonalnie</td>
-                    <td><b>Nazwisko i imię</b></td>
-                    <td><b>Login</b></td>
-                    <td><b>Hasło</b></td>
-                    <td><b>Pula roczna</b></td>
-                    <td><b>Zaległe</b></td>
-                    <td><b>Wykorzystane</b></td>
-                    <td><b>Pozostało</b></td>
-                </tr>
-                <tr>
-                    <td></td><td>Nowak Anna</td><td>NOWAK.A</td><td>Start456!</td><td>20</td><td>0</td><td>4</td><td>16</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="settings-info-box" style="margin-top:18px;">
-        <strong>Reguła przygotowania pliku</strong>
+    <div class="settings-info-box" style="margin-top:16px;">
+        <strong>Zasady przygotowania pliku</strong>
         <p>
-            Nie zmieniaj kolejności kolumn. Login i hasło są obowiązkowe. Nazwisko wpisuj przed imieniem. W polach urlopowych wpisuj liczby całkowite. Kolumna „Pozostało” może zostać pusta — wtedy system policzy ją jako: pula roczna + zaległe − wykorzystane. Plik zapisuj jako XLSX i trzymaj wszystkie osoby w pierwszym arkuszu.
+            <b>Typ:</b> wpisuj „Pracownik” dla umowy o pracę albo „Zlecenie” dla umowy zlecenia.
+            <b>Pracownik (nazwa źródłowa)</b> jest opcjonalny — przydaje się, gdy ktoś zmienił nazwisko albo login.
+            <b>Nazwisko i imię</b> wpisuj w kolejności: nazwisko, potem imię.
+            <b>Login</b> jest wymagany. <b>Hasło</b> jest wymagane tylko dla nowej osoby; przy istniejącym koncie puste hasło oznacza pozostawienie obecnego hasła.
+            Kolumny urlopowe wpisuj jako liczby całkowite. Jeśli <b>Urlop pozostały</b> zostawisz pusty, system policzy go jako: należny + zaległy − wykorzystany.
+            Kolumna <b>Uwagi</b> jest opcjonalna. Możesz za każdym razem wrzucać całą aktualną listę — nowe osoby zostaną dodane, a istniejące zaktualizowane.
         </p>
     </div>
 </div>
