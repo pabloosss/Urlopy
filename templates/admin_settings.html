@@ -3,8 +3,8 @@
 {% block content %}
 <section class="page-title admin-settings-hero">
     <div>
-        <h1>Ustawienia systemu</h1>
-        <p>Globalne zasady działania programu.</p>
+        <h1>Ustawienia Kadr</h1>
+        <p>Zasady urlopów i obsługi okresów.</p>
     </div>
 </section>
 
@@ -13,77 +13,68 @@
         <section class="card system-settings-card">
             <div class="settings-card-head">
                 <span class="settings-card-number">01</span>
-                <div>
-                    <h2>Nowy rok</h2>
-                    <p>Ustawienia rocznego limitu urlopu.</p>
-                </div>
+                <div><h2>Nowy rok</h2></div>
             </div>
 
             <div class="settings-field-main">
-                <label for="defaultVacationDays">Domyślna liczba dni od {{ next_year }} roku</label>
+                <label for="defaultVacationDays">Domyślny limit od {{ next_year }}</label>
                 <div class="settings-number-input">
                     <input id="defaultVacationDays" type="number" name="default_vacation_days" min="0" max="60" value="{{ default_vacation_days }}" required>
                     <span>dni</span>
                 </div>
-                <small>Nowa wartość zacznie obowiązywać przy przejściu na kolejny rok. Nie zmienia limitów w bieżącym roku.</small>
             </div>
 
             <label class="settings-toggle">
                 <input type="checkbox" name="carryover_enabled" value="1" {% if carryover_enabled %}checked{% endif %}>
                 <span class="settings-toggle-control"></span>
-                <span class="settings-toggle-copy">
-                    <strong>Przenoszenie niewykorzystanych dni</strong>
-                    <small>Pozostałe dni zostaną dodane do puli na kolejny rok.</small>
-                </span>
+                <span class="settings-toggle-copy"><strong>Przenoś niewykorzystane dni</strong></span>
             </label>
         </section>
 
         <section class="card system-settings-card">
             <div class="settings-card-head">
                 <span class="settings-card-number">02</span>
-                <div>
-                    <h2>Wnioski</h2>
-                    <p>Globalne zasady składania i obsługi wniosków.</p>
-                </div>
+                <div><h2>Wnioski</h2></div>
             </div>
 
             <div class="settings-toggle-list">
                 <label class="settings-toggle">
                     <input type="checkbox" name="require_spedycja_replacement" value="1" {% if require_spedycja_replacement %}checked{% endif %}>
                     <span class="settings-toggle-control"></span>
-                    <span class="settings-toggle-copy">
-                        <strong>Wymagaj zastępstwa w Spedycji</strong>
-                        <small>Wniosek ze Spedycji nie zapisze się bez wskazania osoby zastępującej.</small>
-                    </span>
+                    <span class="settings-toggle-copy"><strong>Wymagaj zastępstwa w Spedycji</strong></span>
                 </label>
 
                 <label class="settings-toggle">
                     <input type="checkbox" name="allow_past_requests" value="1" {% if allow_past_requests %}checked{% endif %}>
                     <span class="settings-toggle-control"></span>
-                    <span class="settings-toggle-copy">
-                        <strong>Zezwalaj na wnioski z datą wsteczną</strong>
-                        <small>Po wyłączeniu pracownik może wybrać najwcześniej dzisiejszą datę.</small>
-                    </span>
+                    <span class="settings-toggle-copy"><strong>Zezwalaj na wnioski wstecz</strong></span>
                 </label>
 
                 <label class="settings-toggle">
                     <input type="checkbox" name="allow_employee_cancel" value="1" {% if allow_employee_cancel %}checked{% endif %}>
                     <span class="settings-toggle-control"></span>
-                    <span class="settings-toggle-copy">
-                        <strong>Pracownik może anulować własny wniosek</strong>
-                        <small>Admin i kadry nadal mogą zarządzać statusem niezależnie od tej opcji.</small>
-                    </span>
+                    <span class="settings-toggle-copy"><strong>Pracownik może anulować własny wniosek</strong></span>
                 </label>
+            </div>
+        </section>
+
+        <section class="card system-settings-card">
+            <div class="settings-card-head">
+                <span class="settings-card-number">03</span>
+                <div><h2>Zamknięcie miesiąca</h2></div>
+            </div>
+
+            <div class="settings-field-main">
+                <label for="hrClosedThrough">Zamknięte do miesiąca</label>
+                <input id="hrClosedThrough" type="month" name="hr_closed_through" value="{{ hr_closed_through }}">
+                <small>Pracownik nie doda ani nie anuluje wniosku w zamkniętym okresie. Kadry nadal mogą robić korekty. Wyczyść pole, aby zdjąć blokadę.</small>
             </div>
         </section>
     </div>
 
     <div class="settings-save-bar">
-        <div>
-            <strong>Ustawienia globalne</strong>
-            <span>Zmiany obowiązują wszystkich użytkowników programu.</span>
-        </div>
-        <button type="submit">Zapisz ustawienia</button>
+        <div><strong>Ustawienia Kadr</strong></div>
+        <button type="submit">Zapisz</button>
     </div>
 </form>
 {% endblock %}
