@@ -15,6 +15,7 @@ from .services import (
     surname_first,
     is_hr,
     is_manager,
+    workdays_in_period,
 )
 
 bp = Blueprint("main", __name__)
@@ -35,13 +36,16 @@ def graphics_file(filename):
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        login_value = request.form.get("login", "").strip()
         conn = get_db()
         user = conn.execute(
-            "SELECT * FROM users WHERE login = ? AND active = 1",
-            (request.form.get("login", "").strip(),),
+            "SELECT * FROM users WHERE lower(login) = lower(?) AND active = 1 LIMIT 1",
+            (login_value,),
         ).fetchone()
         conn.close()
         if user and check_password_hash(user["password_hash"], request.form.get("password", "")):
+            # Czyścimy starą sesję po poprawnym logowaniu, żeby nie przenosić starego stanu.
+            session.clear()
             session.update(
                 {
                     "user_id": user["id"],
@@ -50,6 +54,7 @@ def login():
                     "role": user["role"],
                 }
             )
+            session.permanent = True
             return redirect(url_for("main.dashboard"))
         flash("Błędny login albo hasło.")
     return render_template("login.html")
@@ -182,6 +187,11 @@ def my_leave():
 @role_required("admin", "kadry", "menedzer")
 def presence_view():
     selected_date = request.args.get("date") or date.today().isoformat()
+    try:
+        parse_date(selected_date)
+    except Exception:
+        selected_date = date.today().isoformat()
+
     department = request.args.get("department", "").strip()
     employee = request.args.get("employee", "").strip()
     leave_type = request.args.get("leave_type", "").strip()
@@ -273,7 +283,7 @@ def calendar_view():
     try:
         year = int(request.args.get("year", date.today().year))
         month = int(request.args.get("month", date.today().month))
-        if month < 1 or month > 12:
+        if year < 2000 or year > 2100 or month < 1 or month > 12:
             raise ValueError
     except (TypeError, ValueError):
         year = date.today().year
@@ -329,7 +339,10 @@ def calendar_view():
         rows = sorted(rows, key=lambda row: (row["date_from"], surname_first(row["full_name"]).casefold()))
 
         team_stats["requests"] = len(rows)
-        team_stats["days"] = sum((row["days_count"] or 0) for row in rows)
+        team_stats["days"] = sum(
+            workdays_in_period(row["date_from"], row["date_to"], first, last)
+            for row in rows
+        )
 
         for row in rows:
             current = max(parse_date(row["date_from"]), first)
