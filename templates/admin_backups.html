@@ -4,61 +4,185 @@
 <section class="page-title backup-page-title">
     <div>
         <h1>Backup danych</h1>
-        <p>Kopie bazy programu zapisane na serwerze.</p>
+        <p>Kopie bezpieczeństwa bazy programu.</p>
     </div>
-    <form method="post" action="{{ url_for('backups.create_backup_view') }}">
-        <button type="submit" class="btn-primary">Utwórz backup teraz</button>
-    </form>
+    <div class="backup-header-actions">
+        {% if backups %}<a class="btn-secondary" href="{{ url_for('backups.download_all_backups') }}">Pobierz wszystkie ZIP</a>{% endif %}
+        <form method="post" action="{{ url_for('backups.create_backup_view') }}">
+            <button type="submit">Utwórz backup teraz</button>
+        </form>
+    </div>
 </section>
 
-<section class="backup-summary-grid">
+<section class="backup-summary-grid backup-summary-grid-wide">
     <div class="card backup-summary-card backup-summary-main">
-        <span>Zapisane kopie</span>
-        <strong>{{ backups|length }}</strong>
+        <span>Wszystkie kopie</span>
+        <strong>{{ summary.total }}</strong>
+        <small>{{ summary.counts.automatic }} automatycznych · {{ summary.counts.manual }} ręcznych</small>
     </div>
     <div class="card backup-summary-card">
         <span>Ostatni backup</span>
-        <strong>{% if backups %}{{ backups[0].created_at.strftime('%d.%m.%Y %H:%M') }}{% else %}Brak{% endif %}</strong>
+        <strong class="backup-summary-date">{% if backups %}{{ backups[0].created_at.strftime('%d.%m.%Y') }}{% else %}Brak{% endif %}</strong>
+        <small>{% if backups %}{{ backups[0].created_at.strftime('%H:%M') }} · {{ backups[0].kind }}{% else %}Nie utworzono jeszcze kopii{% endif %}</small>
+    </div>
+    <div class="card backup-summary-card {% if settings.auto_enabled %}backup-auto-on{% endif %}">
+        <span>Automatyczny backup</span>
+        <strong>{% if settings.auto_enabled %}Włączony{% else %}Wyłączony{% endif %}</strong>
+        <small>{% if auto_state.next %}Następny: {{ auto_state.next.strftime('%d.%m.%Y %H:%M') }}{% else %}Włącz go w ustawieniach poniżej{% endif %}</small>
+    </div>
+    <div class="card backup-summary-card">
+        <span>Zajęte miejsce</span>
+        <strong>{{ summary.total_mb }} MB</strong>
+        <small>{{ summary.total }} plików na serwerze</small>
     </div>
 </section>
 
-<section class="card backup-list-card">
-    <div class="section-head-row">
-        <div>
-            <h2>Zapisane backupy</h2>
-            <p class="muted">Przywrócenie zastępuje aktualne dane zawartością wybranej kopii.</p>
+<form method="post" action="{{ url_for('backups.save_backup_settings') }}" class="backup-settings-form">
+    <section class="card backup-settings-card">
+        <div class="backup-settings-head">
+            <div>
+                <h2>Automatyczny backup</h2>
+                <p>System sam tworzy kopię według ustawionego harmonogramu.</p>
+            </div>
+            <label class="backup-switch">
+                <input type="checkbox" name="backup_auto_enabled" value="1" {% if settings.auto_enabled %}checked{% endif %}>
+                <span></span>
+                <strong>{% if settings.auto_enabled %}Włączony{% else %}Wyłączony{% endif %}</strong>
+            </label>
         </div>
+
+        <div class="backup-settings-grid">
+            <div class="backup-setting-field">
+                <label>Częstotliwość</label>
+                <select name="backup_auto_frequency" id="backupFrequency">
+                    <option value="daily" {% if settings.frequency == 'daily' %}selected{% endif %}>Codziennie</option>
+                    <option value="weekdays" {% if settings.frequency == 'weekdays' %}selected{% endif %}>Tylko dni robocze</option>
+                    <option value="weekly" {% if settings.frequency == 'weekly' %}selected{% endif %}>Raz w tygodniu</option>
+                </select>
+                <small>Jak często ma powstawać nowa automatyczna kopia.</small>
+            </div>
+
+            <div class="backup-setting-field">
+                <label>Godzina</label>
+                <input type="time" name="backup_auto_time" value="{{ settings.time }}" required>
+                <small>Godzina według czasu polskiego.</small>
+            </div>
+
+            <div class="backup-setting-field" id="backupWeekdayField">
+                <label>Dzień tygodnia</label>
+                <select name="backup_auto_weekday">
+                    {% for value, label in weekdays %}
+                    <option value="{{ value }}" {% if settings.weekday == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <small>Używane tylko przy opcji „Raz w tygodniu”.</small>
+            </div>
+
+            <div class="backup-setting-field">
+                <label>Zachowaj automatycznych kopii</label>
+                <div class="backup-number-field"><input type="number" name="backup_auto_keep" min="1" max="365" value="{{ settings.auto_keep }}" required><span>szt.</span></div>
+                <small>Starsze automatyczne kopie będą usuwane po przekroczeniu tej liczby.</small>
+            </div>
+        </div>
+
+        <div class="backup-auto-note">
+            <strong>Jak działa harmonogram?</strong>
+            <span>Po wybranej godzinie system tworzy jedną kopię przy pierwszej aktywności w aplikacji. Jeśli nikt nie korzysta z programu w nocy, backup powstanie przy pierwszym wejściu później.</span>
+        </div>
+    </section>
+
+    <section class="card backup-settings-card">
+        <div class="backup-settings-head">
+            <div>
+                <h2>Przechowywanie kopii</h2>
+                <p>Ręczne backupy nie są usuwane automatycznie. Limity dotyczą kopii tworzonych przez system.</p>
+            </div>
+        </div>
+
+        <div class="backup-retention-grid">
+            <div class="backup-retention-item">
+                <div class="backup-type-dot backup-type-auto"></div>
+                <div><strong>Automatyczne</strong><span>Regularne kopie z harmonogramu.</span></div>
+                <div class="backup-number-field"><input type="number" name="backup_auto_keep_display" value="{{ settings.auto_keep }}" disabled><span>szt.</span></div>
+            </div>
+            <div class="backup-retention-item">
+                <div class="backup-type-dot backup-type-import"></div>
+                <div><strong>Przed importem</strong><span>Powstają przed importem pracowników z Excela.</span></div>
+                <div class="backup-number-field"><input type="number" name="backup_preimport_keep" min="1" max="100" value="{{ settings.preimport_keep }}" required><span>szt.</span></div>
+            </div>
+            <div class="backup-retention-item">
+                <div class="backup-type-dot backup-type-safety"></div>
+                <div><strong>Bezpieczeństwa</strong><span>Powstają zawsze przed przywróceniem starszej bazy.</span></div>
+                <div class="backup-number-field"><input type="number" name="backup_safety_keep" min="1" max="100" value="{{ settings.safety_keep }}" required><span>szt.</span></div>
+            </div>
+            <div class="backup-retention-item backup-retention-manual">
+                <div class="backup-type-dot backup-type-manual"></div>
+                <div><strong>Ręczne</strong><span>System ich sam nie usuwa. Usuwasz je tylko ręcznie.</span></div>
+                <span class="backup-retention-forever">Bez limitu</span>
+            </div>
+        </div>
+
+        <div class="backup-settings-actions">
+            <button type="submit">Zapisz ustawienia backupu</button>
+        </div>
+    </section>
+</form>
+
+<section class="card backup-list-card">
+    <div class="section-head-row backup-list-head">
+        <div>
+            <h2>Zapisane kopie</h2>
+            <p class="muted">Każda kopia jest sprawdzana kontrolą integralności SQLite po utworzeniu.</p>
+        </div>
+        <form method="post" action="{{ url_for('backups.cleanup_automatic_backups') }}">
+            <button type="submit" class="btn-secondary btn-mini">Usuń stare automatyczne</button>
+        </form>
     </div>
 
     <div class="backup-list">
         {% for item in backups %}
-        <article class="backup-item {% if item.kind == 'Backup bezpieczeństwa' %}backup-safety{% endif %}">
+        <article class="backup-item backup-kind-{{ item.kind_key }}">
             <div class="backup-item-main">
                 <div class="backup-icon">DB</div>
-                <div>
-                    <h3>{{ item.created_at.strftime('%d.%m.%Y · %H:%M:%S') }}</h3>
-                    <p>{{ item.kind }} · {{ item.size_kb }} KB</p>
+                <div class="backup-item-copy">
+                    <div class="backup-item-title-row">
+                        <h3>{{ item.created_at.strftime('%d.%m.%Y · %H:%M:%S') }}</h3>
+                        <span class="backup-kind-badge backup-kind-badge-{{ item.kind_key }}">{{ item.kind }}</span>
+                    </div>
+                    <p>{{ item.size_kb }} KB</p>
                     <small>{{ item.filename }}</small>
                 </div>
             </div>
 
             <div class="backup-actions">
                 <a class="btn-secondary btn-mini" href="{{ url_for('backups.download_backup', filename=item.filename) }}">Pobierz</a>
-                <form method="post" action="{{ url_for('backups.restore_backup', filename=item.filename) }}" onsubmit="return confirm('Przywrócić ten backup? Aktualna baza zostanie zastąpiona, ale najpierw system zapisze backup bezpieczeństwa.');">
+                <form method="post" action="{{ url_for('backups.restore_backup', filename=item.filename) }}" onsubmit="return confirm('Przywrócić tę kopię? Aktualna baza zostanie zastąpiona. Przed zmianą system automatycznie utworzy dodatkowy backup bezpieczeństwa.');">
                     <button type="submit" class="btn-bad">Przywróć</button>
+                </form>
+                <form method="post" action="{{ url_for('backups.delete_backup', filename=item.filename) }}" onsubmit="return confirm('Usunąć tę kopię z serwera? Tej operacji nie można cofnąć.');">
+                    <button type="submit" class="btn-muted">Usuń</button>
                 </form>
             </div>
         </article>
         {% else %}
-        <div class="empty-state backup-empty">
-            Nie ma jeszcze żadnego backupu. Kliknij „Utwórz backup teraz”.
-        </div>
+        <div class="empty-state backup-empty">Nie ma jeszcze żadnego backupu.</div>
         {% endfor %}
     </div>
 </section>
 
 <section class="backup-note">
-    <strong>Bezpieczne przywracanie</strong>
-    <span>Przed każdym przywróceniem system automatycznie zapisuje dodatkową kopię aktualnej bazy.</span>
+    <strong>Przywracanie jest zabezpieczone</strong>
+    <span>Przed każdym przywróceniem system najpierw zapisuje aktualny stan jako osobny backup bezpieczeństwa. Jeśli przywracanie się nie powiedzie, próbuje automatycznie wrócić do poprzedniego stanu.</span>
 </section>
+
+<script>
+(function () {
+    const frequency = document.getElementById('backupFrequency');
+    const weekday = document.getElementById('backupWeekdayField');
+    if (!frequency || !weekday) return;
+    const refresh = () => weekday.classList.toggle('is-disabled', frequency.value !== 'weekly');
+    frequency.addEventListener('change', refresh);
+    refresh();
+})();
+</script>
 {% endblock %}
