@@ -19,13 +19,15 @@
 <div class="employees-grid employee-profile-grid">
     <div class="card form-card">
         <div class="section-head-row"><h2>Dane pracownika</h2></div>
+
+        {% if can_manage %}
         <form method="post" action="{{ url_for('employees.edit_employee', user_id=user.id) }}" class="employee-form-grid">
             <input type="hidden" name="next" value="{{ request.path }}">
             <label>Login</label><input name="login" value="{{ user.login }}" required>
             <label>Nazwisko i imię</label><input name="full_name" value="{{ user.full_name|surname_first }}" required>
             <label>Rola</label><select name="role">{% for value, label in roles %}<option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-            <label>Spółka</label><select name="company_id">{% for c in companies %}<option value="{{ c.id }}" {% if user.company_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
-            <label>Dział</label><select name="department">{% for d in departments %}<option value="{{ d.name }}" {% if user.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+            <label>Spółka</label><select name="company_id" required>{% for c in companies %}<option value="{{ c.id }}" {% if user.company_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>
+            <label>Dział</label><select name="department" required>{% for d in departments %}<option value="{{ d.name }}" {% if user.department == d.name %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
             <div class="manager-search-block form-field-full">
                 <label>Menedżer</label>
                 <input type="search" class="manager-search-input" placeholder="Szukaj menedżera">
@@ -64,17 +66,37 @@
             <form method="post" action="{{ url_for('employees.change_employee_password', user_id=user.id) }}">
                 <input type="hidden" name="next" value="{{ request.path }}">
                 <label>Nowe hasło</label>
-                <input name="new_password" type="password" minlength="6" required>
+                <input name="new_password" type="password" minlength="8" required autocomplete="new-password">
                 <button type="submit" class="btn-secondary">Zmień hasło</button>
             </form>
+            {% if user.id != session.get('user_id') %}
             <form method="post" action="{{ url_for('employees.toggle_employee', user_id=user.id) }}">
                 <input type="hidden" name="next" value="{{ request.path }}">
                 <button type="submit" class="btn-muted">{% if user.active %}Wyłącz konto{% else %}Włącz konto{% endif %}</button>
             </form>
-            <form method="post" action="{{ url_for('employees.delete_employee', user_id=user.id) }}" onsubmit="return confirm('Na pewno usunąć tego pracownika razem z jego wnioskami?');">
-                <button type="submit" class="btn-bad">Usuń pracownika</button>
+            {% if user.active %}
+            <form method="post" action="{{ url_for('employees.delete_employee', user_id=user.id) }}" onsubmit="return confirm('Zarchiwizować pracownika? Konto zostanie wyłączone, ale historia wniosków, sald i zmian pozostanie w systemie.');">
+                <button type="submit" class="btn-bad">Archiwizuj pracownika</button>
             </form>
+            {% endif %}
+            {% endif %}
         </div>
+        {% else %}
+        <div class="panel-info-list">
+            <div><span>Login</span><strong>{{ user.login }}</strong></div>
+            <div><span>Rola</span><strong>{{ user.role }}</strong></div>
+            <div><span>Spółka</span><strong>{{ user.company_name or '—' }}</strong></div>
+            <div><span>Dział</span><strong>{{ user.department or '—' }}</strong></div>
+            <div><span>Typ umowy</span><strong>{{ user.contract_type or '—' }}</strong></div>
+            <div><span>Etat</span><strong>{{ user.fte_percent or 100 }}%</strong></div>
+            <div><span>Zatrudnienie od</span><strong>{{ user.employment_start|pldate if user.employment_start else '—' }}</strong></div>
+            <div><span>Zatrudnienie do</span><strong>{{ user.employment_end|pldate if user.employment_end else '—' }}</strong></div>
+        </div>
+        <div class="backup-note" style="margin-top:16px;">
+            <strong>Tylko podgląd</strong>
+            <span>Konto administratora może edytować wyłącznie inny administrator.</span>
+        </div>
+        {% endif %}
     </div>
 
     <div class="card employees-list-card">
