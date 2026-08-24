@@ -1,4 +1,5 @@
 from datetime import date
+import re
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
@@ -17,7 +18,7 @@ def reports_view():
 
 @bp.route("/admin/settings", methods=["GET", "POST"])
 @login_required
-@role_required("admin")
+@role_required("admin", "kadry")
 def settings_view():
     conn = get_db()
 
@@ -27,8 +28,13 @@ def settings_view():
         except (TypeError, ValueError):
             default_days = -1
 
+        closed_through = request.form.get("hr_closed_through", "").strip()
+        closed_valid = not closed_through or bool(re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", closed_through))
+
         if default_days < 0 or default_days > 60:
             flash("Domyślny limit musi mieścić się w zakresie 0–60 dni.")
+        elif not closed_valid:
+            flash("Niepoprawny miesiąc zamknięcia.")
         else:
             settings = {
                 "default_vacation_days": str(default_days),
@@ -36,13 +42,14 @@ def settings_view():
                 "require_spedycja_replacement": "1" if request.form.get("require_spedycja_replacement") == "1" else "0",
                 "allow_past_requests": "1" if request.form.get("allow_past_requests") == "1" else "0",
                 "allow_employee_cancel": "1" if request.form.get("allow_employee_cancel") == "1" else "0",
+                "hr_closed_through": closed_through,
             }
             for key, value in settings.items():
                 set_app_setting(conn, key, value)
 
             log_action(
                 conn,
-                "zmieniono ustawienia systemu",
+                "zmieniono ustawienia Kadr",
                 "settings",
                 None,
                 (
@@ -50,11 +57,12 @@ def settings_view():
                     f"przenoszenie: {settings['carryover_enabled']}; "
                     f"zastępstwo Spedycja: {settings['require_spedycja_replacement']}; "
                     f"wnioski wstecz: {settings['allow_past_requests']}; "
-                    f"samodzielne anulowanie: {settings['allow_employee_cancel']}"
+                    f"samodzielne anulowanie: {settings['allow_employee_cancel']}; "
+                    f"zamknięte do: {closed_through or 'brak'}"
                 ),
             )
             conn.commit()
-            flash("Ustawienia systemu zostały zapisane.")
+            flash("Ustawienia zostały zapisane.")
 
     values = {
         "default_vacation_days": int(get_app_setting(conn, "default_vacation_days", "26") or 26),
@@ -62,6 +70,7 @@ def settings_view():
         "require_spedycja_replacement": get_app_setting(conn, "require_spedycja_replacement", "1") == "1",
         "allow_past_requests": get_app_setting(conn, "allow_past_requests", "1") == "1",
         "allow_employee_cancel": get_app_setting(conn, "allow_employee_cancel", "1") == "1",
+        "hr_closed_through": get_app_setting(conn, "hr_closed_through", "") or "",
         "next_year": date.today().year + 1,
     }
     conn.close()
