@@ -6,7 +6,16 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import SECRET_KEY, LEAVE_TYPES, FORCE_HTTPS, SESSION_COOKIE_SECURE
 from .database import get_db, init_db
-from .services import format_pl_date, get_app_setting, is_hr, is_manager, ensure_vacation_years, surname_first
+from .services import (
+    count_workdays,
+    ensure_vacation_years,
+    format_pl_date,
+    get_app_setting,
+    is_hr,
+    is_manager,
+    parse_date,
+    surname_first,
+)
 from .routes_main import bp as main_bp
 from .routes_requests import bp as requests_bp
 from .routes_pdf import bp as request_pdf_bp
@@ -31,6 +40,37 @@ def _closed_through_cutoff(conn):
         return None
 
 
+def _auto_deactivate_finished_users(conn):
+    if get_app_setting(conn, "auto_deactivate_after_end_date", "0") != "1":
+        return set()
+
+    today = date.today().isoformat()
+    rows = conn.execute(
+        """
+        SELECT id, full_name, employment_end
+        FROM users
+        WHERE active = 1
+          AND employment_end IS NOT NULL
+          AND employment_end != ''
+          AND employment_end < ?
+        """,
+        (today,),
+    ).fetchall()
+    ids = {row["id"] for row in rows}
+    for row in rows:
+        conn.execute("UPDATE users SET active = 0 WHERE id = ?", (row["id"],))
+        conn.execute(
+            """
+            INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details)
+            VALUES (NULL, 'automatycznie wyłączono konto', 'user', ?, ?)
+            """,
+            (row["id"], f"data zakończenia: {row['employment_end']}"),
+        )
+    if rows:
+        conn.commit()
+    return ids
+
+
 def create_app():
     app = Flask(__name__, template_folder="../templates", static_folder="../static")
     app.secret_key = SECRET_KEY
@@ -46,6 +86,7 @@ def create_app():
     init_db()
     conn = get_db()
     ensure_vacation_years(conn)
+    _auto_deactivate_finished_users(conn)
     conn.commit()
     conn.close()
     app.config["VACATION_YEAR_CHECKED"] = date.today().year
@@ -78,6 +119,14 @@ def create_app():
             conn.close()
             app.config["VACATION_YEAR_CHECKED"] = current_year
 
+        conn = get_db()
+        deactivated_ids = _auto_deactivate_finished_users(conn)
+        conn.close()
+        if session.get("user_id") in deactivated_ids:
+            session.clear()
+            flash("Konto zostało wyłączone po dacie zakończenia współpracy.")
+            return redirect(url_for("main.login"))
+
         if request.method != "POST" or not session.get("user_id"):
             return None
 
@@ -85,11 +134,16 @@ def create_app():
             conn = get_db()
             allow_past = get_app_setting(conn, "allow_past_requests", "1") == "1"
             require_replacement = get_app_setting(conn, "require_spedycja_replacement", "1") == "1"
+            min_notice_days = int(get_app_setting(conn, "min_notice_days", "0") or 0)
+            max_request_days = int(get_app_setting(conn, "max_request_days", "0") or 0)
             closed_cutoff = _closed_through_cutoff(conn)
             user = conn.execute("SELECT department FROM users WHERE id = ?", (session["user_id"],)).fetchone()
             conn.close()
 
             date_from = request.form.get("date_from", "").strip()
+            date_to = request.form.get("date_to", "").strip()
+            leave_type = request.form.get("leave_type", "").strip()
+
             if not allow_past and date_from and date_from < date.today().isoformat():
                 flash("Nie można złożyć wniosku z datą wcześniejszą niż dzisiejsza.")
                 return redirect(url_for("requests.new_leave_request"))
@@ -97,6 +151,24 @@ def create_app():
             if not is_hr() and closed_cutoff and date_from and date_from <= closed_cutoff.isoformat():
                 flash(f"Okres do {closed_cutoff.strftime('%m.%Y')} jest zamknięty przez Kadry.")
                 return redirect(url_for("requests.new_leave_request"))
+
+            if not is_hr() and min_notice_days > 0 and date_from and leave_type != "Urlop na żądanie":
+                try:
+                    notice = (parse_date(date_from) - date.today()).days
+                except Exception:
+                    notice = None
+                if notice is not None and notice < min_notice_days:
+                    flash(f"Ten wniosek trzeba złożyć co najmniej {min_notice_days} dni wcześniej.")
+                    return redirect(url_for("requests.new_leave_request"))
+
+            if max_request_days > 0 and date_from and date_to:
+                try:
+                    request_days = count_workdays(parse_date(date_from), parse_date(date_to))
+                except Exception:
+                    request_days = 0
+                if request_days > max_request_days:
+                    flash(f"Jeden wniosek może obejmować maksymalnie {max_request_days} dni roboczych.")
+                    return redirect(url_for("requests.new_leave_request"))
 
             is_spedycja = user and (user["department"] or "").strip().lower() == "spedycja"
             if require_replacement and is_spedycja and not request.form.get("replacement_user_id", "").strip():
