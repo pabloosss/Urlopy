@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import generate_password_hash
 
@@ -37,6 +39,21 @@ def _name_to_storage(value):
     if len(parts) < 2:
         return text
     return f"{' '.join(parts[1:])} {parts[0]}"
+
+
+def _clean_date(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    datetime.strptime(value, "%Y-%m-%d")
+    return value
+
+
+def _fte_percent(value):
+    result = _to_int(value, 100)
+    if result < 1 or result > 100:
+        raise ValueError("Wymiar etatu musi mieścić się w zakresie 1–100%.")
+    return result
 
 
 def _next(default="employees.employees_view"):
@@ -89,11 +106,19 @@ def employees_view():
             flash("Login oraz nazwisko i imię są wymagane.")
         else:
             try:
+                employment_start = _clean_date(request.form.get("employment_start"))
+                employment_end = _clean_date(request.form.get("employment_end"))
+                if employment_start and employment_end and employment_end < employment_start:
+                    raise ValueError("Data zakończenia nie może być wcześniejsza niż data zatrudnienia.")
+                fte_percent = _fte_percent(request.form.get("fte_percent"))
+                hr_note = request.form.get("hr_note", "").strip()[:2000]
+
                 cur = conn.execute("""
                     INSERT INTO users (
                         login, password_hash, full_name, email, role, vacation_days,
-                        active, department, job_title, manager_id, contract_type, carryover_days, company_id
-                    ) VALUES (?, ?, ?, '', ?, ?, 1, ?, '', ?, ?, ?, ?)
+                        active, department, job_title, manager_id, contract_type, carryover_days, company_id,
+                        employment_start, employment_end, fte_percent, hr_note
+                    ) VALUES (?, ?, ?, '', ?, ?, 1, ?, '', ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     login_value,
                     generate_password_hash(password),
@@ -105,6 +130,10 @@ def employees_view():
                     request.form.get("contract_type", "Umowa o pracę"),
                     carryover_days,
                     _company_id_from_form(),
+                    employment_start,
+                    employment_end,
+                    fte_percent,
+                    hr_note,
                 ))
                 sync_user_year_balance(conn, cur.lastrowid, vacation_days, carryover_days)
                 log_action(conn, "dodano pracownika", "user", cur.lastrowid, full_name)
@@ -112,7 +141,7 @@ def employees_view():
                 flash("Pracownik dodany.")
             except Exception as error:
                 conn.rollback()
-                flash(f"Nie udało się dodać pracownika. Sprawdź login. Błąd: {error}")
+                flash(f"Nie udało się dodać pracownika. Błąd: {error}")
 
     q = request.args.get("q", "").strip()
     role = request.args.get("role", "").strip()
@@ -258,10 +287,18 @@ def edit_employee(user_id):
         active = 1 if request.form.get("active") == "1" else 0
         vacation_days = _to_int(request.form.get("vacation_days"), user["vacation_days"] or 0)
         carryover_days = _to_int(request.form.get("carryover_days"), user["carryover_days"] or 0)
+        employment_start = _clean_date(request.form.get("employment_start"))
+        employment_end = _clean_date(request.form.get("employment_end"))
+        if employment_start and employment_end and employment_end < employment_start:
+            raise ValueError("Data zakończenia nie może być wcześniejsza niż data zatrudnienia.")
+        fte_percent = _fte_percent(request.form.get("fte_percent"))
+        hr_note = request.form.get("hr_note", "").strip()[:2000]
+
         conn.execute("""
             UPDATE users
             SET login=?, full_name=?, role=?, vacation_days=?, active=?,
-                department=?, manager_id=?, contract_type=?, carryover_days=?, company_id=?
+                department=?, manager_id=?, contract_type=?, carryover_days=?, company_id=?,
+                employment_start=?, employment_end=?, fte_percent=?, hr_note=?
             WHERE id=?
         """, (
             login_value,
@@ -274,10 +311,19 @@ def edit_employee(user_id):
             request.form.get("contract_type", "Umowa o pracę"),
             carryover_days,
             _company_id_from_form(),
+            employment_start,
+            employment_end,
+            fte_percent,
+            hr_note,
             user_id,
         ))
         sync_user_year_balance(conn, user_id, vacation_days, carryover_days)
-        log_action(conn, "edytowano pracownika", "user", user_id, full_name)
+        details = f"{full_name}; etat {fte_percent}%"
+        if employment_start:
+            details += f"; zatrudnienie od {employment_start}"
+        if employment_end:
+            details += f" do {employment_end}"
+        log_action(conn, "edytowano pracownika", "user", user_id, details)
         conn.commit()
         flash("Pracownik zaktualizowany.")
     except Exception as error:
