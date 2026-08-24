@@ -48,7 +48,9 @@ def limits_view():
         sync_user_year_balance(conn, user_id, vacation_days, carryover_days)
         log_action(conn, "zmieniono limit urlopu", "user", user_id, reason)
         conn.commit()
+        conn.close()
         flash("Limit urlopu zapisany.")
+        return redirect(url_for("limits.limits_view", user_id=user_id))
 
     users = conn.execute("SELECT * FROM users WHERE active = 1").fetchall()
     users = sorted(users, key=lambda user: surname_first(user["full_name"]).casefold())
@@ -60,5 +62,11 @@ def limits_view():
         LEFT JOIN users a ON la.changed_by = a.id
         ORDER BY la.created_at DESC LIMIT 30
     """).fetchall()
+    selected_user_id = request.args.get("user_id", "").strip()
     conn.close()
-    return render_template("limits.html", summaries=summaries, adjustments=adjustments)
+    return render_template(
+        "limits.html",
+        summaries=summaries,
+        adjustments=adjustments,
+        selected_user_id=selected_user_id,
+    )
