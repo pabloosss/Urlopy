@@ -42,6 +42,10 @@ def init_db():
         "contract_type": "TEXT DEFAULT 'Umowa o pracę'",
         "carryover_days": "INTEGER DEFAULT 0",
         "company_id": "INTEGER",
+        "employment_start": "TEXT",
+        "employment_end": "TEXT",
+        "fte_percent": "INTEGER NOT NULL DEFAULT 100",
+        "hr_note": "TEXT DEFAULT ''",
     }.items():
         _ensure_column(cur, "users", name, definition)
 
@@ -150,6 +154,7 @@ def init_db():
         ("require_spedycja_replacement", "1"),
         ("allow_past_requests", "1"),
         ("allow_employee_cancel", "1"),
+        ("hr_closed_through", ""),
     ]:
         cur.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
 
