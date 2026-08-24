@@ -10,7 +10,7 @@ import zipfile
 from flask import Blueprint, current_app, flash, redirect, render_template, request, send_file, session, url_for
 
 from .config import BACKUP_DIR, DATABASE
-from .database import get_db
+from .database import get_db, init_db
 from .services import get_app_setting, log_action, login_required, role_required, set_app_setting
 
 bp = Blueprint("backups", __name__)
@@ -37,6 +37,36 @@ def _backup_directory():
     return directory
 
 
+def _restore_flag_path():
+    return _backup_directory() / ".restore-in-progress.lock"
+
+
+def restore_in_progress():
+    path = _restore_flag_path()
+    if not path.exists():
+        return False
+    try:
+        age = _now().timestamp() - path.stat().st_mtime
+        if age > 1800:
+            path.unlink(missing_ok=True)
+            return False
+    except OSError:
+        return True
+    return True
+
+
+def _acquire_restore_lock():
+    path = _restore_flag_path()
+    if restore_in_progress():
+        return None, path
+    try:
+        fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(_now().timestamp()).encode("ascii"))
+        return fd, path
+    except FileExistsError:
+        return None, path
+
+
 def _verify_database(path):
     conn = sqlite3.connect(str(path), timeout=30)
     try:
@@ -51,6 +81,8 @@ def _copy_database(source_path, target_path):
     source = sqlite3.connect(str(source_path), timeout=30)
     target = sqlite3.connect(str(target_path), timeout=30)
     try:
+        source.execute("PRAGMA busy_timeout = 10000")
+        target.execute("PRAGMA busy_timeout = 10000")
         source.backup(target)
         target.commit()
     finally:
@@ -120,7 +152,6 @@ def _list_backups():
             stat = path.stat()
         except OSError:
             continue
-
         kind = _kind_key(path.name)
         items.append({
             "filename": path.name,
@@ -130,9 +161,20 @@ def _list_backups():
             "size_bytes": stat.st_size,
             "size_kb": max(1, round(stat.st_size / 1024)),
         })
-
     items.sort(key=lambda item: item["created_at"], reverse=True)
     return items
+
+
+def _resolve_backup(filename):
+    if not filename or Path(filename).name != filename:
+        return None
+    if not filename.startswith("urlopy_") or not filename.endswith(".db"):
+        return None
+    directory = _backup_directory()
+    path = (directory / filename).resolve()
+    if path.parent != directory or not path.is_file():
+        return None
+    return path
 
 
 def _prune_kind(kind, keep):
@@ -170,23 +212,13 @@ def _create_backup(kind="manual"):
     timestamp = _now().strftime("%Y-%m-%d_%H-%M-%S_%f")
     filename = f"urlopy_{kind}_{timestamp}.db"
     path = directory / filename
-
-    _copy_database(DATABASE, path)
-    _verify_database(path)
+    try:
+        _copy_database(DATABASE, path)
+        _verify_database(path)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
     _apply_retention(kind)
-    return path
-
-
-def _resolve_backup(filename):
-    if not filename or Path(filename).name != filename:
-        return None
-    if not filename.startswith("urlopy_") or not filename.endswith(".db"):
-        return None
-
-    directory = _backup_directory()
-    path = (directory / filename).resolve()
-    if path.parent != directory or not path.is_file():
-        return None
     return path
 
 
@@ -194,22 +226,18 @@ def _scheduled_slot(now, settings):
     hour, minute = [int(part) for part in settings["time"].split(":", 1)]
     candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     frequency = settings["frequency"]
-
     if frequency == "daily":
         if candidate > now:
             candidate -= timedelta(days=1)
         return candidate
-
     if frequency == "weekdays":
         if candidate > now:
             candidate -= timedelta(days=1)
         while candidate.weekday() > 4:
             candidate -= timedelta(days=1)
         return candidate
-
     weekday = settings["weekday"]
-    days_back = (candidate.weekday() - weekday) % 7
-    candidate -= timedelta(days=days_back)
+    candidate -= timedelta(days=(candidate.weekday() - weekday) % 7)
     if candidate > now:
         candidate -= timedelta(days=7)
     return candidate
@@ -219,22 +247,18 @@ def _next_scheduled(now, settings):
     hour, minute = [int(part) for part in settings["time"].split(":", 1)]
     candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     frequency = settings["frequency"]
-
     if frequency == "daily":
         if candidate <= now:
             candidate += timedelta(days=1)
         return candidate
-
     if frequency == "weekdays":
         if candidate <= now:
             candidate += timedelta(days=1)
         while candidate.weekday() > 4:
             candidate += timedelta(days=1)
         return candidate
-
     weekday = settings["weekday"]
-    days_forward = (weekday - candidate.weekday()) % 7
-    candidate += timedelta(days=days_forward)
+    candidate += timedelta(days=(weekday - candidate.weekday()) % 7)
     if candidate <= now:
         candidate += timedelta(days=7)
     return candidate
@@ -267,8 +291,10 @@ def _acquire_auto_lock():
 
 
 def maybe_run_automatic_backup():
-    """Tworzy zaległy backup przy pierwszym ruchu w aplikacji po zaplanowanej godzinie."""
+    """Uruchamiane przez scheduler aplikacji; tworzy maksymalnie jedną kopię na slot harmonogramu."""
     try:
+        if restore_in_progress():
+            return None
         settings = _backup_settings()
         if not settings["auto_enabled"]:
             return None
@@ -283,7 +309,8 @@ def maybe_run_automatic_backup():
         if fd is None:
             return None
         try:
-            # Po zdobyciu blokady sprawdzamy jeszcze raz, bo drugi worker mógł zdążyć zrobić kopię.
+            if restore_in_progress():
+                return None
             automatic = [item for item in _list_backups() if item["kind_key"] == "automatic"]
             if automatic and automatic[0]["created_at"] >= slot:
                 return None
@@ -291,10 +318,7 @@ def maybe_run_automatic_backup():
             try:
                 conn = get_db()
                 conn.execute(
-                    """
-                    INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details)
-                    VALUES (NULL, 'utworzono automatyczny backup', 'backup', NULL, ?)
-                    """,
+                    "INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, details) VALUES (NULL, 'utworzono automatyczny backup', 'backup', NULL, ?)",
                     (path.name,),
                 )
                 conn.commit()
@@ -369,7 +393,6 @@ def save_backup_settings():
         errors.append("Liczba kopii przed importem musi być od 1 do 100")
     if not 1 <= safety_keep <= 100:
         errors.append("Liczba kopii bezpieczeństwa musi być od 1 do 100")
-
     if errors:
         flash("; ".join(errors) + ".")
         return redirect(url_for("backups.backups_view"))
@@ -437,7 +460,6 @@ def download_all_backups():
     if not backups:
         flash("Nie ma backupów do pobrania.")
         return redirect(url_for("backups.backups_view"))
-
     output = BytesIO()
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for item in backups:
@@ -493,18 +515,27 @@ def restore_backup(filename):
         flash("Nie znaleziono backupu.")
         return redirect(url_for("backups.backups_view"))
 
+    restore_fd, restore_flag = _acquire_restore_lock()
+    if restore_fd is None:
+        flash("Inne przywracanie bazy jest już w toku.")
+        return redirect(url_for("backups.backups_view"))
+
     safety_path = None
     restore_started = False
     try:
         _verify_database(path)
-
-        # Zanim nadpiszemy bazę, zawsze zachowujemy aktualny stan.
         safety_path = _create_backup("safety")
 
         restore_started = True
         _copy_database(path, DATABASE)
         _verify_database(Path(DATABASE).resolve())
+
+        # Starsza kopia może nie mieć nowych kolumn, indeksów lub ustawień.
+        # Migracje są idempotentne, więc wykonujemy je od razu po odtworzeniu.
+        init_db()
+        _verify_database(Path(DATABASE).resolve())
         current_app.config["VACATION_YEAR_CHECKED"] = None
+        current_app.config["LAST_ACCOUNT_MAINTENANCE_HOUR"] = None
 
         conn = get_db()
         restored_admin = conn.execute(
@@ -521,7 +552,7 @@ def restore_backup(filename):
             )
             conn.commit()
             conn.close()
-            flash("Backup został przywrócony. Przed operacją zapisano też backup bezpieczeństwa.")
+            flash("Backup został przywrócony i zaktualizowany do bieżącej struktury bazy.")
             return redirect(url_for("backups.backups_view"))
 
         conn.close()
@@ -533,10 +564,18 @@ def restore_backup(filename):
         if safety_path and restore_started:
             try:
                 _copy_database(safety_path, DATABASE)
+                init_db()
                 _verify_database(Path(DATABASE).resolve())
                 current_app.config["VACATION_YEAR_CHECKED"] = None
+                current_app.config["LAST_ACCOUNT_MAINTENANCE_HOUR"] = None
                 rollback_note = " Aktualny stan został automatycznie odtworzony z backupu bezpieczeństwa."
             except Exception:
                 rollback_note = " Backup bezpieczeństwa został zapisany, ale automatyczne odtworzenie nie powiodło się."
         flash(f"Nie udało się przywrócić backupu: {error}.{rollback_note}")
         return redirect(url_for("backups.backups_view"))
+    finally:
+        try:
+            os.close(restore_fd)
+        except OSError:
+            pass
+        restore_flag.unlink(missing_ok=True)
