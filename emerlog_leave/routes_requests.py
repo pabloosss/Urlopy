@@ -4,7 +4,7 @@ from datetime import date
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, session, url_for
 
-from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_user
+from .config import LEAVE_TYPES, LIMIT_TYPES, STATUSES, leave_types_for_user, uses_vacation_balance
 from .database import get_db
 from .services import (
     count_workdays,
@@ -188,6 +188,7 @@ def new_leave_request():
     conn = get_db()
     user = current_user(conn)
     is_spedycja = (user["department"] or "").strip().lower() == "spedycja"
+    show_balance = uses_vacation_balance(user["contract_type"])
     available_leave_types = leave_types_for_user(user["contract_type"], user["department"])
     summary = vacation_summary(conn, user)
     employees = []
@@ -217,6 +218,7 @@ def new_leave_request():
             leave_type_descriptions=LEAVE_TYPE_DESCRIPTIONS,
             today=date.today().isoformat(),
             form_data=form_data,
+            show_balance=show_balance,
         ), status_code
 
     if request.method == "POST":
@@ -234,7 +236,7 @@ def new_leave_request():
         replacement_id = None
 
         if form_data["leave_type"] not in available_leave_types:
-            errors.append("Wybierz poprawny typ nieobecności dla działu albo typu umowy.")
+            errors.append("Wybierz poprawny typ nieobecności dla typu umowy.")
 
         if form_data["leave_type"] == "Inne" and not form_data["comment"]:
             errors.append("Dla typu „Inne” komentarz jest wymagany.")
@@ -290,7 +292,7 @@ def new_leave_request():
         if start and end and start.year == end.year:
             summary = vacation_summary(conn, user, start.year)
 
-        if not errors and form_data["leave_type"] in LIMIT_TYPES and days > summary["available"]:
+        if show_balance and not errors and form_data["leave_type"] in LIMIT_TYPES and days > summary["available"]:
             errors.append(f"Brak limitu. Dostępne: {summary['available']} dni, wybrano: {days} dni.")
 
         if not errors:
@@ -502,7 +504,7 @@ def change_request_status(request_id, action):
             flash("Nie można przywrócić wniosku — pracownik ma już inną zaakceptowaną nieobecność w tym terminie.")
             return _safe_redirect(next_url)
 
-        if leave_request["leave_type"] in LIMIT_TYPES:
+        if uses_vacation_balance(owner["contract_type"]) and leave_request["leave_type"] in LIMIT_TYPES:
             summary = vacation_summary(conn, owner, start.year)
             if days > summary["available"]:
                 conn.close()
