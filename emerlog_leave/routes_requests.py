@@ -9,6 +9,7 @@ from .database import get_db
 from .services import (
     count_workdays,
     current_user,
+    get_app_setting,
     is_hr,
     is_safe_local_path,
     log_action,
@@ -188,7 +189,8 @@ def new_leave_request():
     conn = get_db()
     user = current_user(conn)
     is_spedycja = (user["department"] or "").strip().lower() == "spedycja"
-    show_balance = uses_vacation_balance(user["contract_type"])
+    limit_enabled = get_app_setting(conn, "enforce_uop_vacation_limit", "1") == "1"
+    show_balance = uses_vacation_balance(user["contract_type"]) and limit_enabled
     available_leave_types = leave_types_for_user(user["contract_type"], user["department"])
     summary = vacation_summary(conn, user)
     employees = []
@@ -504,7 +506,8 @@ def change_request_status(request_id, action):
             flash("Nie można przywrócić wniosku — pracownik ma już inną zaakceptowaną nieobecność w tym terminie.")
             return _safe_redirect(next_url)
 
-        if uses_vacation_balance(owner["contract_type"]) and leave_request["leave_type"] in LIMIT_TYPES:
+        limit_enabled = get_app_setting(conn, "enforce_uop_vacation_limit", "1") == "1"
+        if limit_enabled and uses_vacation_balance(owner["contract_type"]) and leave_request["leave_type"] in LIMIT_TYPES:
             summary = vacation_summary(conn, owner, start.year)
             if days > summary["available"]:
                 conn.close()
