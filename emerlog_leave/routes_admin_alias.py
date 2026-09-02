@@ -53,6 +53,7 @@ def settings_view():
                 "default_vacation_days": str(uop_days),
                 "default_vacation_days_uop": str(uop_days),
                 "default_vacation_days_zlecenie": str(zlecenie_days),
+                "enforce_uop_vacation_limit": "1" if request.form.get("enforce_uop_vacation_limit") == "1" else "0",
                 "carryover_enabled": "1" if request.form.get("carryover_enabled") == "1" else "0",
                 "max_carryover_days": str(max_carryover),
                 "require_spedycja_replacement": "1" if request.form.get("require_spedycja_replacement") == "1" else "0",
@@ -75,7 +76,8 @@ def settings_view():
                 "settings",
                 None,
                 (
-                    f"UoP={uop_days}; zlecenie={zlecenie_days}; przenoszenie={settings['carryover_enabled']}; "
+                    f"UoP={uop_days}; limit UoP={settings['enforce_uop_vacation_limit']}; "
+                    f"zlecenie={zlecenie_days}; przenoszenie={settings['carryover_enabled']}; "
                     f"max zaległych={max_carryover}; wyprzedzenie={min_notice_days}; max wniosek={max_request_days}; "
                     f"alert umów={contract_alert_days}; próg zaległych={carryover_alert_threshold}; "
                     f"auto wyłączenie={settings['auto_deactivate_after_end_date']}; zamknięte do={closed_through or 'brak'}"
@@ -88,6 +90,7 @@ def settings_view():
     values = {
         "default_vacation_days_uop": int(get_app_setting(conn, "default_vacation_days_uop", str(legacy_default)) or legacy_default),
         "default_vacation_days_zlecenie": int(get_app_setting(conn, "default_vacation_days_zlecenie", "20") or 20),
+        "enforce_uop_vacation_limit": get_app_setting(conn, "enforce_uop_vacation_limit", "1") == "1",
         "carryover_enabled": get_app_setting(conn, "carryover_enabled", "1") == "1",
         "max_carryover_days": int(get_app_setting(conn, "max_carryover_days", "0") or 0),
         "require_spedycja_replacement": get_app_setting(conn, "require_spedycja_replacement", "1") == "1",
