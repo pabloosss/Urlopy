@@ -188,6 +188,8 @@ def init_db():
             opening_carryover INTEGER NOT NULL DEFAULT 0,
             opening_used_days INTEGER NOT NULL DEFAULT 0,
             availability_adjustment INTEGER NOT NULL DEFAULT 0,
+            source_used_days INTEGER,
+            request_used_baseline INTEGER NOT NULL DEFAULT 0,
             used_days INTEGER,
             carried_to_next INTEGER,
             processed_at TEXT,
@@ -198,6 +200,8 @@ def init_db():
     for name, definition in {
         "opening_used_days": "INTEGER NOT NULL DEFAULT 0",
         "availability_adjustment": "INTEGER NOT NULL DEFAULT 0",
+        "source_used_days": "INTEGER",
+        "request_used_baseline": "INTEGER NOT NULL DEFAULT 0",
     }.items():
         _ensure_column(cur, "vacation_year_balances", name, definition)
 
