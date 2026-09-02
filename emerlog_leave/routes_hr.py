@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint, Response, render_template, request
 
+from .config import uses_vacation_balance
 from .database import get_db
 from .services import (
     get_app_setting,
@@ -126,11 +127,12 @@ def dashboard():
         if missing:
             incomplete.append({"user": employee, "missing": ", ".join(missing)})
 
-        summary = vacation_summary(conn, employee)
-        if summary["available"] < 0:
-            negative_balances.append({"user": employee, "summary": summary})
-        if summary["carryover"] >= carryover_threshold and summary["carryover"] > 0:
-            carryover_people.append({"user": employee, "summary": summary})
+        if uses_vacation_balance(employee["contract_type"]):
+            summary = vacation_summary(conn, employee)
+            if summary["available"] < 0:
+                negative_balances.append({"user": employee, "summary": summary})
+            if summary["carryover"] >= carryover_threshold and summary["carryover"] > 0:
+                carryover_people.append({"user": employee, "summary": summary})
 
     incomplete.sort(key=lambda item: surname_first(item["user"]["full_name"]).casefold())
     negative_balances.sort(key=lambda item: item["summary"]["available"])
@@ -192,8 +194,8 @@ def export_balances():
 
     rows = [[
         "Nazwisko i imię", "Login", "Status", "Spółka", "Dział", "Typ umowy",
-        "Etat %", "Zatrudnienie od", "Zatrudnienie do", "Rok", "Limit",
-        "Zaległe", "Wykorzystane", "Dostępne"
+        "Etat %", "Zatrudnienie od", "Zatrudnienie do", "Rok", "Wymiar",
+        "Zaległy", "Razem", "Wykorzystany", "Pozostało"
     ]]
     for user in users:
         summary = vacation_summary(conn, user, year)
@@ -210,6 +212,7 @@ def export_balances():
             year,
             summary["base"],
             summary["carryover"],
+            summary["total"],
             summary["accepted"],
             summary["available"],
         ])
