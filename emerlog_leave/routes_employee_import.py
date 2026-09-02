@@ -348,32 +348,35 @@ def _find_existing_user(conn, person):
 
 
 def _save_balance(conn, user_id, person, year):
+    """Zapisuje stan z Excela jako punkt odniesienia Kadr na moment importu."""
     request_used = vacation_days_used_in_year(conn, user_id, year)
-    opening_used = max(0, person["used"] - request_used)
-    accepted_after_import = opening_used + request_used
     adjustment = person["remaining"] - (
-        person["base"] + person["carryover"] - accepted_after_import
+        person["base"] + person["carryover"] - person["used"]
     )
 
     conn.execute(
         """
         INSERT INTO vacation_year_balances (
             user_id, year, base_days, opening_carryover,
-            opening_used_days, availability_adjustment
-        ) VALUES (?, ?, ?, ?, ?, ?)
+            opening_used_days, availability_adjustment,
+            source_used_days, request_used_baseline
+        ) VALUES (?, ?, ?, ?, 0, ?, ?, ?)
         ON CONFLICT(user_id, year) DO UPDATE SET
             base_days=excluded.base_days,
             opening_carryover=excluded.opening_carryover,
-            opening_used_days=excluded.opening_used_days,
-            availability_adjustment=excluded.availability_adjustment
+            opening_used_days=0,
+            availability_adjustment=excluded.availability_adjustment,
+            source_used_days=excluded.source_used_days,
+            request_used_baseline=excluded.request_used_baseline
         """,
         (
             user_id,
             year,
             person["base"],
             person["carryover"],
-            opening_used,
             adjustment,
+            person["used"],
+            request_used,
         ),
     )
     return request_used, adjustment
@@ -546,11 +549,11 @@ def import_employees_view():
 
                     details = f"{person['base']} + {person['carryover']} zaległych, wykorzystane {person['used']}, pozostało {person['remaining']}"
                     if request_used:
-                        details += f"; w systemie jest już {request_used} dni z wniosków"
+                        details += f"; istniejące wnioski zapisano jako punkt odniesienia: {request_used} dni"
                     if person["notes"]:
                         details += f"; uwaga: {person['notes']}"
                     if adjustment:
-                        details += f"; korekta bilansu {adjustment:+d}"
+                        details += f"; korekta pozostałych {adjustment:+d}"
                     if existing and not person["password"]:
                         details += "; hasło bez zmian"
 
@@ -581,7 +584,7 @@ def import_employees_view():
                 "errors": parse_errors,
                 "rows": imported_rows,
             }
-            flash("Import zakończony. Przed zmianami utworzono backup bezpieczeństwa.")
+            flash("Import zakończony. Salda zapisano zgodnie z Excelem, a przed zmianami utworzono backup.")
         except Exception as error:
             conn.rollback()
             flash(f"Import został przerwany: {error}")
