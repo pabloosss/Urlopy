@@ -24,6 +24,7 @@ CONTRACT_UOP = "Umowa o pracę"
 CONTRACT_ZLECENIE = "Umowa zlecenie"
 CONTRACT_TYPES = [CONTRACT_UOP, CONTRACT_ZLECENIE]
 
+# UoP ma pełny zestaw rodzajów nieobecności używany przez Kadry.
 UOP_LEAVE_TYPES = [
     "Urlop wypoczynkowy",
     "Urlop na żądanie",
@@ -34,14 +35,10 @@ UOP_LEAVE_TYPES = [
     "Inne",
 ]
 
+# Zlecenie ma celowo prosty wariant: planowana nieobecność albo urlop bezpłatny.
 ZLECENIE_LEAVE_TYPES = [
     "Urlop wypoczynkowy",
     "Urlop bezpłatny",
-]
-
-SPEDYCJA_LEAVE_TYPES = [
-    "Urlop wypoczynkowy",
-    "Inne",
 ]
 
 LEAVE_TYPES = UOP_LEAVE_TYPES
@@ -71,6 +68,11 @@ def leave_types_for_contract(value):
 
 
 def leave_types_for_user(contract_type, department):
-    if normalize_department(department) == "spedycja":
-        return SPEDYCJA_LEAVE_TYPES
+    # Rodzaj umowy określa listę typów urlopu. Dział wpływa na inne reguły
+    # (np. obowiązkowe zastępstwo w Spedycji), ale nie zmienia listy typów.
     return leave_types_for_contract(contract_type)
+
+
+def uses_vacation_balance(contract_type):
+    """Saldo jest pokazywane i egzekwowane dla UoP; zlecenie działa jako ewidencja wniosków."""
+    return normalize_contract_type(contract_type) == CONTRACT_UOP
