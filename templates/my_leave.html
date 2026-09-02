@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set show_balance = (user.contract_type or 'Umowa o pracę') != 'Umowa zlecenie' %}
 <section class="page-title">
     <div>
         <h1>Moje wnioski</h1>
@@ -9,12 +10,15 @@
     <a class="btn-primary" href="{{ url_for('requests.new_leave_request') }}">Nowy wniosek</a>
 </section>
 
+{% if show_balance %}
 <section class="stats-grid">
-    <div class="stat-card accent"><span>Łączna pula na {{ vacation_summary.year }}</span><strong>{{ vacation_summary.total }}</strong></div>
-    <div class="stat-card"><span>Dostępne na rok {{ vacation_summary.year }}</span><strong>{{ vacation_summary.base }}</strong></div>
-    <div class="stat-card"><span>Zaległe urlopy – suma na {{ vacation_summary.year - 1 }}</span><strong>{{ vacation_summary.carryover }}</strong></div>
-    <div class="stat-card"><span>Wykorzystane w {{ vacation_summary.year }}</span><strong>{{ vacation_summary.accepted }}</strong></div>
+    <div class="stat-card"><span>Wymiar {{ vacation_summary.year }}</span><strong>{{ vacation_summary.base }}</strong></div>
+    <div class="stat-card"><span>Zaległy</span><strong>{{ vacation_summary.carryover }}</strong></div>
+    <div class="stat-card accent"><span>Razem</span><strong>{{ vacation_summary.total }}</strong></div>
+    <div class="stat-card"><span>Wykorzystany</span><strong>{{ vacation_summary.accepted }}</strong></div>
+    <div class="stat-card"><span>Pozostało</span><strong>{{ vacation_summary.available }}</strong></div>
 </section>
+{% endif %}
 
 <div class="card my-requests-card">
     <div class="section-head-row"><h2>Historia</h2><span class="chip">{{ requests_list|length }}</span></div>
