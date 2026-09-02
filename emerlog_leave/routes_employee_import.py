@@ -476,6 +476,7 @@ def import_employees_view():
             flash("W pliku nie znaleziono kont do importu.")
             return render_template("admin_employee_import.html", result={"errors": parse_errors, "rows": []})
 
+        update_existing_passwords = request.form.get("update_existing_passwords") == "1"
         conn = get_db()
         imported_rows = []
         added = 0
@@ -496,32 +497,37 @@ def import_employees_view():
                     skipped += 1
                     imported_rows.append({"name": person["display_name"], "login": person["login"], "status": "Pominięto", "details": match_error})
                     continue
-                if existing and existing["role"] == "admin":
-                    skipped += 1
-                    imported_rows.append({"name": person["display_name"], "login": person["login"], "status": "Pominięto", "details": "konto administratora nie jest aktualizowane przez importer"})
-                    continue
 
                 savepoint = f"import_row_{person['row_number']}"
                 conn.execute(f"SAVEPOINT {savepoint}")
                 try:
+                    admin_account = bool(existing and existing["role"] == "admin")
                     if existing:
-                        login_conflict = conn.execute(
-                            "SELECT id FROM users WHERE lower(login)=lower(?) AND id<>?",
-                            (person["login"], existing["id"]),
-                        ).fetchone()
-                        if login_conflict:
-                            raise ValueError("login jest już przypisany do innego konta")
-
-                        if person["password"]:
+                        if admin_account:
+                            # Import może odświeżyć saldo Ewy/innego admina, ale nigdy nie zmienia
+                            # jego danych logowania, nazwy ani roli.
                             conn.execute(
-                                """UPDATE users SET login=?, password_hash=?, full_name=?, vacation_days=?, carryover_days=?, contract_type=? WHERE id=?""",
-                                (person["login"], generate_password_hash(person["password"]), person["storage_name"], person["base"], person["carryover"], person["contract_type"], existing["id"]),
+                                "UPDATE users SET vacation_days=?, carryover_days=?, contract_type=? WHERE id=?",
+                                (person["base"], person["carryover"], person["contract_type"], existing["id"]),
                             )
                         else:
-                            conn.execute(
-                                """UPDATE users SET login=?, full_name=?, vacation_days=?, carryover_days=?, contract_type=? WHERE id=?""",
-                                (person["login"], person["storage_name"], person["base"], person["carryover"], person["contract_type"], existing["id"]),
-                            )
+                            login_conflict = conn.execute(
+                                "SELECT id FROM users WHERE lower(login)=lower(?) AND id<>?",
+                                (person["login"], existing["id"]),
+                            ).fetchone()
+                            if login_conflict:
+                                raise ValueError("login jest już przypisany do innego konta")
+
+                            if update_existing_passwords and person["password"]:
+                                conn.execute(
+                                    """UPDATE users SET login=?, password_hash=?, full_name=?, vacation_days=?, carryover_days=?, contract_type=? WHERE id=?""",
+                                    (person["login"], generate_password_hash(person["password"]), person["storage_name"], person["base"], person["carryover"], person["contract_type"], existing["id"]),
+                                )
+                            else:
+                                conn.execute(
+                                    """UPDATE users SET login=?, full_name=?, vacation_days=?, carryover_days=?, contract_type=? WHERE id=?""",
+                                    (person["login"], person["storage_name"], person["base"], person["carryover"], person["contract_type"], existing["id"]),
+                                )
                         user_id = existing["id"]
                         action = "Zaktualizowano"
                     else:
@@ -554,11 +560,13 @@ def import_employees_view():
                         details += f"; uwaga: {person['notes']}"
                     if adjustment:
                         details += f"; korekta pozostałych {adjustment:+d}"
-                    if existing and not person["password"]:
+                    if admin_account:
+                        details += "; konto admina: login, rola i hasło bez zmian"
+                    elif existing and not (update_existing_passwords and person["password"]):
                         details += "; hasło bez zmian"
 
                     imported_rows.append({"name": person["display_name"], "login": person["login"], "status": action, "details": details})
-                    if user_id == session.get("user_id"):
+                    if user_id == session.get("user_id") and not admin_account:
                         session["login"] = person["login"]
                         session["full_name"] = person["storage_name"]
                 except Exception as row_error:
@@ -572,7 +580,7 @@ def import_employees_view():
                 "import pracowników z Excela",
                 "employee_import",
                 None,
-                f"dodano={added}, zaktualizowano={updated}, pominięto={skipped}, backup={backup_path.name}",
+                f"dodano={added}, zaktualizowano={updated}, pominięto={skipped}, backup={backup_path.name}, hasła_istniejących={'tak' if update_existing_passwords else 'nie'}",
             )
             conn.commit()
             result = {
