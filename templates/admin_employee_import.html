@@ -16,6 +16,12 @@
     <form method="post" enctype="multipart/form-data" class="employee-form-grid">
         <label>Wybierz plik XLSX</label>
         <input type="file" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+
+        <label class="checkbox-row">
+            <input type="checkbox" name="update_existing_passwords" value="1">
+            <span>Aktualizuj hasła istniejących kont z Excela</span>
+        </label>
+
         <button type="submit" onclick="return confirm('Uruchomić import? Przed operacją zostanie automatycznie utworzony backup bazy.');">Importuj pracowników</button>
     </form>
 </div>
