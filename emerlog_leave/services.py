@@ -187,6 +187,29 @@ def vacation_days_used_in_year(conn, user_id, year):
     return used
 
 
+def _effective_used_days(conn, user_id, year, balance=None):
+    """Zwraca wykorzystanie z uwzględnieniem snapshotu z importu i późniejszych zmian wniosków."""
+    if balance is None:
+        balance = conn.execute(
+            "SELECT * FROM vacation_year_balances WHERE user_id = ? AND year = ?",
+            (user_id, year),
+        ).fetchone()
+
+    request_used = vacation_days_used_in_year(conn, user_id, year)
+    if not balance:
+        return request_used, request_used
+
+    source_used = balance["source_used_days"]
+    if source_used is not None:
+        baseline = int(balance["request_used_baseline"] or 0)
+        effective = max(0, int(source_used or 0) + request_used - baseline)
+        return effective, request_used
+
+    # Rekordy utworzone przed mechanizmem snapshotów zachowują starą logikę.
+    opening_used = int(balance["opening_used_days"] or 0)
+    return opening_used + request_used, request_used
+
+
 def sync_user_year_balance(conn, user_id, base_days, carryover_days, year=None):
     year = year or date.today().year
     conn.execute(
@@ -240,10 +263,8 @@ def ensure_vacation_years(conn, current_year=None):
                 "SELECT * FROM vacation_year_balances WHERE user_id = ? AND year = ?",
                 (user["id"], latest_year),
             ).fetchone()
-            request_used = vacation_days_used_in_year(conn, user["id"], latest_year)
-            opening_used = previous["opening_used_days"] or 0
+            used, _ = _effective_used_days(conn, user["id"], latest_year, previous)
             adjustment = previous["availability_adjustment"] or 0
-            used = opening_used + request_used
             available = (
                 (previous["base_days"] or 0)
                 + (previous["opening_carryover"] or 0)
@@ -301,29 +322,24 @@ def vacation_summary(conn, user, year=None):
     if balance:
         base = balance["base_days"] or 0
         carryover = balance["opening_carryover"] or 0
-        opening_used = balance["opening_used_days"] or 0
         adjustment = balance["availability_adjustment"] or 0
     elif year == current_year:
         base = user["vacation_days"] or 0
         carryover = user["carryover_days"] or 0
-        opening_used = 0
         adjustment = 0
     elif year > current_year:
         # Przyszły rok może mieć już zaplanowane wnioski przed wykonaniem rolloveru.
         # Używamy wtedy nowego limitu dla typu umowy, bez zgadywania przyszłych zaległości.
         base = _default_days_for_contract(conn, user["contract_type"])
         carryover = 0
-        opening_used = 0
         adjustment = 0
     else:
         # Brak historycznego rekordu oznacza, że nie znamy dawnego limitu.
         base = 0
         carryover = 0
-        opening_used = 0
         adjustment = 0
 
-    request_used = vacation_days_used_in_year(conn, user["id"], year)
-    accepted = opening_used + request_used
+    accepted, request_used = _effective_used_days(conn, user["id"], year, balance)
     total = base + carryover
     available = total - accepted + adjustment
 
@@ -336,8 +352,10 @@ def vacation_summary(conn, user, year=None):
         "pending": 0,
         "available": available,
         "unused": max(0, available),
-        "opening_used": opening_used,
+        "opening_used": (balance["opening_used_days"] or 0) if balance else 0,
         "request_used": request_used,
+        "source_used": balance["source_used_days"] if balance else None,
+        "request_used_baseline": (balance["request_used_baseline"] or 0) if balance else 0,
         "availability_adjustment": adjustment,
     }
 
