@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set show_balance = (user.contract_type or 'Umowa o pracę') != 'Umowa zlecenie' %}
 <section class="home-panel-layout dashboard-pretty">
     <aside class="home-user-panel">
         <p class="panel-label">Mój panel</p>
@@ -15,11 +16,13 @@
     </aside>
 
     <div class="home-work-area">
-        <section class="home-priority-cards">
+        <section class="home-priority-cards {% if not show_balance %}home-priority-cards-single{% endif %}">
+            {% if show_balance %}
             <div class="home-days-priority">
-                <span>Dostępne dni</span>
+                <span>Pozostało dni</span>
                 <strong>{{ vacation_summary.available }}</strong>
             </div>
+            {% endif %}
 
             <a class="home-request-priority" href="{{ url_for('requests.new_leave_request') }}">
                 <span>Wniosek urlopowy</span>
@@ -27,11 +30,18 @@
             </a>
         </section>
 
-        <section class="home-quick-stats">
+        <section class="home-quick-stats {% if not is_manager() and not is_hr() %}home-quick-stats-employee{% endif %}">
+            {% if show_balance %}
             <div>
                 <span>Wykorzystane</span>
                 <strong>{{ vacation_summary.accepted }}</strong>
             </div>
+            {% else %}
+            <div>
+                <span>Umowa</span>
+                <strong>Zlecenie</strong>
+            </div>
+            {% endif %}
 
             <a href="{{ url_for('main.my_leave') }}">
                 <span>Historia</span>
@@ -54,11 +64,6 @@
             <a href="{{ url_for('main.presence_view') }}">
                 <span>Nieobecni dziś</span>
                 <strong>{{ stats.absent_today }}</strong>
-            </a>
-            {% else %}
-            <a href="{{ url_for('requests.new_leave_request') }}">
-                <span>Szybka akcja</span>
-                <strong>Nowy wniosek</strong>
             </a>
             {% endif %}
         </section>
