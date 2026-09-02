@@ -17,9 +17,10 @@
         <label>Wybierz plik XLSX</label>
         <input type="file" name="excel_file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
 
-        <label class="checkbox-row">
+        <label class="settings-toggle">
             <input type="checkbox" name="update_existing_passwords" value="1">
-            <span>Aktualizuj hasła istniejących kont z Excela</span>
+            <span class="settings-toggle-control"></span>
+            <span class="settings-toggle-copy"><strong>Aktualizuj hasła istniejących kont</strong></span>
         </label>
 
         <button type="submit" onclick="return confirm('Uruchomić import? Przed operacją zostanie automatycznie utworzony backup bazy.');">Importuj pracowników</button>
