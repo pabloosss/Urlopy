@@ -16,6 +16,15 @@
                 <div><h2>Limity urlopowe</h2></div>
             </div>
 
+            <label class="settings-toggle">
+                <input type="checkbox" name="enforce_uop_vacation_limit" value="1" {% if enforce_uop_vacation_limit %}checked{% endif %}>
+                <span class="settings-toggle-control"></span>
+                <span class="settings-toggle-copy">
+                    <strong>Kontroluj limit dni dla UoP</strong>
+                    <small>Po wyłączeniu pracownik na UoP może złożyć wniosek niezależnie od pozostałego salda. Dane salda nadal zostają w systemie i raportach.</small>
+                </span>
+            </label>
+
             <div class="date-grid">
                 <div class="settings-field-main">
                     <label for="defaultUop">UoP od {{ next_year }}</label>
