@@ -158,6 +158,7 @@ def init_db():
         ("default_vacation_days", "26"),
         ("default_vacation_days_uop", "26"),
         ("default_vacation_days_zlecenie", "20"),
+        ("enforce_uop_vacation_limit", "1"),
         ("carryover_enabled", "1"),
         ("max_carryover_days", "0"),
         ("require_spedycja_replacement", "1"),
