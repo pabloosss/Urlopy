@@ -12,7 +12,7 @@
     <div class="table-wrapper">
         <table>
             <thead>
-                <tr><th>Pracownik</th><th>Limit</th><th>Zaległe</th><th>Wykorzystane</th><th>Dostępne</th></tr>
+                <tr><th>Pracownik</th><th>Limit</th><th>Zaległe</th><th>Wykorzystane</th><th>Pozostało</th><th></th></tr>
             </thead>
             <tbody>
                 {% for row in summaries %}
@@ -22,6 +22,7 @@
                     <td>{{ row.summary.carryover }}</td>
                     <td>{{ row.summary.accepted }}</td>
                     <td><b>{{ row.summary.available }}</b></td>
+                    <td><a class="btn-secondary btn-mini" href="{{ url_for('limits.limits_view', user_id=row.user.id) }}#available-correction">Zmień dni</a></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -29,23 +30,62 @@
     </div>
 </div>
 
+<div class="card" id="available-correction">
+    <h2>Ustaw pozostałe dni</h2>
+    <p>Ustaw dokładnie, ile dni do wykorzystania ma mieć wybrany użytkownik.</p>
+    <form method="post" class="filters-form" id="availableCorrectionForm">
+        <input type="hidden" name="action" value="available">
+        <select name="user_id" id="availableUser" required>
+            {% for row in summaries %}
+            <option value="{{ row.user.id }}" data-available="{{ row.summary.available }}" {% if selected_user_id == row.user.id|string %}selected{% endif %}>{{ row.user.full_name|surname_first }}</option>
+            {% endfor %}
+        </select>
+        <input id="availableValue" type="number" name="available_days" min="0" max="732" placeholder="Pozostało dni" required>
+        <input name="reason" maxlength="500" placeholder="Powód korekty" required>
+        <button>Ustaw pozostałe dni</button>
+    </form>
+</div>
+
 <div class="card">
-    <h2>Ręczna korekta</h2>
+    <h2>Korekta limitu rocznego</h2>
     <form method="post" class="filters-form" id="limitCorrectionForm">
+        <input type="hidden" name="action" value="limit">
         <select name="user_id" id="limitUser" required>
             {% for row in summaries %}
             <option value="{{ row.user.id }}" data-limit="{{ row.summary.base }}" data-carryover="{{ row.summary.carryover }}" {% if selected_user_id == row.user.id|string %}selected{% endif %}>{{ row.user.full_name|surname_first }}</option>
             {% endfor %}
         </select>
-        <input id="limitValue" type="number" name="vacation_days" min="0" placeholder="Limit roczny" required>
-        <input id="carryoverValue" type="number" name="carryover_days" min="0" placeholder="Zaległe" required>
-        <input name="reason" placeholder="Powód korekty" required>
-        <button>Zapisz</button>
+        <input id="limitValue" type="number" name="vacation_days" min="0" max="366" placeholder="Limit roczny" required>
+        <input id="carryoverValue" type="number" name="carryover_days" min="0" max="366" placeholder="Zaległe" required>
+        <input name="reason" maxlength="500" placeholder="Powód korekty" required>
+        <button>Zapisz limit</button>
     </form>
 </div>
 
 <div class="card">
-    <h2>Historia korekt</h2>
+    <h2>Historia zmian pozostałych dni</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Pracownik</th><th>Kto</th><th>Pozostało</th><th>Powód</th><th>Data</th></tr></thead>
+            <tbody>
+            {% for a in balance_adjustments %}
+                <tr>
+                    <td>{{ a.employee_name|surname_first }}</td>
+                    <td>{{ (a.actor_name|surname_first) if a.actor_name else "—" }}</td>
+                    <td><b>{{ a.old_available_days }} → {{ a.new_available_days }}</b></td>
+                    <td>{{ a.reason }}</td>
+                    <td>{{ a.created_at }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5" class="empty-state">Brak korekt pozostałych dni.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Historia korekt limitu</h2>
     <div class="table-wrapper">
         <table>
             <thead><tr><th>Pracownik</th><th>Kto</th><th>Limit</th><th>Zaległe</th><th>Powód</th><th>Data</th></tr></thead>
@@ -62,20 +102,31 @@
 
 <script>
 (function () {
-    const select = document.getElementById('limitUser');
+    const limitSelect = document.getElementById('limitUser');
     const limit = document.getElementById('limitValue');
     const carryover = document.getElementById('carryoverValue');
-    if (!select || !limit || !carryover) return;
+    const availableSelect = document.getElementById('availableUser');
+    const available = document.getElementById('availableValue');
 
-    function fillValues() {
-        const option = select.options[select.selectedIndex];
+    function fillLimitValues() {
+        if (!limitSelect || !limit || !carryover) return;
+        const option = limitSelect.options[limitSelect.selectedIndex];
         if (!option) return;
         limit.value = option.dataset.limit || 0;
         carryover.value = option.dataset.carryover || 0;
     }
 
-    select.addEventListener('change', fillValues);
-    fillValues();
+    function fillAvailableValue() {
+        if (!availableSelect || !available) return;
+        const option = availableSelect.options[availableSelect.selectedIndex];
+        if (!option) return;
+        available.value = option.dataset.available || 0;
+    }
+
+    if (limitSelect) limitSelect.addEventListener('change', fillLimitValues);
+    if (availableSelect) availableSelect.addEventListener('change', fillAvailableValue);
+    fillLimitValues();
+    fillAvailableValue();
 })();
 </script>
 {% endblock %}
