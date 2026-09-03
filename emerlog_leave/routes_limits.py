@@ -3,9 +3,119 @@ from datetime import date
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from .database import get_db
-from .services import login_required, role_required, vacation_summary, log_action, surname_first, sync_user_year_balance
+from .services import (
+    is_safe_local_path,
+    login_required,
+    role_required,
+    vacation_summary,
+    log_action,
+    surname_first,
+    sync_user_year_balance,
+)
 
 bp = Blueprint("limits", __name__)
+
+
+def _set_available_days(conn, user, available_days, reason):
+    old_summary = vacation_summary(conn, user)
+    old_available = int(old_summary["available"])
+    if old_available == available_days:
+        return old_available, False
+
+    year = date.today().year
+    sync_user_year_balance(
+        conn,
+        user["id"],
+        user["vacation_days"] or 0,
+        user["carryover_days"] or 0,
+        year,
+    )
+    current_summary = vacation_summary(conn, user, year)
+    adjustment = available_days - (
+        current_summary["base"]
+        + current_summary["carryover"]
+        - current_summary["accepted"]
+    )
+    conn.execute(
+        """
+        UPDATE vacation_year_balances
+        SET availability_adjustment = ?
+        WHERE user_id = ? AND year = ?
+        """,
+        (adjustment, user["id"], year),
+    )
+    conn.execute(
+        """
+        INSERT INTO balance_adjustments (
+            user_id, changed_by, old_available_days, new_available_days, reason
+        ) VALUES (?, ?, ?, ?, ?)
+        """,
+        (user["id"], session["user_id"], old_available, available_days, reason),
+    )
+    log_action(
+        conn,
+        "zmieniono pozostałe dni urlopu",
+        "user",
+        user["id"],
+        f"pozostało {old_available} → {available_days}; powód: {reason}",
+    )
+    return old_available, True
+
+
+def _safe_next(default_endpoint, **values):
+    target = request.form.get("next", "")
+    if is_safe_local_path(target):
+        return redirect(target)
+    return redirect(url_for(default_endpoint, **values))
+
+
+@bp.route("/limits/user/<int:user_id>/available", methods=["POST"])
+@login_required
+@role_required("admin")
+def set_user_available_days(user_id):
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        flash("Nie znaleziono pracownika.")
+        return redirect(url_for("employees.employees_view"))
+
+    reason = " ".join(request.form.get("reason", "").split())
+    if not reason:
+        conn.close()
+        flash("Podaj powód zmiany liczby dni.")
+        return _safe_next("employees.employee_profile", user_id=user_id)
+    if len(reason) > 500:
+        conn.close()
+        flash("Powód może mieć maksymalnie 500 znaków.")
+        return _safe_next("employees.employee_profile", user_id=user_id)
+
+    try:
+        available_days = int(request.form.get("available_days"))
+    except (TypeError, ValueError):
+        conn.close()
+        flash("Wpisz poprawną liczbę dni.")
+        return _safe_next("employees.employee_profile", user_id=user_id)
+
+    if not 0 <= available_days <= 732:
+        conn.close()
+        flash("Liczba dni musi mieścić się w zakresie 0–732.")
+        return _safe_next("employees.employee_profile", user_id=user_id)
+
+    try:
+        old_available, changed = _set_available_days(conn, user, available_days, reason)
+        if not changed:
+            conn.close()
+            flash(f"Ta osoba ma już {old_available} dni do wykorzystania.")
+            return _safe_next("employees.employee_profile", user_id=user_id)
+        conn.commit()
+        flash(f"Ustawiono {available_days} dni do wykorzystania.")
+    except Exception as error:
+        conn.rollback()
+        flash(f"Nie udało się zmienić liczby dni. Błąd: {error}")
+    finally:
+        conn.close()
+    return _safe_next("employees.employee_profile", user_id=user_id)
 
 
 @bp.route("/limits", methods=["GET", "POST"])
@@ -45,52 +155,12 @@ def limits_view():
                 flash("Nie znaleziono pracownika.")
                 return redirect(url_for("limits.limits_view"))
 
-            old_summary = vacation_summary(conn, user)
-            old_available = int(old_summary["available"])
-            if old_available == available_days:
+            old_available, changed = _set_available_days(conn, user, available_days, reason)
+            if not changed:
                 conn.close()
                 flash("Ta osoba ma już ustawioną taką liczbę pozostałych dni.")
                 return redirect(url_for("limits.limits_view", user_id=user_id))
 
-            # Upewniamy się, że istnieje rekord bieżącego roku, a następnie ustawiamy
-            # korektę tak, by wynik „Pozostało” był dokładnie równy podanej wartości.
-            year = date.today().year
-            sync_user_year_balance(
-                conn,
-                user_id,
-                user["vacation_days"] or 0,
-                user["carryover_days"] or 0,
-                year,
-            )
-            current_summary = vacation_summary(conn, user, year)
-            adjustment = available_days - (
-                current_summary["base"]
-                + current_summary["carryover"]
-                - current_summary["accepted"]
-            )
-            conn.execute(
-                """
-                UPDATE vacation_year_balances
-                SET availability_adjustment = ?
-                WHERE user_id = ? AND year = ?
-                """,
-                (adjustment, user_id, year),
-            )
-            conn.execute(
-                """
-                INSERT INTO balance_adjustments (
-                    user_id, changed_by, old_available_days, new_available_days, reason
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (user_id, session["user_id"], old_available, available_days, reason),
-            )
-            log_action(
-                conn,
-                "zmieniono pozostałe dni urlopu",
-                "user",
-                user_id,
-                f"pozostało {old_available} → {available_days}; powód: {reason}",
-            )
             conn.commit()
             conn.close()
             flash(f"Ustawiono {available_days} dni do wykorzystania.")
