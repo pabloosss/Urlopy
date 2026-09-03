@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from .database import get_db
@@ -12,6 +14,7 @@ bp = Blueprint("limits", __name__)
 def limits_view():
     conn = get_db()
     if request.method == "POST":
+        action = request.form.get("action", "limit").strip()
         reason = " ".join(request.form.get("reason", "").split())
         if not reason:
             conn.close()
@@ -21,6 +24,77 @@ def limits_view():
             conn.close()
             flash("Powód korekty może mieć maksymalnie 500 znaków.")
             return redirect(url_for("limits.limits_view"))
+
+        if action == "available":
+            try:
+                user_id = int(request.form.get("user_id"))
+                available_days = int(request.form.get("available_days"))
+            except (TypeError, ValueError):
+                conn.close()
+                flash("Niepoprawna liczba pozostałych dni.")
+                return redirect(url_for("limits.limits_view"))
+
+            if not 0 <= available_days <= 732:
+                conn.close()
+                flash("Pozostałe dni muszą mieścić się w zakresie 0–732.")
+                return redirect(url_for("limits.limits_view", user_id=user_id))
+
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not user:
+                conn.close()
+                flash("Nie znaleziono pracownika.")
+                return redirect(url_for("limits.limits_view"))
+
+            old_summary = vacation_summary(conn, user)
+            old_available = int(old_summary["available"])
+            if old_available == available_days:
+                conn.close()
+                flash("Ta osoba ma już ustawioną taką liczbę pozostałych dni.")
+                return redirect(url_for("limits.limits_view", user_id=user_id))
+
+            # Upewniamy się, że istnieje rekord bieżącego roku, a następnie ustawiamy
+            # korektę tak, by wynik „Pozostało” był dokładnie równy podanej wartości.
+            year = date.today().year
+            sync_user_year_balance(
+                conn,
+                user_id,
+                user["vacation_days"] or 0,
+                user["carryover_days"] or 0,
+                year,
+            )
+            current_summary = vacation_summary(conn, user, year)
+            adjustment = available_days - (
+                current_summary["base"]
+                + current_summary["carryover"]
+                - current_summary["accepted"]
+            )
+            conn.execute(
+                """
+                UPDATE vacation_year_balances
+                SET availability_adjustment = ?
+                WHERE user_id = ? AND year = ?
+                """,
+                (adjustment, user_id, year),
+            )
+            conn.execute(
+                """
+                INSERT INTO balance_adjustments (
+                    user_id, changed_by, old_available_days, new_available_days, reason
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (user_id, session["user_id"], old_available, available_days, reason),
+            )
+            log_action(
+                conn,
+                "zmieniono pozostałe dni urlopu",
+                "user",
+                user_id,
+                f"pozostało {old_available} → {available_days}; powód: {reason}",
+            )
+            conn.commit()
+            conn.close()
+            flash(f"Ustawiono {available_days} dni do wykorzystania.")
+            return redirect(url_for("limits.limits_view", user_id=user_id))
 
         try:
             user_id = int(request.form.get("user_id"))
@@ -88,6 +162,13 @@ def limits_view():
         LEFT JOIN users a ON la.changed_by = a.id
         ORDER BY la.created_at DESC LIMIT 30
     """).fetchall()
+    balance_adjustments = conn.execute("""
+        SELECT ba.*, u.full_name AS employee_name, a.full_name AS actor_name
+        FROM balance_adjustments ba
+        JOIN users u ON ba.user_id = u.id
+        LEFT JOIN users a ON ba.changed_by = a.id
+        ORDER BY ba.created_at DESC LIMIT 30
+    """).fetchall()
     selected_user_id = request.args.get("user_id", "").strip()
     if selected_user_id and not selected_user_id.isdigit():
         selected_user_id = ""
@@ -96,5 +177,6 @@ def limits_view():
         "limits.html",
         summaries=summaries,
         adjustments=adjustments,
+        balance_adjustments=balance_adjustments,
         selected_user_id=selected_user_id,
     )
