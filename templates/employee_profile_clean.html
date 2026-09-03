@@ -46,11 +46,11 @@
                 </div>
             </div>
 
-            <label>Wymiar etatu</label>
+            <label>Etat (%)</label>
             <input name="fte_percent" type="number" min="1" max="100" value="{{ user.fte_percent or 100 }}">
 
             <div class="date-grid">
-                <div><label>Limit</label><input value="{{ vacation_summary.base }}" readonly></div>
+                <div><label>Limit roczny</label><input value="{{ vacation_summary.base }}" readonly></div>
                 <div><label>Zaległe</label><input value="{{ vacation_summary.carryover }}" readonly></div>
             </div>
             <a class="btn-secondary btn-mini" href="{{ url_for('limits.limits_view', user_id=user.id) }}">Korekta limitu</a>
@@ -61,6 +61,18 @@
             <label>Status konta</label><select name="active"><option value="1" {% if user.active %}selected{% endif %}>Aktywne</option><option value="0" {% if not user.active %}selected{% endif %}>Wyłączone</option></select>
             <button type="submit">Zapisz zmiany</button>
         </form>
+
+        {% if session.get('role') == 'admin' %}
+        <div class="section-head-row" style="margin-top:24px;"><h2>Aktualne dni wolne</h2></div>
+        <form method="post" action="{{ url_for('limits.set_user_available_days', user_id=user.id) }}" class="employee-form-grid">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <label>Aktualnie pozostało dni</label>
+            <input name="available_days" type="number" min="0" max="732" value="{{ vacation_summary.available }}" required>
+            <label>Powód zmiany</label>
+            <input name="reason" maxlength="500" placeholder="np. korekta danych Kadr" required>
+            <button type="submit">Ustaw liczbę dni</button>
+        </form>
+        {% endif %}
 
         <div class="employee-side-actions employee-profile-actions">
             <form method="post" action="{{ url_for('employees.change_employee_password', user_id=user.id) }}">
