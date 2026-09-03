@@ -146,6 +146,17 @@ def init_db():
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS balance_adjustments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            changed_by INTEGER,
+            old_available_days INTEGER NOT NULL,
+            new_available_days INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS app_settings (
@@ -217,6 +228,7 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at)",
         "CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id)",
         "CREATE INDEX IF NOT EXISTS idx_limit_adjustments_user ON limit_adjustments(user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_balance_adjustments_user ON balance_adjustments(user_id, created_at)",
     ]:
         cur.execute(statement)
 
