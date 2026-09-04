@@ -16,9 +16,11 @@ from .services import (
     workdays_in_period,
 )
 from .routes_timesheets import register_timesheet_routes
+from .routes_employee_timesheets import register_employee_timesheet_routes
 
 bp = Blueprint("hr_tools", __name__)
 register_timesheet_routes(bp)
+register_employee_timesheet_routes(bp)
 
 
 def _month_range(value):
