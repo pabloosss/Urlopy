@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <h1>{{ item.full_name|surname_first }}</h1>
+        <p>Rozliczenie godzin · {{ '%02d'|format(item.month) }}.{{ item.year }}</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="btn-secondary" href="{{ url_for('employees.employee_profile', user_id=item.user_id) }}">Profil pracownika</a>
+        <a class="btn-secondary" href="{{ url_for('hr_tools.hours_inbox') }}">Wróć</a>
+    </div>
+</section>
+
+<style>
+.hr-timesheet-meta{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}.hr-timesheet-meta>div{padding:16px;border:1px solid #d7dce4;border-radius:16px;background:#fff}.hr-timesheet-meta span{display:block;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#6b7280}.hr-timesheet-meta strong{display:block;margin-top:6px;font-size:18px;color:#111}.sheet-scroll{overflow:auto;padding-bottom:14px}.sheet-wrap{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Liberation Sans",Arial,sans-serif;background:#fff;color:#111;border:1px solid #000;border-radius:10px;overflow:hidden;width:1016px;min-width:1016px}.sheet-head{padding:16px 18px 8px 18px;border-bottom:1px solid #000}.sheet-head .mname{font-size:24px;font-weight:800;margin:0}.sheet-head .person{font-size:18px;font-weight:700;margin:2px 0 0}.sheet-head .ctype{font-size:12px;color:#555;margin:0}.table-times{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;margin:0}.table-times th,.table-times td{border:1px solid #000;padding:8px 10px;text-align:center;vertical-align:middle;background:#fff;font-size:14px;line-height:1.5}.table-times thead th{background:#fafafa;font-weight:700}.table-times .col-day{width:56px}.table-times .col-date{text-align:left}.table-times .col-start,.table-times .col-end{width:100px}.table-times .col-hours{width:92px}.table-times .col-sign{width:160px}.table-times .col-leave{width:110px}.table-times tr.off td{background:#ffcccc;color:#a00;font-weight:700}.table-times tfoot td{font-weight:800;background:#fff}@media(max-width:1050px){.hr-timesheet-meta{grid-template-columns:1fr 1fr}}
+</style>
+
+<section class="hr-timesheet-meta">
+    <div><span>Umowa</span><strong>{{ item.contract_type }}</strong></div>
+    <div><span>Etat</span><strong>{{ item.fte_percent }}%</strong></div>
+    <div><span>Suma godzin</span><strong>{{ item.total_hours }} h</strong></div>
+    <div><span>Przesłano</span><strong>{{ item.submitted_at or 'Nieprzesłane' }}</strong></div>
+    <div><span>Status</span><strong>{{ item.status }}</strong></div>
+</section>
+
+<div style="margin-bottom:14px;"><button type="button" id="downloadHrTimesheet" class="btn-secondary">Pobierz PDF</button></div>
+
+<div class="sheet-scroll">
+    <section class="sheet-wrap" id="hrTimesheetPdf">
+        <div class="sheet-head">
+            <h2 class="mname">{{ ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'][item.month-1] }} {{ item.year }}</h2>
+            <p class="person">{{ item.full_name }}</p>
+            <p class="ctype">{% if item.contract_type == 'Umowa o pracę' and item.fte_percent == 75 %}Umowa o pracę (3/4){% elif item.contract_type == 'Umowa o pracę' and item.fte_percent != 100 %}Umowa o pracę ({{ item.fte_percent }}% etatu){% else %}{{ item.contract_type }}{% endif %}</p>
+        </div>
+        <table class="table-times">
+            <thead><tr><th class="col-day">Dzień</th><th>Data</th><th class="col-start">Godz. rozpoczęcia</th><th class="col-end">Godz. zakończenia</th><th class="col-hours">Suma godzin</th><th class="col-sign">Podpis zleceniobiorcy</th><th class="col-sign">Podpis zleceniodawcy</th><th class="col-leave">Urlop</th></tr></thead>
+            <tbody>
+                {% for row in item.rows %}
+                <tr class="{% if row.off %}off{% endif %}">
+                    <td>{{ row.day }}</td>
+                    <td class="col-date">{{ '%02d'|format(row.day) }}.{{ '%02d'|format(item.month) }}.{{ item.year }}{% if row.weekday %} ({{ row.weekday }}){% endif %}</td>
+                    <td>{% if row.off %}-{% else %}{{ row.start or '-' }}{% endif %}</td>
+                    <td>{% if row.off %}-{% else %}{{ row.end or '-' }}{% endif %}</td>
+                    <td>{% if row.off %}0{% else %}{{ row.hours or 0 }}{% endif %}</td>
+                    <td>{{ row.sign_employee or '' }}</td>
+                    <td>{{ row.sign_company or '' }}</td>
+                    <td>{{ row.leave or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot><tr><td colspan="4">Suma</td><td>{{ item.total_hours }}</td><td colspan="3"></td></tr></tfoot>
+        </table>
+    </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+document.getElementById('downloadHrTimesheet').addEventListener('click',async()=>{try{const jsPDF=window.jspdf.jsPDF,pdf=new jsPDF('portrait','pt','a4'),out=document.getElementById('hrTimesheetPdf'),canvas=await html2canvas(out,{scale:1.6,useCORS:true,backgroundColor:'#ffffff'}),pageW=pdf.internal.pageSize.getWidth(),w=pageW-40,h=canvas.height*(w/canvas.width);pdf.addImage(canvas.toDataURL('image/png'),'PNG',20,20,w,h);pdf.save('Tabela_Godzinowa.pdf');}catch(error){console.error(error);alert('Nie udało się wygenerować PDF.');}});
+</script>
+{% endblock %}
