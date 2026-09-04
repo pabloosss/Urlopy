@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <h1>Rozliczenia godzin</h1>
+        <p>Rozliczenia przesłane przez pracowników do Kadr.</p>
+    </div>
+</section>
+
+<div class="card" style="margin-bottom:18px;">
+    <form method="get" class="employee-form-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;">
+        <div>
+            <label>Rok</label>
+            <input name="year" type="number" min="2000" max="2100" value="{{ selected_year }}" placeholder="{{ current_year }}">
+        </div>
+        <div>
+            <label>Miesiąc</label>
+            <select name="month">
+                <option value="">Wszystkie</option>
+                {% for no, name in [(1,'Styczeń'),(2,'Luty'),(3,'Marzec'),(4,'Kwiecień'),(5,'Maj'),(6,'Czerwiec'),(7,'Lipiec'),(8,'Sierpień'),(9,'Wrzesień'),(10,'Październik'),(11,'Listopad'),(12,'Grudzień')] %}
+                <option value="{{ no }}" {% if selected_month == no|string %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Pracownik</label>
+            <select name="employee">
+                <option value="">Wszyscy</option>
+                {% for employee in employees %}
+                <option value="{{ employee.id }}" {% if selected_employee == employee.id|string %}selected{% endif %}>{{ employee.full_name|surname_first }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button type="submit">Filtruj</button>
+            <a class="btn-secondary" href="{{ url_for('hr_tools.hours_inbox') }}">Wyczyść</a>
+        </div>
+    </form>
+</div>
+
+<div class="card employees-list-card">
+    <div class="section-head-row"><h2>Przesłane rozliczenia</h2><span class="chip">{{ items|length }}</span></div>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Pracownik</th><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Przesłano</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td><strong>{{ item.full_name|surname_first }}</strong><br><small>{{ item.company_name or '—' }}{% if item.department %} · {{ item.department }}{% endif %}</small></td>
+                    <td>{{ '%02d'|format(item.month) }}.{{ item.year }}</td>
+                    <td>{{ item.contract_type }}</td>
+                    <td><strong>{{ item.total_hours }}</strong> h</td>
+                    <td>{{ item.submitted_at or '—' }}</td>
+                    <td>{% if item.status == 'Przesłane' %}<span class="status status-zaakceptowany">Przesłane</span>{% else %}<span class="status status-oczekuje">{{ item.status }}</span>{% endif %}</td>
+                    <td><a class="btn-secondary btn-mini" href="{{ url_for('hr_tools.hours_detail', timesheet_id=item.id) }}">Otwórz</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="empty-state">Brak przesłanych rozliczeń dla wybranych filtrów.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
