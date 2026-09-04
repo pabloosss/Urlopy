@@ -11,7 +11,7 @@ from flask import flash, jsonify, render_template, request, session
 
 from .config import CONTRACT_UOP, CONTRACT_ZLECENIE, normalize_contract_type
 from .database import get_db
-from .services import login_required, log_action, parse_date, polish_holidays, role_required, surname_first
+from .services import is_hr, login_required, log_action, parse_date, polish_holidays, surname_first
 
 
 MONTH_NAMES = [
@@ -212,28 +212,45 @@ def _send_brevo_pdf(employee_name, month_label, pdf_base64):
         raise RuntimeError(f"Nie udało się połączyć z Brevo: {exc.reason}") from exc
 
 
+def _can_access_user(user_id):
+    return is_hr() or user_id == session.get("user_id")
+
+
 def register_timesheet_routes(bp):
     @bp.route("/kadry/rozliczenia-godzin")
     @login_required
-    @role_required("admin", "kadry")
     def hours_view():
         selected_month, year, month, month_start, month_end = _selected_month(request.args.get("month"))
         conn = get_db()
-        employees = conn.execute(
-            """
-            SELECT u.id, u.full_name, u.login, u.contract_type, u.fte_percent, u.department,
-                   c.name AS company_name
-            FROM users u
-            LEFT JOIN companies c ON c.id = u.company_id
-            WHERE u.active = 1
-            """
-        ).fetchall()
-        employees = sorted(employees, key=lambda item: surname_first(item["full_name"]).casefold())
 
-        requested_user_id = request.args.get("user_id", "").strip()
-        selected_user_id = int(requested_user_id) if requested_user_id.isdigit() else (employees[0]["id"] if employees else None)
+        if is_hr():
+            employees = conn.execute(
+                """
+                SELECT u.id, u.full_name, u.login, u.contract_type, u.fte_percent, u.department,
+                       c.name AS company_name
+                FROM users u
+                LEFT JOIN companies c ON c.id = u.company_id
+                WHERE u.active = 1
+                """
+            ).fetchall()
+            employees = sorted(employees, key=lambda item: surname_first(item["full_name"]).casefold())
+            requested_user_id = request.args.get("user_id", "").strip()
+            selected_user_id = int(requested_user_id) if requested_user_id.isdigit() else (employees[0]["id"] if employees else None)
+        else:
+            employees = conn.execute(
+                """
+                SELECT u.id, u.full_name, u.login, u.contract_type, u.fte_percent, u.department,
+                       c.name AS company_name
+                FROM users u
+                LEFT JOIN companies c ON c.id = u.company_id
+                WHERE u.id = ? AND u.active = 1
+                """,
+                (session["user_id"],),
+            ).fetchall()
+            selected_user_id = session["user_id"] if employees else None
+
         employee = _employee(conn, selected_user_id) if selected_user_id else None
-        if employee and not employee["active"]:
+        if employee and (not employee["active"] or not _can_access_user(employee["id"])):
             employee = None
 
         saved = None
@@ -250,15 +267,23 @@ def register_timesheet_routes(bp):
             saved = _serialize_saved(saved_row)
 
         holidays = sorted(day.isoformat() for day in polish_holidays(year) if day.month == month)
-        month_rows = conn.execute(
-            """
-            SELECT ht.user_id, ht.updated_at, ht.last_sent_at
-            FROM hour_timesheets ht
-            WHERE ht.year = ? AND ht.month = ?
-            """,
-            (year, month),
-        ).fetchall()
-        statuses = {row["user_id"]: {"updated_at": row["updated_at"], "last_sent_at": row["last_sent_at"]} for row in month_rows}
+        accessible_ids = [item["id"] for item in employees]
+        statuses = {}
+        if accessible_ids:
+            placeholders = ",".join("?" for _ in accessible_ids)
+            month_rows = conn.execute(
+                f"""
+                SELECT ht.user_id, ht.updated_at, ht.last_sent_at
+                FROM hour_timesheets ht
+                WHERE ht.year = ? AND ht.month = ?
+                  AND ht.user_id IN ({placeholders})
+                """,
+                (year, month, *accessible_ids),
+            ).fetchall()
+            statuses = {
+                row["user_id"]: {"updated_at": row["updated_at"], "last_sent_at": row["last_sent_at"]}
+                for row in month_rows
+            }
         conn.close()
 
         contract = normalize_contract_type(employee["contract_type"]) if employee else CONTRACT_UOP
@@ -298,13 +323,14 @@ def register_timesheet_routes(bp):
 
     @bp.route("/kadry/rozliczenia-godzin/save", methods=["POST"])
     @login_required
-    @role_required("admin", "kadry")
     def hours_save():
         payload = request.get_json(silent=True) or {}
         try:
             user_id = int(payload.get("user_id"))
             year = int(payload.get("year"))
             month = int(payload.get("month"))
+            if not _can_access_user(user_id):
+                return jsonify({"ok": False, "error": "Możesz zapisać tylko własne rozliczenie."}), 403
             if year < 2000 or year > 2100 or month < 1 or month > 12:
                 raise ValueError("Niepoprawny miesiąc rozliczenia.")
             rows = _validate_rows(payload.get("rows"), year, month)
@@ -317,9 +343,9 @@ def register_timesheet_routes(bp):
 
         conn = get_db()
         employee = _employee(conn, user_id)
-        if not employee:
+        if not employee or not employee["active"]:
             conn.close()
-            return jsonify({"ok": False, "error": "Nie znaleziono pracownika."}), 404
+            return jsonify({"ok": False, "error": "Nie znaleziono aktywnego pracownika."}), 404
 
         contract = normalize_contract_type(employee["contract_type"])
         fte = int(employee["fte_percent"] or 100)
@@ -362,13 +388,14 @@ def register_timesheet_routes(bp):
 
     @bp.route("/kadry/rozliczenia-godzin/send", methods=["POST"])
     @login_required
-    @role_required("admin", "kadry")
     def hours_send():
         payload = request.get_json(silent=True) or {}
         try:
             user_id = int(payload.get("user_id"))
             year = int(payload.get("year"))
             month = int(payload.get("month"))
+            if not _can_access_user(user_id):
+                return jsonify({"ok": False, "error": "Możesz wysłać tylko własne rozliczenie."}), 403
             pdf_data = str(payload.get("pdfData") or "").strip()
             if not pdf_data:
                 raise ValueError("Brak PDF do wysłania.")
@@ -380,9 +407,9 @@ def register_timesheet_routes(bp):
 
         conn = get_db()
         employee = _employee(conn, user_id)
-        if not employee:
+        if not employee or not employee["active"]:
             conn.close()
-            return jsonify({"ok": False, "error": "Nie znaleziono pracownika."}), 404
+            return jsonify({"ok": False, "error": "Nie znaleziono aktywnego pracownika."}), 404
         timesheet = conn.execute(
             "SELECT id FROM hour_timesheets WHERE user_id = ? AND year = ? AND month = ?",
             (user_id, year, month),
