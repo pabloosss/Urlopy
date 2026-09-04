@@ -71,7 +71,7 @@ def _safe_next(default_endpoint, **values):
 
 @bp.route("/limits/user/<int:user_id>/available", methods=["POST"])
 @login_required
-@role_required("admin")
+@role_required("admin", "kadry")
 def set_user_available_days(user_id):
     conn = get_db()
     user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
