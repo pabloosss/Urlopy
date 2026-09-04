@@ -22,7 +22,8 @@ except ValueError:
 
 CONTRACT_UOP = "Umowa o pracę"
 CONTRACT_ZLECENIE = "Umowa zlecenie"
-CONTRACT_TYPES = [CONTRACT_UOP, CONTRACT_ZLECENIE]
+CONTRACT_OTHER = "Inne"
+CONTRACT_TYPES = [CONTRACT_UOP, CONTRACT_ZLECENIE, CONTRACT_OTHER]
 
 # UoP ma pełny zestaw rodzajów nieobecności używany przez Kadry.
 UOP_LEAVE_TYPES = [
@@ -35,16 +36,20 @@ UOP_LEAVE_TYPES = [
     "Inne",
 ]
 
-# Zlecenie ma celowo prosty wariant: planowana nieobecność albo urlop bezpłatny.
+# Zlecenie ma prosty wariant: planowana nieobecność albo urlop bezpłatny.
 ZLECENIE_LEAVE_TYPES = [
     "Urlop wypoczynkowy",
     "Urlop bezpłatny",
 ]
 
+# Dla typu „Inne” zostawiamy neutralnie zestaw UoP, dopóki Kadry nie ustalą osobnej listy.
+OTHER_LEAVE_TYPES = list(UOP_LEAVE_TYPES)
+
 LEAVE_TYPES = UOP_LEAVE_TYPES
 CONTRACT_LEAVE_TYPES = {
     CONTRACT_UOP: UOP_LEAVE_TYPES,
     CONTRACT_ZLECENIE: ZLECENIE_LEAVE_TYPES,
+    CONTRACT_OTHER: OTHER_LEAVE_TYPES,
 }
 LIMIT_TYPES = {"Urlop wypoczynkowy", "Urlop na żądanie"}
 HR_ROLES = {"admin", "kadry"}
@@ -56,6 +61,8 @@ def normalize_contract_type(value):
     text = (value or "").strip().lower()
     if "zlecen" in text:
         return CONTRACT_ZLECENIE
+    if text == CONTRACT_OTHER.lower() or text.startswith("inne"):
+        return CONTRACT_OTHER
     return CONTRACT_UOP
 
 
@@ -74,5 +81,5 @@ def leave_types_for_user(contract_type, department):
 
 
 def uses_vacation_balance(contract_type):
-    """Saldo jest pokazywane i egzekwowane dla UoP; zlecenie działa jako ewidencja wniosków."""
+    """Saldo jest pokazywane i egzekwowane wyłącznie dla UoP."""
     return normalize_contract_type(contract_type) == CONTRACT_UOP
