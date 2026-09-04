@@ -40,6 +40,9 @@
                 <a class="{% if request.endpoint == 'requests.all_requests_view' %}is-active{% endif %}" href="{{ url_for('requests.all_requests_view') }}?date_from=&date_to=">Wszystkie wnioski</a>
             {% endif %}
 
+            <div class="menu-section">Rozliczenia</div>
+            <a class="{% if request.endpoint == 'hr_tools.hours_view' %}is-active{% endif %}" href="{{ url_for('hr_tools.hours_view') }}">Rozliczenie godzin</a>
+
             {% if is_manager() %}
                 <div class="menu-section">Zespół</div>
                 <a class="{% if request.endpoint == 'main.calendar_view' %}is-active{% endif %}" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
@@ -48,7 +51,6 @@
             {% elif is_hr() %}
                 <div class="menu-section">Kadry</div>
                 <a class="{% if request.endpoint and request.endpoint.startswith('hr_tools.') and request.endpoint != 'hr_tools.hours_view' %}is-active{% endif %}" href="{{ url_for('hr_tools.dashboard') }}">Panel Kadr</a>
-                <a class="{% if request.endpoint == 'hr_tools.hours_view' %}is-active{% endif %}" href="{{ url_for('hr_tools.hours_view') }}">Rozliczenia godzin</a>
                 <a class="{% if request.endpoint == 'main.calendar_view' %}is-active{% endif %}" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
                 <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
                 <a class="{% if request.endpoint and request.endpoint.startswith('employees.') %}is-active{% endif %}" href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
