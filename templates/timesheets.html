@@ -3,8 +3,8 @@
 {% block content %}
 <section class="page-title">
     <div>
-        <h1>Rozliczenia godzin</h1>
-        <p>Generator zsynchronizowany z urlopami i zapisanymi danymi pracownika.</p>
+        <h1>Rozliczenie godzin</h1>
+        <p>Twoje miesięczne rozliczenie zsynchronizowane z urlopami.</p>
     </div>
 </section>
 
@@ -12,7 +12,8 @@
 .hours-layout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:18px;align-items:start}
 .hours-controls{position:sticky;top:18px}
 .hours-controls .field{margin-bottom:14px}.hours-controls label{display:block;font-weight:700;margin-bottom:6px}
-.hours-controls select,.hours-controls input{width:100%}
+.hours-controls input{width:100%}
+.hours-account{padding:13px 14px;margin-bottom:14px;border:1px solid var(--border,#e5e7eb);border-radius:12px}.hours-account span{display:block;font-size:12px;opacity:.65}.hours-account strong{display:block;margin-top:3px;font-size:17px}
 .hours-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
 .hours-meta div{padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px}.hours-meta span{display:block;font-size:12px;opacity:.65}.hours-meta strong{display:block;margin-top:2px}
 .hours-actions{display:flex;flex-wrap:wrap;gap:8px}.hours-note{font-size:13px;line-height:1.45;opacity:.76;margin-top:12px}.hours-status{margin:10px 0 0;font-size:13px;font-weight:700}
@@ -29,33 +30,28 @@
 .hours-pdf-sheet .mono{font-variant-numeric:tabular-nums}.hours-pdf-sheet .table-times tr.off td{background:#ffcccc;color:#a00;font-weight:700}.hours-pdf-sheet .table-times tfoot td{font-weight:800;background:#fff}
 .hours-pdf-sheet td[contenteditable="true"]{outline:none;cursor:text}.hours-pdf-sheet td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px #111}
 .hours-empty{padding:42px;text-align:center;border:1px dashed var(--border,#d1d5db);border-radius:12px}
-.hours-saved-list{margin-top:16px;max-height:210px;overflow:auto}.hours-saved-list a{display:flex;justify-content:space-between;gap:8px;padding:7px 0;text-decoration:none}.hours-saved-list small{opacity:.65}
 @media(max-width:1050px){.hours-layout{grid-template-columns:1fr}.hours-controls{position:static}}
 @media print{.hours-pdf-sheet{box-shadow:none}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 
 <div class="hours-layout">
     <aside class="card hours-controls">
-        <h2>Parametry</h2>
+        <h2>Twoje rozliczenie</h2>
+
+        {% if timesheet_context.employee %}
+        <div class="hours-account">
+            <span>Pracownik</span>
+            <strong>{{ timesheet_context.employee.full_name|surname_first }}</strong>
+        </div>
+
         <form method="get" id="hoursSelectForm">
-            <div class="field">
-                <label for="hoursUser">Pracownik</label>
-                <select id="hoursUser" name="user_id" required>
-                    {% for employee in employees %}
-                    <option value="{{ employee.id }}" {% if selected_user_id == employee.id %}selected{% endif %}>
-                        {{ employee.full_name|surname_first }} — {{ employee.contract_type }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
             <div class="field">
                 <label for="hoursMonth">Miesiąc</label>
                 <input id="hoursMonth" type="month" name="month" value="{{ selected_month }}" required>
             </div>
-            <button type="submit" class="btn-secondary">Wczytaj</button>
+            <button type="submit" class="btn-secondary">Wczytaj miesiąc</button>
         </form>
 
-        {% if timesheet_context.employee %}
         <div class="hours-meta">
             <div><span>Umowa</span><strong>{{ timesheet_context.employee.contract_type }}</strong></div>
             <div><span>Etat</span><strong>{{ timesheet_context.employee.fte_percent }}%</strong></div>
@@ -76,19 +72,7 @@
         <div class="hours-status" id="hoursStatus">
             {% if timesheet_context.saved %}Zapisane: {{ timesheet_context.saved.updated_at }}{% else %}Brak zapisanego rozliczenia.{% endif %}
         </div>
-        <p class="hours-note">Dni z zaakceptowanych wniosków są pobierane z Urlopów. Na zleceniu generator zawsze dodaje również losowe dni wolne. Komórki tabeli możesz ręcznie poprawić przed zapisaniem lub PDF.</p>
-
-        <div class="hours-saved-list">
-            <strong>{{ selected_month }} — zapisane</strong>
-            {% for employee in employees %}
-                {% if employee.id in statuses %}
-                <a href="{{ url_for('hr_tools.hours_view', user_id=employee.id, month=selected_month) }}">
-                    <span>{{ employee.full_name|surname_first }}</span>
-                    <small>{% if statuses[employee.id].last_sent_at %}wysłane{% else %}zapisane{% endif %}</small>
-                </a>
-                {% endif %}
-            {% endfor %}
-        </div>
+        <p class="hours-note">Dni z zaakceptowanych wniosków są pobierane automatycznie. Na zleceniu generator dodaje również losowe dni wolne. Tabelę możesz ręcznie poprawić przed zapisaniem lub PDF.</p>
         {% endif %}
     </aside>
 
@@ -107,7 +91,7 @@
             </div>
         </div>
         {% else %}
-        <div class="hours-empty">Brak aktywnych pracowników.</div>
+        <div class="hours-empty">Brak aktywnego konta pracownika.</div>
         {% endif %}
     </section>
 </div>
@@ -242,7 +226,7 @@ function generate(forceRandom=false){
 }
 async function save(){
   if(!dayData.length)return;const target=ctx.employee.contract_type==='Umowa zlecenie'?Number(document.getElementById('targetHours').value||0):null;const btn=document.getElementById('saveHours');btn.disabled=true;setStatus('Zapisywanie…');
-  try{const resp=await fetch('{{ url_for("hr_tools.hours_save") }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({user_id:ctx.employee.id,year:ctx.year,month:ctx.month,target_hours:target,rows:dayData})});const data=await resp.json().catch(()=>({}));if(!resp.ok||!data.ok)throw new Error(data.error||'Nie udało się zapisać.');hasSaved=true;dirty=false;document.getElementById('sendHoursPdf').disabled=false;setStatus(`Zapisane: ${data.updated_at||'teraz'}`);}catch(err){console.error(err);btn.disabled=false;setStatus(err.message);}}
+  try{const resp=await fetch('{{ url_for("hr_tools.hours_save") }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({user_id:ctx.employee.id,year:ctx.year,month:ctx.month,target_hours:target,rows:dayData})});const data=await resp.json().catch(()=>({}));if(!resp.ok||!data.ok)throw new Error(data.error||'Nie udało się zapisać.');hasSaved=true;dirty=false;ctx.saved={...(ctx.saved||{}),rows:JSON.parse(JSON.stringify(dayData)),target_hours:target,updated_at:data.updated_at};document.getElementById('sendHoursPdf').disabled=false;setStatus(`Zapisane: ${data.updated_at||'teraz'}`);}catch(err){console.error(err);btn.disabled=false;setStatus(err.message);}}
 async function makePDFBase64(){
   if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
   const jsPDF=window.jspdf.jsPDF,pdf=new jsPDF('portrait','pt','a4'),out=document.getElementById('resultWrap');const canvas=await html2canvas(out,{scale:1.6,useCORS:true,backgroundColor:'#ffffff'});const pageW=pdf.internal.pageSize.getWidth(),w=pageW-40,h=canvas.height*(w/canvas.width);pdf.addImage(canvas.toDataURL('image/png'),'PNG',20,20,w,h);const blob=pdf.output('blob');return await new Promise(res=>{const r=new FileReader();r.onloadend=()=>res(r.result.split(',')[1]);r.readAsDataURL(blob);});
