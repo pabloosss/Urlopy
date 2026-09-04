@@ -43,10 +43,10 @@
     <div class="section-head-row"><h2>Przesłane rozliczenia</h2><span class="chip">{{ items|length }}</span></div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Pracownik</th><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Przesłano</th><th>Status</th><th></th></tr></thead>
-            <tbody>
+            <thead><tr><th>Nazwisko i imię</th><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Przesłano</th><th>Status</th><th></th></tr></thead>
+            <tbody id="timesheetInboxRows">
                 {% for item in items %}
-                <tr>
+                <tr data-sort-name="{{ item.full_name|surname_first|lower }}">
                     <td><strong>{{ item.full_name|surname_first }}</strong><br><small>{{ item.company_name or '—' }}{% if item.department %} · {{ item.department }}{% endif %}</small></td>
                     <td>{{ '%02d'|format(item.month) }}.{{ item.year }}</td>
                     <td>{{ item.contract_type }}</td>
@@ -62,4 +62,14 @@
         </table>
     </div>
 </div>
+
+<script>
+(function () {
+    const tbody = document.getElementById('timesheetInboxRows');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
+    rows.sort((a, b) => (a.dataset.sortName || '').localeCompare(b.dataset.sortName || '', 'pl', {sensitivity: 'base'}));
+    rows.forEach(row => tbody.appendChild(row));
+})();
+</script>
 {% endblock %}
