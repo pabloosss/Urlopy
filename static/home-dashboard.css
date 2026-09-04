@@ -271,6 +271,61 @@ body {
     line-height: 1;
 }
 
+.home-timesheet-priority {
+    min-height: 170px;
+    margin-bottom: 22px;
+    padding: 30px 34px;
+    border-radius: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    color: #ffffff;
+    text-decoration: none;
+    background: radial-gradient(circle at 88% 20%, rgba(215, 25, 32, .48), transparent 30%), linear-gradient(135deg, #111111, #262626);
+    border: 1px solid #343434;
+    box-shadow: 0 22px 50px rgba(15, 23, 42, .16);
+    animation: cardIn .36s var(--ease) both;
+    transition: transform .16s var(--ease), box-shadow .16s var(--ease), border-color .16s var(--ease);
+}
+
+.home-timesheet-priority:hover {
+    transform: translateY(-4px);
+    border-color: var(--red);
+    box-shadow: 0 30px 64px rgba(15, 23, 42, .24);
+}
+
+.home-timesheet-priority span {
+    display: block;
+    margin-bottom: 10px;
+    color: #ffb4b4;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.home-timesheet-priority strong {
+    display: block;
+    color: #ffffff;
+    font-size: 42px;
+    line-height: 1;
+    font-weight: 900;
+}
+
+.home-timesheet-priority b {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    min-width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    color: #ffffff;
+    background: var(--red);
+    font-size: 34px;
+    line-height: 1;
+}
+
 .home-quick-stats,
 .home-manager-tools {
     display: grid;
@@ -350,5 +405,21 @@ body {
 
     .home-request-priority strong {
         font-size: 42px;
+    }
+
+    .home-timesheet-priority {
+        min-height: 145px;
+        padding: 26px;
+    }
+
+    .home-timesheet-priority strong {
+        font-size: 34px;
+    }
+
+    .home-timesheet-priority b {
+        width: 58px;
+        min-width: 58px;
+        height: 58px;
+        font-size: 28px;
     }
 }
