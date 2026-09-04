@@ -30,7 +30,7 @@
         <table>
             <thead><tr><th>Pracownik</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
             <tbody>
-            {% for req in requests_list %}
+            {% for req in requests_list|sort(attribute='date_from') %}
                 <tr>
                     <td><b>{{ req.full_name|surname_first }}</b><br><small>{{ req.department or "—" }}</small></td>
                     <td>{{ req.company_name or "—" }}</td>
