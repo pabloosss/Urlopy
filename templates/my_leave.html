@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% set show_balance = (user.contract_type or 'Umowa o pracę') != 'Umowa zlecenie' %}
+{% set show_balance = (user.contract_type or 'Umowa o pracę') == 'Umowa o pracę' %}
 <section class="page-title">
     <div>
         <h1>Moje wnioski</h1>
@@ -24,7 +24,7 @@
     <div class="section-head-row"><h2>Historia</h2><span class="chip">{{ requests_list|length }}</span></div>
 
     <div class="my-request-list">
-        {% for req in requests_list %}
+        {% for req in requests_list|sort(attribute='date_from') %}
         <article class="my-request-item status-border-{{ req.status }}">
             <div class="my-request-main">
                 <div>
