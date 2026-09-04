@@ -62,8 +62,8 @@
             <button type="submit">Zapisz zmiany</button>
         </form>
 
-        {% if session.get('role') == 'admin' %}
-        <div class="section-head-row" style="margin-top:24px;"><h2>Aktualne dni wolne</h2></div>
+        {% if is_hr() %}
+        <div class="section-head-row" style="margin-top:24px;"><h2>Liczba dni urlopu</h2></div>
         <form method="post" action="{{ url_for('limits.set_user_available_days', user_id=user.id) }}" class="employee-form-grid">
             <input type="hidden" name="next" value="{{ request.path }}">
             <label>Aktualnie pozostało dni</label>
@@ -117,7 +117,7 @@
             <table>
                 <thead><tr><th>Złożono</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th>{% if session.get('role') == 'admin' %}<th>Komentarz</th>{% endif %}<th>Akcje</th></tr></thead>
                 <tbody>
-                {% for req in requests_list %}
+                {% for req in requests_list|sort(attribute='date_from') %}
                     <tr>
                         <td>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</td>
                         <td>{{ req.leave_type }}</td>
