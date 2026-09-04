@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% set show_balance = (user.contract_type or 'Umowa o pracę') != 'Umowa zlecenie' %}
+{% set show_balance = (user.contract_type or 'Umowa o pracę') == 'Umowa o pracę' %}
 <section class="home-panel-layout dashboard-pretty">
     <aside class="home-user-panel">
         <p class="panel-label">Mój panel</p>
@@ -16,19 +16,14 @@
     </aside>
 
     <div class="home-work-area">
-        <section class="home-priority-cards {% if not show_balance %}home-priority-cards-single{% endif %}">
-            {% if show_balance %}
+        {% if show_balance %}
+        <section class="home-priority-cards home-priority-cards-single">
             <div class="home-days-priority">
                 <span>Pozostało dni</span>
                 <strong>{{ vacation_summary.available }}</strong>
             </div>
-            {% endif %}
-
-            <a class="home-request-priority" href="{{ url_for('requests.new_leave_request') }}">
-                <span>Wniosek urlopowy</span>
-                <strong>Złóż wniosek</strong>
-            </a>
         </section>
+        {% endif %}
 
         <a class="home-timesheet-priority" href="{{ url_for('hr_tools.hours_view') }}">
             <div>
@@ -47,7 +42,7 @@
             {% else %}
             <div>
                 <span>Umowa</span>
-                <strong>Zlecenie</strong>
+                <strong>{{ user.contract_type or 'Inne' }}</strong>
             </div>
             {% endif %}
 
