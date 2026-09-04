@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wnioski urlopowe — {{ selected_month }}</title>
+    <style>
+        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef0f3; color: #151515; font-family: Arial, sans-serif; }
+        .toolbar { max-width: 210mm; margin: 18px auto 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0 8px; }
+        .toolbar strong { font-size: 13px; }
+        .toolbar button { border: 0; border-radius: 8px; padding: 10px 16px; background: #111; color: #fff; font-weight: 700; cursor: pointer; }
+        .sheet { width: 210mm; min-height: 297mm; margin: 12px auto 28px; padding: 17mm 19mm 18mm; background: #fff; box-shadow: 0 12px 34px rgba(0,0,0,.08); page-break-after: always; break-after: page; }
+        .sheet:last-of-type { page-break-after: auto; break-after: auto; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 8mm; border-bottom: 1px solid #e2e2e2; }
+        .logo { width: 66mm; height: auto; }
+        .date { min-width: 45mm; text-align: right; }
+        .date strong { display: block; font-size: 14px; }
+        .date span, .field span { display: block; margin-top: 4px; font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: .04em; }
+        h1 { margin: 11mm 0 9mm; text-align: center; font-size: 23px; font-weight: 700; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-bottom: 10mm; }
+        .field { min-width: 0; }
+        .field strong { display: block; min-height: 24px; padding: 0 0 5px; border-bottom: 1px solid #aaa; font-size: 14px; }
+        .request-box { margin: 0 0 9mm; padding: 8mm 9mm; border: 1px solid #dedede; border-radius: 8px; background: #fafafa; font-size: 15px; line-height: 1.65; }
+        .replacement-block { margin-top: 9mm; padding: 7mm 8mm; border: 1px solid #d9d9d9; border-left: 3px solid #222; border-radius: 7px; background: #fff; }
+        .replacement-title { margin-bottom: 4mm; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #444; }
+        .replacement-text { margin: 0; font-size: 13px; line-height: 1.55; }
+        .replacement-person { margin: 5mm 0 3mm; padding-bottom: 4px; border-bottom: 1px solid #999; font-size: 15px; font-weight: 700; }
+        .replacement-note { margin: 0; font-size: 11px; line-height: 1.5; color: #666; }
+        @media print {
+            body { background: #fff; }
+            .toolbar { display: none; }
+            .sheet { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <strong>{{ requests_list|length }} wniosków · {{ selected_contract }} · {{ selected_month }}</strong>
+        <button type="button" onclick="window.print()">Drukuj / zapisz jako jeden PDF</button>
+    </div>
+
+    {% for req in requests_list %}
+    <main class="sheet">
+        <header class="header">
+            <img class="logo" src="{{ url_for('static', filename='img/logo.svg') }}?v=2" alt="EMERLOG">
+            <div class="date">
+                <strong>{{ req.created_at[:10]|pldate if req.created_at else "—" }}</strong>
+                <span>data złożenia</span>
+            </div>
+        </header>
+
+        <h1>Wniosek urlopowy</h1>
+
+        <div class="meta-grid">
+            <div class="field">
+                <strong>{{ req.full_name|surname_first }}</strong>
+                <span>pracownik</span>
+            </div>
+            <div class="field">
+                <strong>{{ req.company_name or "EMERLOG SP. Z O. O." }}</strong>
+                <span>spółka</span>
+            </div>
+        </div>
+
+        <div class="request-box">
+            Proszę o udzielenie
+            {% if req.leave_type in ['Urlop wypoczynkowy', 'Urlop na żądanie'] %}
+                urlopu wypoczynkowego
+            {% else %}
+                nieobecności: <b>{{ req.leave_type }}</b>
+            {% endif %}
+            w liczbie <b>{{ req.days_count }}</b> dni, w terminie od
+            <b>{{ req.date_from|pldate }}</b> do <b>{{ req.date_to|pldate }}</b>.
+        </div>
+
+        {% if req.department and req.department|lower == 'spedycja' %}
+        <section class="replacement-block">
+            <div class="replacement-title">Zastępstwo w okresie urlopu</div>
+            <p class="replacement-text">Na czas mojej nieobecności obowiązki służbowe oraz bieżące sprawy związane z moim stanowiskiem przejmować będzie:</p>
+            <div class="replacement-person">{{ (req.replacement_name|surname_first) if req.replacement_name else "—" }}</div>
+            <p class="replacement-note">Osoba wskazana powyżej będzie pełnić zastępstwo w okresie objętym niniejszym wnioskiem urlopowym.</p>
+        </section>
+        {% endif %}
+    </main>
+    {% endfor %}
+
+    <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));</script>
+</body>
+</html>
