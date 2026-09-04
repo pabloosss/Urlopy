@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <h1>Rozliczenie godzin</h1>
+        <p>Twoje miesięczne rozliczenie godzin, zsynchronizowane z urlopami.</p>
+    </div>
+</section>
+
+<style>
+.hours-layout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:18px;align-items:start}
+.hours-controls{position:sticky;top:18px}
+.hours-controls .field{margin-bottom:14px}.hours-controls label{display:block;font-weight:700;margin-bottom:6px}
+.hours-controls select,.hours-controls input{width:100%}
+.hours-person{padding:11px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;font-weight:700}
+.hours-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.hours-meta div{padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px}.hours-meta span{display:block;font-size:12px;opacity:.65}.hours-meta strong{display:block;margin-top:2px}
+.hours-actions{display:flex;flex-wrap:wrap;gap:8px}.hours-note{font-size:13px;line-height:1.45;opacity:.76;margin-top:12px}.hours-status{margin:10px 0 0;font-size:13px;font-weight:700}
+.hours-stage-scroll{overflow:auto;padding:2px 2px 12px}.hours-pdf-stage{width:1016px;min-width:1016px}
+.hours-pdf-sheet{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Liberation Sans",Arial,sans-serif;background:#fff;color:#111;border:1px solid #000;border-radius:10px;overflow:hidden;width:1016px}
+.hours-pdf-sheet .sheet-head{padding:16px 18px 8px 18px;border-bottom:1px solid #000;background:#fff}
+.hours-pdf-sheet .mname{font-size:24px;font-weight:800;margin:0;color:#111;line-height:1.2}
+.hours-pdf-sheet .person{font-size:18px;font-weight:700;margin:2px 0 0;color:#111;line-height:1.5}
+.hours-pdf-sheet .ctype{font-size:12px;color:#555;margin:0;line-height:1.5}
+.hours-pdf-sheet .table-times{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;margin:0}
+.hours-pdf-sheet .table-times th,.hours-pdf-sheet .table-times td{border:1px solid #000;padding:8px 10px;text-align:center;vertical-align:middle;background:#fff;font-size:14px;color:#111;line-height:1.5}
+.hours-pdf-sheet .table-times thead th{background:#fafafa;font-weight:700}
+.hours-pdf-sheet .table-times .col-day{width:56px}.hours-pdf-sheet .table-times .col-date{text-align:left}.hours-pdf-sheet .table-times .col-start,.hours-pdf-sheet .table-times .col-end{width:100px}.hours-pdf-sheet .table-times .col-hours{width:92px}.hours-pdf-sheet .table-times .col-sign{width:160px}.hours-pdf-sheet .table-times .col-leave{width:110px}
+.hours-pdf-sheet .mono{font-variant-numeric:tabular-nums}.hours-pdf-sheet .table-times tr.off td{background:#ffcccc;color:#a00;font-weight:700}.hours-pdf-sheet .table-times tfoot td{font-weight:800;background:#fff}
+.hours-pdf-sheet td[contenteditable="true"]{outline:none;cursor:text}.hours-pdf-sheet td[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px #111}
+.hours-empty{padding:42px;text-align:center;border:1px dashed var(--border,#d1d5db);border-radius:12px}
+@media(max-width:1050px){.hours-layout{grid-template-columns:1fr}.hours-controls{position:static}}
+@media print{.hours-pdf-sheet{box-shadow:none}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+
+{% if timesheet_context.employee %}
+<div class="hours-layout">
+    <aside class="card hours-controls">
+        <h2>Parametry</h2>
+        <div class="field">
+            <label>Pracownik</label>
+            <div class="hours-person">{{ timesheet_context.employee.full_name|surname_first }}</div>
+        </div>
+        <form method="get" id="hoursSelectForm">
+            <div class="field">
+                <label for="hoursMonth">Miesiąc</label>
+                <input id="hoursMonth" type="month" name="month" value="{{ selected_month }}" required>
+            </div>
+            <button type="submit" class="btn-secondary">Wczytaj</button>
+        </form>
+
+        <div class="hours-meta">
+            <div><span>Umowa</span><strong>{{ timesheet_context.employee.contract_type }}</strong></div>
+            <div><span>Etat</span><strong>{{ timesheet_context.employee.fte_percent }}%</strong></div>
+        </div>
+
+        <div class="field" id="targetHoursField" {% if timesheet_context.employee.contract_type != 'Umowa zlecenie' %}hidden{% endif %}>
+            <label for="targetHours">Łączna liczba godzin</label>
+            <input id="targetHours" type="number" min="30" max="744" step="1" value="{{ timesheet_context.saved.target_hours if timesheet_context.saved and timesheet_context.saved.target_hours is not none else 160 }}">
+        </div>
+
+        <div class="hours-actions">
+            <button type="button" id="generateHours">{% if timesheet_context.saved %}Odśwież z urlopów{% else %}Generuj tabelę{% endif %}</button>
+            {% if timesheet_context.employee.contract_type == 'Umowa zlecenie' %}<button type="button" id="rerollHours" class="btn-secondary">Wylosuj ponownie</button>{% endif %}
+            <button type="button" id="saveHours" class="btn-secondary" disabled>Zapisz</button>
+            <button type="button" id="downloadHoursPdf" class="btn-secondary" disabled>Pobierz PDF</button>
+            <button type="button" id="sendHoursPdf" class="btn-secondary" disabled>Wyślij do Kadr</button>
+        </div>
+        <div class="hours-status" id="hoursStatus">
+            {% if timesheet_context.saved %}Zapisane: {{ timesheet_context.saved.updated_at }}{% else %}Brak zapisanego rozliczenia.{% endif %}
+        </div>
+        <p class="hours-note">Urlopy i inne zaakceptowane nieobecności są pobierane automatycznie. Przy umowie zlecenie generator dodatkowo losuje dni wolne i nieregularne godziny. Tabelę możesz ręcznie poprawić przed zapisaniem i wysłaniem.</p>
+    </aside>
+
+    <section>
+        <div class="hours-stage-scroll">
+            <div class="hours-pdf-stage">
+                <section class="hours-pdf-sheet" id="resultWrap" style="display:none;">
+                    <div class="sheet-head">
+                        <h2 class="mname" id="mname"></h2>
+                        <p class="person" id="pname"></p>
+                        <p class="ctype" id="ctype"></p>
+                    </div>
+                    <div id="output"></div>
+                </section>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script id="timesheetContext" type="application/json">{{ timesheet_context|tojson }}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(()=>{"use strict";
+const ctx=JSON.parse(document.getElementById('timesheetContext').textContent);
+const MIN_START=7,MAX_END=20,MIN_H=4,MAX_H=16;
+let dayData=[];
+let dirty=false;
+let hasSaved=!!ctx.saved;
+const holidaySet=new Set(ctx.holidays||[]);
+const absenceMap=ctx.absences||{};
+const csrf=window.UrlopyCSRFToken||document.querySelector('meta[name="csrf-token"]')?.content||'';
+const ri=(a,b)=>{a=Math.ceil(a);b=Math.floor(b);return Math.floor(Math.random()*(b-a+1))+a;};
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const pad=n=>String(n).padStart(2,'0');
+const isoForDay=d=>`${ctx.year}-${pad(ctx.month)}-${pad(d)}`;
+const dateForDay=d=>new Date(ctx.year,ctx.month-1,d);
+const weekdayShort=d=>dateForDay(d).toLocaleString('pl-PL',{weekday:'short'});
+const isWeekend=d=>{const w=dateForDay(d).getDay();return w===0||w===6;};
+const daysInMonth=()=>new Date(ctx.year,ctx.month,0).getDate();
+const employeeLastName=()=>{const p=ctx.employee.full_name.trim().split(/\s+/);return p.slice(1).join(' ')||ctx.employee.full_name;};
+const fmtHours=v=>Number.isInteger(Number(v))?String(Number(v)):String(Number(v).toFixed(2)).replace(/\.00$/,'');
+const formatTimeFromMinutes=min=>`${pad(Math.floor(min/60))}:${pad(min%60)}`;
+function setStatus(text){document.getElementById('hoursStatus').textContent=text;}
+function markDirty(text='Niezapisane zmiany'){dirty=true;document.getElementById('saveHours').disabled=false;setStatus(text);}
+function baseRows(){const rows=[];for(let d=1;d<=daysInMonth();d++){const iso=isoForDay(d),weekend=isWeekend(d),publicH=holidaySet.has(iso),absence=absenceMap[iso];const off=weekend||publicH||!!absence;const source=weekend?'weekend':publicH?'holiday':absence?'leave':'';const leave=publicH?'Święto':absence?absence.label:'-';rows.push({day:d,iso,weekday:weekdayShort(d),start:'-',end:'-',hours:0,sign_employee:employeeLastName(),sign_company:'',leave,off,off_source:source});}return rows;}
+function weightedHours(min,max,variance){const buckets=variance?[{lo:Math.max(min,6),hi:Math.min(max,8),w:5},{lo:Math.max(min,9),hi:Math.min(max,12),w:7},{lo:Math.max(min,13),hi:Math.min(max,16),w:2}]:[{lo:Math.max(min,4),hi:Math.min(max,6),w:3},{lo:Math.max(min,7),hi:Math.min(max,9),w:6},{lo:Math.max(min,10),hi:Math.min(max,12),w:3},{lo:Math.max(min,13),hi:Math.min(max,16),w:1}];const usable=buckets.filter(b=>b.lo<=b.hi),total=usable.reduce((a,b)=>a+b.w,0);let r=Math.random()*total,pick=usable[0];for(const b of usable){r-=b.w;if(r<=0){pick=b;break;}}return ri(pick.lo,pick.hi);}
+function distribute(total,n,min,max,variance){if(n===0)return total===0?[]:null;const minAll=min*n,maxAll=max*n;if(total<minAll||total>maxAll){alert(`Przy tej liczbie dni możesz rozłożyć od ${minAll} do ${maxAll} godzin.`);return null;}let arr=Array.from({length:n},()=>weightedHours(min,max,variance)),sum=arr.reduce((a,b)=>a+b,0);const inc=()=>{const ids=arr.map((v,i)=>[v,i]).filter(([v])=>v<max).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);if(!ids.length)return false;arr[ids[ri(0,Math.min(3,ids.length-1))]]++;return true;};const dec=()=>{const ids=arr.map((v,i)=>[v,i]).filter(([v])=>v>min).sort((a,b)=>b[0]-a[0]).map(x=>x[1]);if(!ids.length)return false;arr[ids[ri(0,Math.min(3,ids.length-1))]]--;return true;};while(sum<total&&inc())sum++;while(sum>total&&dec())sum--;for(let i=1;i<n;i++){if(arr[i]===arr[i-1]){if(arr[i]<max){arr[i]++;sum++;}else if(arr[i-1]>min){arr[i-1]--;sum--;}}}while(sum<total&&inc())sum++;while(sum>total&&dec())sum--;for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+function sampleEndDistribution(n){const counts={early:Math.max(1,Math.round(n*.25)),mid:Math.max(1,Math.round(n*.40)),late:Math.max(1,Math.round(n*.20)),cap20:Math.max(0,Math.round(n*.15))};let pool=[];for(let i=0;i<counts.early;i++)pool.push(ri(14,16));for(let i=0;i<counts.mid;i++)pool.push(ri(16,18));for(let i=0;i<counts.late;i++)pool.push(ri(18,19));for(let i=0;i<counts.cap20;i++)pool.push(20);while(pool.length<n)pool.push(ri(16,19));for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return pool.slice(0,n);}
+const clampStartForHours=(s,h)=>clamp(s,MIN_START,MAX_END-h);
+function assignTimes(days,hoursArr){const n=days.length,targetEnds=sampleEndDistribution(n);let prevStart=null,prevEnd=null;for(let i=0;i<n;i++){const h=hoursArr[i];let E=clamp(targetEnds[i],MIN_START+h,MAX_END),s=clampStartForHours(E-h+ri(-1,1),h),e=s+h;if(prevStart!==null&&prevEnd!==null){if(s===prevStart&&e===prevEnd){if(e<MAX_END){s=clampStartForHours(s+1,h);e=s+h;}else if(s>MIN_START){s=clampStartForHours(s-1,h);e=s+h;}}else if(s===prevStart){s=clampStartForHours(s+(Math.random()<.5?-1:1),h);e=s+h;}else if(e===prevEnd){if(e<MAX_END){s=clampStartForHours(s+1,h);e=s+h;}else if(s>MIN_START){s=clampStartForHours(s-1,h);e=s+h;}}}if(Math.random()<.3){s=clampStartForHours(s+(Math.random()<.5?-1:1),h);e=s+h;}days[i].hours=h;days[i].start=`${pad(s)}:00`;days[i].end=`${pad(e)}:00`;prevStart=s;prevEnd=e;}const ends20=[];for(let i=0;i<n;i++)if(days[i].end==='20:00')ends20.push(i);const max20=Math.ceil(n*.25);if(ends20.length>max20){for(let k=0;k<ends20.length-max20;k++){const i=ends20[k],h=days[i].hours;let s=parseInt(days[i].start,10);s=clampStartForHours(s-1,h);days[i].start=`${pad(s)}:00`;days[i].end=`${pad(s+h)}:00`;}}}
+function applyRandomOff(list,total){const candidates=list.map((d,i)=>(!d.off?i:-1)).filter(i=>i>=0);if(!candidates.length)return;const minNeeded=Math.ceil(total/MAX_H);const maxDrop=Math.max(0,candidates.length-minNeeded);if(maxDrop<=0)return;let pct=.18+Math.random()*.07,toDrop=Math.min(maxDrop,Math.max(1,Math.round(candidates.length*pct)));const byW=new Map();candidates.forEach(i=>{const w=Math.floor((list[i].day-1)/7);if(!byW.has(w))byW.set(w,[]);byW.get(w).push(i);});const picks=new Set();for(const w of byW.keys()){if(toDrop===0)break;const pool=byW.get(w);picks.add(pool[Math.floor(Math.random()*pool.length)]);toDrop--;}const can=candidates.filter(i=>!picks.has(i));for(let i=can.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[can[i],can[j]]=[can[j],can[i]];}const far=i=>{for(const p of picks){if(Math.abs(p-i)<=1)return false;}return true;};for(const i of can){if(toDrop===0)break;if(far(i)){picks.add(i);toDrop--;}}for(const i of can){if(toDrop===0)break;if(!picks.has(i)){picks.add(i);toDrop--;}}for(const i of picks){list[i].off=true;list[i].off_source='random';list[i].leave='-';list[i].hours=0;list[i].start='-';list[i].end='-';}}
+function makeUopRows(){const rows=baseRows(),minutes=Math.round((480*(ctx.employee.fte_percent||100))/100);rows.filter(r=>!r.off).forEach(r=>{r.hours=Math.round((minutes/60)*100)/100;r.start='08:00';r.end=formatTimeFromMinutes(8*60+minutes);});return rows;}
+function makeContractRows(){const rows=baseRows();const total=Number(document.getElementById('targetHours').value||0);if(total<30){alert('Minimalnie 30 godzin.');return null;}applyRandomOff(rows,total);const working=rows.filter(r=>!r.off);const arr=distribute(total,working.length,MIN_H,MAX_H,true);if(!arr)return null;assignTimes(working,arr);return rows;}
+function syncSavedRows(savedRows){if(!Array.isArray(savedRows)||savedRows.length!==daysInMonth())return null;const currentBase=baseRows(),byDay=new Map(savedRows.map(r=>[Number(r.day),Object.assign({},r)])),synced=[];let contractorSyncChanged=false;for(const base of currentBase){let row=byDay.get(base.day)||base;row.iso=base.iso;row.weekday=base.weekday;if(ctx.employee.contract_type==='Umowa o pracę'){if(base.off){row={...row,...base};}else if(row.off_source==='leave'||row.off_source==='holiday'||row.off_source==='weekend'||Number(row.hours||0)===0){const minutes=Math.round((480*(ctx.employee.fte_percent||100))/100);row={...row,off:false,off_source:'',leave:'-',hours:Math.round((minutes/60)*100)/100,start:'08:00',end:formatTimeFromMinutes(480+minutes)};}}else{const mandatory=base.off_source==='leave'||base.off_source==='holiday'||base.off_source==='weekend';if(mandatory){if(!row.off||row.off_source!==base.off_source||row.leave!==base.leave)contractorSyncChanged=true;row={...row,...base};}else if(row.off_source==='leave'){row.off_source='random';row.leave='-';}}synced.push(row);}if(ctx.employee.contract_type==='Umowa zlecenie'&&contractorSyncChanged&&ctx.saved?.target_hours!=null){const working=synced.filter(r=>!r.off),arr=distribute(Number(ctx.saved.target_hours),working.length,MIN_H,MAX_H,true);if(arr)assignTimes(working,arr);}return synced;}
+function escapeHtml(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function render(){document.getElementById('mname').textContent=`${ctx.month_name} ${ctx.year}`;document.getElementById('pname').textContent=ctx.employee.full_name;document.getElementById('ctype').textContent=ctx.employee.contract_pdf_label;const rows=dayData.map(r=>{const dd=pad(r.day),mm=pad(ctx.month),hours=fmtHours(r.hours||0);return `<tr class="${r.off?'off':''}" data-day="${r.day}"><td class="mono">${r.day}</td><td class="col-date">${dd}.${mm}.${ctx.year} (${r.weekday})</td><td class="mono editable" contenteditable="true" data-key="start">${escapeHtml(r.start||'-')}</td><td class="mono editable" contenteditable="true" data-key="end">${escapeHtml(r.end||'-')}</td><td class="mono editable" contenteditable="true" data-key="hours">${escapeHtml(hours)}</td><td class="editable" contenteditable="true" data-key="sign_employee">${escapeHtml(r.sign_employee||'')}</td><td class="editable" contenteditable="true" data-key="sign_company">${escapeHtml(r.sign_company||'')}</td><td class="editable" contenteditable="true" data-key="leave">${escapeHtml(r.leave||'-')}</td></tr>`;});const sum=dayData.reduce((a,b)=>a+Number(b.hours||0),0);document.getElementById('output').innerHTML=`<table class="table-times"><thead><tr><th class="col-day">Dzień</th><th>Data</th><th class="col-start">Godz. rozpoczęcia</th><th class="col-end">Godz. zakończenia</th><th class="col-hours">Suma godzin</th><th class="col-sign">Podpis zleceniobiorcy</th><th class="col-sign">Podpis zleceniodawcy</th><th class="col-leave">Urlop</th></tr></thead><tbody>${rows.join('')}</tbody><tfoot><tr><td colspan="4">Suma</td><td class="mono" id="hoursSum">${fmtHours(sum)}</td><td colspan="3"></td></tr></tfoot></table>`;document.getElementById('resultWrap').style.display='block';document.getElementById('downloadHoursPdf').disabled=false;document.getElementById('sendHoursPdf').disabled=!hasSaved;document.querySelectorAll('#output td[contenteditable="true"]').forEach(cell=>cell.addEventListener('input',onCellEdit));}
+function onCellEdit(e){const tr=e.target.closest('tr[data-day]');if(!tr)return;const row=dayData.find(r=>r.day===Number(tr.dataset.day));if(!row)return;const key=e.target.dataset.key;const value=e.target.textContent.trim();if(key==='hours'){const n=Number(value.replace(',','.'));row.hours=Number.isFinite(n)?Math.max(0,Math.min(24,n)):0;document.getElementById('hoursSum').textContent=fmtHours(dayData.reduce((a,b)=>a+Number(b.hours||0),0));}else row[key]=value;markDirty('Ręczne zmiany — zapisz rozliczenie.');}
+function generate(forceRandom=false){let rows;if(ctx.employee.contract_type==='Umowa zlecenie'){if(!forceRandom&&ctx.saved?.rows){rows=syncSavedRows(ctx.saved.rows);}else rows=makeContractRows();}else{if(!forceRandom&&ctx.saved?.rows)rows=syncSavedRows(ctx.saved.rows);else rows=makeUopRows();}if(!rows)return;dayData=rows;render();markDirty(ctx.saved?'Zsynchronizowano z aktualnymi urlopami — zapisz.':'Nowe rozliczenie — zapisz.');}
+async function save(){if(!dayData.length)return;const target=ctx.employee.contract_type==='Umowa zlecenie'?Number(document.getElementById('targetHours').value||0):null;const btn=document.getElementById('saveHours');btn.disabled=true;setStatus('Zapisywanie…');try{const resp=await fetch('{{ url_for("hr_tools.employee_hours_save") }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({year:ctx.year,month:ctx.month,target_hours:target,rows:dayData})});const data=await resp.json().catch(()=>({}));if(!resp.ok||!data.ok)throw new Error(data.error||'Nie udało się zapisać.');hasSaved=true;dirty=false;document.getElementById('sendHoursPdf').disabled=false;setStatus(`Zapisane: ${data.updated_at||'teraz'}`);}catch(err){console.error(err);btn.disabled=false;setStatus(err.message);}}
+async function makePDFBase64(){if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();const jsPDF=window.jspdf.jsPDF,pdf=new jsPDF('portrait','pt','a4'),out=document.getElementById('resultWrap');const canvas=await html2canvas(out,{scale:1.6,useCORS:true,backgroundColor:'#ffffff'});const pageW=pdf.internal.pageSize.getWidth(),w=pageW-40,h=canvas.height*(w/canvas.width);pdf.addImage(canvas.toDataURL('image/png'),'PNG',20,20,w,h);const blob=pdf.output('blob');return await new Promise(res=>{const r=new FileReader();r.onloadend=()=>res(r.result.split(',')[1]);r.readAsDataURL(blob);});}
+async function downloadPDF(){try{const base64=await makePDFBase64(),a=document.createElement('a');a.href='data:application/pdf;base64,'+base64;a.download='Tabela_Godzinowa.pdf';document.body.appendChild(a);a.click();a.remove();}catch(err){console.error(err);alert('Nie udało się wygenerować PDF.');}}
+async function sendPDF(){if(dirty){alert('Najpierw zapisz aktualne rozliczenie.');return;}setStatus('Generowanie PDF i wysyłka…');try{const pdfData=await makePDFBase64();const resp=await fetch('{{ url_for("hr_tools.employee_hours_send") }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({year:ctx.year,month:ctx.month,pdfData})});const data=await resp.json().catch(()=>({}));if(!resp.ok||!data.ok)throw new Error(data.error||'Błąd wysyłki.');setStatus(`Wysłano do Kadr: ${data.last_sent_at||'teraz'}`);}catch(err){console.error(err);setStatus(err.message);}}
+document.getElementById('generateHours').addEventListener('click',()=>generate(false));document.getElementById('rerollHours')?.addEventListener('click',()=>generate(true));document.getElementById('saveHours').addEventListener('click',save);document.getElementById('downloadHoursPdf').addEventListener('click',downloadPDF);document.getElementById('sendHoursPdf').addEventListener('click',sendPDF);
+if(ctx.saved?.rows){dayData=syncSavedRows(ctx.saved.rows)||[];if(dayData.length){render();const changed=JSON.stringify(dayData)!==JSON.stringify(ctx.saved.rows);dirty=changed;document.getElementById('saveHours').disabled=!changed;document.getElementById('sendHoursPdf').disabled=changed;if(changed)setStatus('Urlopy zmieniły się od ostatniego zapisu — zapisz synchronizację.');}}
+})();
+</script>
+{% else %}
+<div class="hours-empty">Nie udało się wczytać danych pracownika.</div>
+{% endif %}
+{% endblock %}
