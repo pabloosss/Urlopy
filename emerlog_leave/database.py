@@ -217,6 +217,28 @@ def init_db():
     }.items():
         _ensure_column(cur, "vacation_year_balances", name, definition)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS hour_timesheets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            contract_type TEXT NOT NULL,
+            fte_percent INTEGER NOT NULL DEFAULT 100,
+            target_hours REAL,
+            rows_json TEXT NOT NULL,
+            generated_by INTEGER,
+            updated_by INTEGER,
+            last_sent_at TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (user_id, year, month),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (generated_by) REFERENCES users(id),
+            FOREIGN KEY (updated_by) REFERENCES users(id)
+        )
+    """)
+
     # Indeksy pod najczęstsze widoki: kalendarz, obecność, limity, historia i powiadomienia.
     for statement in [
         "CREATE INDEX IF NOT EXISTS idx_users_active ON users(active)",
@@ -229,6 +251,7 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id)",
         "CREATE INDEX IF NOT EXISTS idx_limit_adjustments_user ON limit_adjustments(user_id, created_at)",
         "CREATE INDEX IF NOT EXISTS idx_balance_adjustments_user ON balance_adjustments(user_id, created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_hour_timesheets_month ON hour_timesheets(year, month, user_id)",
     ]:
         cur.execute(statement)
 
