@@ -30,6 +30,14 @@
             </a>
         </section>
 
+        <a class="home-timesheet-priority" href="{{ url_for('hr_tools.hours_view') }}">
+            <div>
+                <span>Rozliczenie godzin</span>
+                <strong>Uzupełnij miesiąc</strong>
+            </div>
+            <b>→</b>
+        </a>
+
         <section class="home-quick-stats {% if not is_manager() and not is_hr() %}home-quick-stats-employee{% endif %}">
             {% if show_balance %}
             <div>
