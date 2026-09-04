@@ -25,6 +25,26 @@
     </form>
 </div>
 
+<div class="card bulk-pdf-card" style="margin-bottom:18px;">
+    <div class="section-head-row"><h2>PDF zbiorczy wniosków</h2></div>
+    <form method="get" action="{{ url_for('request_pdf.bulk_requests_pdf') }}" target="_blank" class="bulk-pdf-form">
+        <div>
+            <label>Miesiąc</label>
+            <input type="month" name="month" value="{{ selected_from[:7] if selected_from else '' }}" required>
+        </div>
+        <div>
+            <label>Rodzaj umowy</label>
+            <select name="contract_type" required>
+                <option value="Umowa o pracę">UoP</option>
+                <option value="Umowa zlecenie">Zlecenie</option>
+                <option value="Inne">Inne</option>
+            </select>
+        </div>
+        <button type="submit">Generuj jeden PDF</button>
+    </form>
+    <p class="compact-help">Do jednego wydruku trafiają wszystkie zaakceptowane wnioski obejmujące wybrany miesiąc i rodzaj umowy.</p>
+</div>
+
 <div class="card">
     <div class="section-head-row">
         <h2>Wnioski</h2>
@@ -37,7 +57,7 @@
         <table>
             <thead><tr><th>Złożono</th><th>Pracownik</th><th>Spółka</th><th>Dział</th><th>Typ</th><th>Termin</th><th>Dni</th>{% if session.get('role') == 'admin' %}<th>Komentarz</th>{% endif %}<th>Status</th><th>Akcje</th></tr></thead>
             <tbody>
-            {% for req in requests_list %}
+            {% for req in requests_list|sort(attribute='date_from') %}
                 {% set is_new = session.get('role') == 'admin' and req.id in new_request_ids %}
                 <tr {% if is_new %}class="new-request-row" data-new-request-id="{{ req.id }}"{% endif %}>
                     <td>
