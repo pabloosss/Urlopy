@@ -50,7 +50,8 @@
                 <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
             {% elif is_hr() %}
                 <div class="menu-section">Kadry</div>
-                <a class="{% if request.endpoint and request.endpoint.startswith('hr_tools.') and request.endpoint != 'hr_tools.hours_view' %}is-active{% endif %}" href="{{ url_for('hr_tools.dashboard') }}">Panel Kadr</a>
+                <a class="{% if request.endpoint and request.endpoint.startswith('hr_tools.') and not request.endpoint.startswith('hr_tools.hours_') and not request.endpoint.startswith('hr_tools.employee_hours_') %}is-active{% endif %}" href="{{ url_for('hr_tools.dashboard') }}">Panel Kadr</a>
+                <a class="{% if request.endpoint in ['hr_tools.hours_inbox', 'hr_tools.hours_detail'] %}is-active{% endif %}" href="{{ url_for('hr_tools.hours_inbox') }}">Rozliczenia pracowników</a>
                 <a class="{% if request.endpoint == 'main.calendar_view' %}is-active{% endif %}" href="{{ url_for('main.calendar_view') }}">Kalendarz</a>
                 <a class="{% if request.endpoint == 'main.presence_view' %}is-active{% endif %}" href="{{ url_for('main.presence_view') }}">Obecność</a>
                 <a class="{% if request.endpoint and request.endpoint.startswith('employees.') %}is-active{% endif %}" href="{{ url_for('employees.employees_view') }}">Pracownicy</a>
@@ -119,5 +120,40 @@
     });
 })();
 </script>
+
+{% if request.endpoint == 'employees.employee_profile' and request.view_args and request.view_args.get('user_id') %}
+<script>
+(async function () {
+    const target = document.querySelector('.employees-grid.employee-profile-grid');
+    if (!target) return;
+    const escapeHtml = value => String(value ?? '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[ch] || ch));
+    const card = document.createElement('div');
+    card.className = 'card employees-list-card';
+    card.style.marginTop = '18px';
+    card.innerHTML = '<div class="section-head-row"><h2>Rozliczenia godzin</h2><span class="chip" id="employeeHoursCount">…</span></div><div class="table-wrapper"><table><thead><tr><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Status</th><th>Przesłano</th><th></th></tr></thead><tbody id="employeeHoursRows"><tr><td colspan="6" class="empty-state">Wczytywanie…</td></tr></tbody></table></div>';
+    target.insertAdjacentElement('afterend', card);
+    try {
+        const response = await fetch("{{ url_for('hr_tools.hours_employee_history_json', user_id=request.view_args.get('user_id')) }}");
+        const data = await response.json();
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Nie udało się pobrać rozliczeń.');
+        document.getElementById('employeeHoursCount').textContent = data.items.length;
+        const tbody = document.getElementById('employeeHoursRows');
+        if (!data.items.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Brak rozliczeń godzin.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.items.map(item => {
+            const statusClass = item.status === 'Przesłane' ? 'status-zaakceptowany' : 'status-oczekuje';
+            const submitted = item.submitted_at || '—';
+            return `<tr><td><strong>${String(item.month).padStart(2,'0')}.${item.year}</strong></td><td>${escapeHtml(item.contract_type)}</td><td><strong>${escapeHtml(item.total_hours)}</strong> h</td><td><span class="status ${statusClass}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(submitted)}</td><td><a class="btn-secondary btn-mini" href="${escapeHtml(item.detail_url)}">Otwórz</a></td></tr>`;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+        document.getElementById('employeeHoursCount').textContent = '0';
+        document.getElementById('employeeHoursRows').innerHTML = '<tr><td colspan="6" class="empty-state">Nie udało się wczytać rozliczeń.</td></tr>';
+    }
+})();
+</script>
+{% endif %}
 </body>
 </html>
