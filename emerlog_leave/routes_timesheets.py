@@ -7,11 +7,11 @@ from datetime import date, timedelta
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 
-from flask import flash, jsonify, render_template, request, session
+from flask import jsonify, render_template, request, session
 
-from .config import CONTRACT_UOP, CONTRACT_ZLECENIE, normalize_contract_type
+from .config import CONTRACT_UOP, normalize_contract_type
 from .database import get_db
-from .services import is_hr, login_required, log_action, parse_date, polish_holidays, surname_first
+from .services import login_required, log_action, parse_date, polish_holidays
 
 
 MONTH_NAMES = [
@@ -213,7 +213,10 @@ def _send_brevo_pdf(employee_name, month_label, pdf_base64):
 
 
 def _can_access_user(user_id):
-    return is_hr() or user_id == session.get("user_id")
+    try:
+        return int(user_id) == int(session.get("user_id"))
+    except (TypeError, ValueError):
+        return False
 
 
 def register_timesheet_routes(bp):
@@ -222,35 +225,9 @@ def register_timesheet_routes(bp):
     def hours_view():
         selected_month, year, month, month_start, month_end = _selected_month(request.args.get("month"))
         conn = get_db()
-
-        if is_hr():
-            employees = conn.execute(
-                """
-                SELECT u.id, u.full_name, u.login, u.contract_type, u.fte_percent, u.department,
-                       c.name AS company_name
-                FROM users u
-                LEFT JOIN companies c ON c.id = u.company_id
-                WHERE u.active = 1
-                """
-            ).fetchall()
-            employees = sorted(employees, key=lambda item: surname_first(item["full_name"]).casefold())
-            requested_user_id = request.args.get("user_id", "").strip()
-            selected_user_id = int(requested_user_id) if requested_user_id.isdigit() else (employees[0]["id"] if employees else None)
-        else:
-            employees = conn.execute(
-                """
-                SELECT u.id, u.full_name, u.login, u.contract_type, u.fte_percent, u.department,
-                       c.name AS company_name
-                FROM users u
-                LEFT JOIN companies c ON c.id = u.company_id
-                WHERE u.id = ? AND u.active = 1
-                """,
-                (session["user_id"],),
-            ).fetchall()
-            selected_user_id = session["user_id"] if employees else None
-
-        employee = _employee(conn, selected_user_id) if selected_user_id else None
-        if employee and (not employee["active"] or not _can_access_user(employee["id"])):
+        selected_user_id = int(session["user_id"])
+        employee = _employee(conn, selected_user_id)
+        if employee and not employee["active"]:
             employee = None
 
         saved = None
@@ -267,23 +244,6 @@ def register_timesheet_routes(bp):
             saved = _serialize_saved(saved_row)
 
         holidays = sorted(day.isoformat() for day in polish_holidays(year) if day.month == month)
-        accessible_ids = [item["id"] for item in employees]
-        statuses = {}
-        if accessible_ids:
-            placeholders = ",".join("?" for _ in accessible_ids)
-            month_rows = conn.execute(
-                f"""
-                SELECT ht.user_id, ht.updated_at, ht.last_sent_at
-                FROM hour_timesheets ht
-                WHERE ht.year = ? AND ht.month = ?
-                  AND ht.user_id IN ({placeholders})
-                """,
-                (year, month, *accessible_ids),
-            ).fetchall()
-            statuses = {
-                row["user_id"]: {"updated_at": row["updated_at"], "last_sent_at": row["last_sent_at"]}
-                for row in month_rows
-            }
         conn.close()
 
         contract = normalize_contract_type(employee["contract_type"]) if employee else CONTRACT_UOP
@@ -314,10 +274,7 @@ def register_timesheet_routes(bp):
         }
         return render_template(
             "timesheets.html",
-            employees=employees,
-            selected_user_id=selected_user_id,
             selected_month=selected_month,
-            statuses=statuses,
             timesheet_context=context,
         )
 
