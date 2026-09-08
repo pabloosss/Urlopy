@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page-title">
+    <div>
+        <h1>Rozliczenie godzin</h1>
+        <p>Rozliczenie miesięczne połączone z Twoim kontem i zaakceptowanymi nieobecnościami.</p>
+    </div>
+</section>
+
+<style>
+.hours-generator{width:100%;max-width:1080px;min-width:0}.hours-params{width:100%;border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;margin-bottom:20px}.hours-params-head{padding:14px 20px;border-bottom:1px solid #e5e7eb;font-size:15px;font-weight:800}.hours-params-body{padding:20px;min-width:0}.hours-grid-top{display:grid;grid-template-columns:minmax(180px,1.35fr) minmax(140px,1fr) minmax(100px,.65fr) minmax(190px,1fr);gap:12px;align-items:start}.hours-grid-bottom{display:grid;grid-template-columns:minmax(220px,1fr) minmax(300px,1.35fr);gap:16px;align-items:start}.hours-field{min-width:0}.hours-field label,.hours-contract-title{display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#111}.hours-field input,.hours-field select,.hours-custom-row input,.hours-custom-row select{width:100%;max-width:100%;height:40px;font-size:13px}.hours-contract{display:grid;gap:6px;padding-top:1px;min-width:0}.hours-contract label{display:flex;align-items:center;gap:7px;margin:0;font-size:12px;font-weight:500;line-height:1.25}.hours-contract input{width:auto;flex:0 0 auto}.hours-rule{border:0;border-top:1px solid #d1d5db;margin:20px 0}.hours-check{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px}.hours-check input{width:auto}.hours-hint{margin-top:8px;color:#667085;font-size:11px;line-height:1.4}.hours-custom-row{display:grid;grid-template-columns:minmax(150px,1.4fr) minmax(150px,1fr) auto;gap:8px;align-items:end;min-width:0}.hours-custom-row button{white-space:nowrap}.hours-custom-list{margin:8px 0 0;padding-left:18px;font-size:12px}.hours-custom-list li{margin:5px 0}.hours-custom-list button{margin-left:6px}.hours-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}.hours-status{margin-top:10px;font-size:12px;font-weight:800;line-height:1.35}.hours-note{margin:7px 0 0;color:#667085;font-size:11px;line-height:1.45}.hours-submitted{margin-top:16px;padding:16px 18px;border:1px solid #b8e0c2;border-radius:12px;background:#f2fbf4}.hours-submitted strong{display:block;color:#166534;font-size:20px;line-height:1.1}.hours-submitted span{display:block;margin-top:5px;color:#4b5563;font-size:12px}.hours-submitted[hidden]{display:none!important}
+.sheet-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;padding:0 0 14px}.sheet-wrap{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Liberation Sans",Arial,sans-serif;background:#fff;color:#111;border:1px solid #000;border-radius:10px;overflow:hidden;width:1016px;min-width:1016px}.sheet-head{padding:16px 18px 8px;border-bottom:1px solid #000}.sheet-head .mname{font-size:24px;font-weight:800;margin:0;color:#111;line-height:1.2}.sheet-head .person{font-size:18px;font-weight:700;margin:2px 0 0;color:#111;line-height:1.5}.sheet-head .ctype{font-size:12px;color:#555;margin:0;line-height:1.5}.table-times{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;margin:0}.table-times th,.table-times td{border:1px solid #000;padding:7px 8px;text-align:center;vertical-align:middle;background:#fff;font-size:13px;color:#111;line-height:1.35;overflow-wrap:anywhere}.table-times thead th{background:#fafafa;font-weight:700}.table-times .col-day{width:52px}.table-times .col-date{text-align:left}.table-times .col-start,.table-times .col-end{width:92px}.table-times .col-hours{width:82px}.table-times .col-sign{width:150px}.table-times .col-leave{width:102px}.mono{font-variant-numeric:tabular-nums}.table-times tr.off td{background:#ffcccc;color:#a00;font-weight:700}.table-times tfoot td{font-weight:800;background:#fff}.table-times td.editable-cell{cursor:text}.table-times td.editable-cell:focus{outline:2px solid #2563eb;outline-offset:-2px;background:#f8fbff}.table-times td.hours-editable{font-weight:800}.hours-edit-note{margin:0 0 8px;font-size:11px;color:#667085}
+@media(max-width:1100px){.hours-grid-top{grid-template-columns:1fr 1fr}.hours-grid-bottom{grid-template-columns:1fr}.hours-generator{max-width:100%}}@media(max-width:680px){.hours-grid-top,.hours-grid-bottom,.hours-custom-row{grid-template-columns:1fr}.hours-params-body{padding:15px}.hours-actions>*{width:100%}}
+</style>
+
+{% if timesheet_context.employee %}
+<div class="hours-generator">
+    <section class="hours-params">
+        <div class="hours-params-head">Parametry</div>
+        <div class="hours-params-body">
+            <form id="monthPickerForm" method="get">
+                <input type="hidden" name="month" id="selectedMonthValue" value="{{ selected_month }}">
+                <div class="hours-grid-top">
+                    <div class="hours-field">
+                        <label>Imię i nazwisko</label>
+                        <input value="{{ timesheet_context.employee.full_name }}" readonly>
+                    </div>
+                    <div class="hours-field">
+                        <label for="hoursMonth">Miesiąc</label>
+                        <select id="hoursMonth">
+                            {% for label in ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'] %}
+                            <option value="{{ loop.index }}" {% if loop.index == timesheet_context.month %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="hours-field">
+                        <label for="hoursYear">Rok</label>
+                        <input id="hoursYear" type="number" min="2000" max="2100" value="{{ timesheet_context.year }}">
+                    </div>
+                    <div>
+                        <span class="hours-contract-title">Rodzaj umowy</span>
+                        <div class="hours-contract">
+                            <label><input type="radio" disabled {% if timesheet_context.employee.contract_type == 'Umowa zlecenie' %}checked{% endif %}> Umowa zlecenie</label>
+                            <label><input type="radio" disabled {% if timesheet_context.employee.contract_type == 'Umowa o pracę' and timesheet_context.employee.fte_percent != 75 %}checked{% endif %}> Umowa o pracę</label>
+                            <label><input type="radio" disabled {% if timesheet_context.employee.contract_type == 'Umowa o pracę' and timesheet_context.employee.fte_percent == 75 %}checked{% endif %}> Umowa o pracę (3/4)</label>
+                            {% if timesheet_context.employee.contract_type == 'Inne' %}<label><input type="radio" disabled checked> Inne</label>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="hours-actions" style="margin-top:12px;"><button type="submit" class="btn-secondary">Wczytaj miesiąc</button></div>
+            </form>
+
+            <div id="submittedCard" class="hours-submitted" {% if not timesheet_context.is_submitted %}hidden{% endif %}>
+                <strong id="submittedTitle">Za {{ timesheet_context.month_name|lower }} wysłano</strong>
+                <span id="submittedDate">{% if timesheet_context.saved and timesheet_context.saved.last_sent_at %}Przesłano do Kadr: {{ timesheet_context.saved.last_sent_at }}{% endif %}</span>
+            </div>
+
+            <div id="timesheetEditor" {% if timesheet_context.is_submitted %}hidden{% endif %}>
+                <hr class="hours-rule">
+                <div class="hours-grid-bottom">
+                    <div>
+                        <div class="hours-field" id="hoursGroup" {% if timesheet_context.employee.contract_type != 'Umowa zlecenie' %}hidden{% endif %}>
+                            <label for="hoursTotal">Łączna liczba godzin (zlecenie)</label>
+                            <input id="hoursTotal" type="number" min="30" step="1" value="{{ timesheet_context.saved.target_hours if timesheet_context.saved and timesheet_context.saved.target_hours is not none else '' }}">
+                            <label class="hours-check"><input id="randomHolidays" type="checkbox"> Losowe dni wolne (18–25%)</label>
+                            <div class="hours-hint">Zlecenie działa tak jak wcześniej: losowe dni wolne i nieregularne godziny.</div>
+                        </div>
+                        {% if timesheet_context.employee.contract_type != 'Umowa zlecenie' %}
+                        <div class="hours-hint">Nadgodziny możesz wpisać bezpośrednio po wygenerowaniu tabeli w kolumnie „Suma godzin”. Możesz też poprawić godzinę rozpoczęcia i zakończenia.</div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="hours-field"><label>Własne dni wolne</label></div>
+                        <div class="hours-custom-row">
+                            <input type="date" id="holidayPicker">
+                            <select id="holidayTypeSelect">
+                                {% if timesheet_context.employee.contract_type == 'Umowa o pracę' %}
+                                    <option value="Święto">Święto (ręcznie)</option>
+                                    <option value="L4">L4 / chorobowe</option>
+                                    <option value="Okolicz.">Urlop okolicznościowy</option>
+                                    <option value="Bezpłatny">Urlop bezpłatny</option>
+                                    <option value="Odbiór">Odbiór dnia wolnego</option>
+                                    <option value="Inne">Inne</option>
+                                {% else %}
+                                    <option value="-">Wolne</option>
+                                    <option value="Święto">Święto (ręcznie)</option>
+                                    {% if timesheet_context.employee.contract_type == 'Inne' %}<option value="Inne">Inne</option>{% endif %}
+                                {% endif %}
+                            </select>
+                            <button class="btn-secondary" type="button" id="addHoliday">+ Dodaj</button>
+                        </div>
+                        <ul class="hours-custom-list" id="holidaysList"></ul>
+                    </div>
+                </div>
+
+                <div class="hours-actions">
+                    <button type="button" id="generateHours">Generuj tabelę</button>
+                    <button class="btn-secondary" type="button" id="submitToHr" disabled>Prześlij do Kadr</button>
+                </div>
+                <div class="hours-status" id="hoursStatus">{% if timesheet_context.saved %}Wczytano zapis roboczy. Sprawdź tabelę i prześlij do Kadr.{% else %}Brak przesłanego rozliczenia za ten miesiąc.{% endif %}</div>
+                <p class="hours-note">Zaakceptowane urlopy i inne nieobecności z programu są uwzględniane automatycznie. Po przesłaniu miesiąc zostanie zamknięty dla pracownika.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="sheet-scroll">
+        <section class="sheet-wrap" id="resultWrap" style="display:none;">
+            <div class="sheet-head">
+                <h2 class="mname" id="mname"></h2>
+                <p class="person" id="pname"></p>
+                <p class="ctype" id="ctype"></p>
+            </div>
+            <div id="output"></div>
+        </section>
+    </div>
+</div>
+
+<script id="timesheetContext" type="application/json">{{ timesheet_context|tojson }}</script>
+<script>
+(()=>{"use strict";
+const ctx=JSON.parse(document.getElementById('timesheetContext').textContent);
+const MIN_START=7,MAX_END=20,MIN_H=4,MAX_H=16;
+const monthNames=["Styczeń","Luty","Marzec","Kwiecień","Maj","Czerwiec","Lipiec","Sierpień","Wrzesień","Październik","Listopad","Grudzień"];
+const holidaySet=new Set(ctx.holidays||[]),absenceMap=ctx.absences||{};
+const csrf=window.UrlopyCSRFToken||document.querySelector('meta[name="csrf-token"]')?.content||'';
+let customHolidays=[],dayData=[],needsRegenerate=false;
+const ri=(a,b)=>{a=Math.ceil(a);b=Math.floor(b);return Math.floor(Math.random()*(b-a+1))+a;};
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const pad=n=>String(n).padStart(2,'0');
+const isoFor=(y,m,d)=>`${y}-${pad(m)}-${pad(d)}`;
+const isWeekend=d=>{const w=d.getDay();return w===0||w===6;};
+const employeeLastName=()=>{const p=ctx.employee.full_name.trim().split(/\s+/);return p.slice(1).join(' ')||ctx.employee.full_name;};
+const fmtHours=v=>Number.isInteger(Number(v))?String(Number(v)):String(Number(v).toFixed(2)).replace(/\.00$/,'');
+const formatTimeFromMinutes=min=>`${pad(Math.floor(min/60))}:${pad(min%60)}`;
+function escapeHtml(v){return String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]||c));}
+function setStatus(text){const el=document.getElementById('hoursStatus');if(el)el.textContent=text;}
+function updateMonthValue(){const y=Number(document.getElementById('hoursYear').value),m=Number(document.getElementById('hoursMonth').value);document.getElementById('selectedMonthValue').value=`${y}-${pad(m)}`;const picker=document.getElementById('holidayPicker');if(picker){const days=new Date(y,m,0).getDate();picker.min=`${y}-${pad(m)}-01`;picker.max=`${y}-${pad(m)}-${pad(days)}`;}}
+function showSubmittedState(sentAt){document.getElementById('timesheetEditor').hidden=true;document.getElementById('resultWrap').style.display='none';const card=document.getElementById('submittedCard');card.hidden=false;document.getElementById('submittedTitle').textContent=`Za ${monthNames[ctx.month-1].toLowerCase()} wysłano`;document.getElementById('submittedDate').textContent=sentAt?`Przesłano do Kadr: ${sentAt}`:'Przesłano do Kadr.';}
+
+function renderHolidays(){const ul=document.getElementById('holidaysList');if(!ul)return;ul.innerHTML='';customHolidays.sort((a,b)=>a.date.localeCompare(b.date));customHolidays.forEach(item=>{const li=document.createElement('li');const label=item.type==='-'?'Wolne':item.type;li.append(document.createTextNode(`${item.date} – ${label}`));const btn=document.createElement('button');btn.type='button';btn.className='btn-secondary btn-mini';btn.textContent='Usuń';btn.addEventListener('click',()=>{customHolidays=customHolidays.filter(x=>x!==item);renderHolidays();needsRegenerate=dayData.length>0;if(needsRegenerate){document.getElementById('submitToHr').disabled=true;setStatus('Zmieniono dni wolne — wygeneruj tabelę ponownie.');}});li.appendChild(btn);ul.appendChild(li);});}
+function restoreCustomFromSaved(){const rows=ctx.saved?.rows;if(!Array.isArray(rows))return;customHolidays=rows.filter(r=>r&&r.off_source==='custom').map(r=>({date:r.iso,type:r.leave||'-'}));const unique=new Map(customHolidays.map(x=>[x.date,x]));customHolidays=[...unique.values()];renderHolidays();const random=document.getElementById('randomHolidays');if(random){const hadRandom=rows.some(r=>r&&r.off_source==='random');random.checked=hadRandom||ctx.employee.contract_type==='Umowa zlecenie';}}
+function baseRows(){const rows=[];for(let d=1;d<=new Date(ctx.year,ctx.month,0).getDate();d++){const dt=new Date(ctx.year,ctx.month-1,d),iso=isoFor(ctx.year,ctx.month,d),weekend=isWeekend(dt),publicH=holidaySet.has(iso),absence=absenceMap[iso],custom=customHolidays.find(x=>x.date===iso);const off=weekend||publicH||!!absence||!!custom;const source=weekend?'weekend':publicH?'holiday':absence?'leave':custom?'custom':'';const leave=publicH?'Święto':absence?absence.label:custom?custom.type:'-';rows.push({day:d,iso,weekday:dt.toLocaleString('pl-PL',{weekday:'short'}),start:'-',end:'-',hours:0,sign_employee:employeeLastName(),sign_company:'',leave:leave||'-',off,off_source:source});}return rows;}
+function applyRandomOff(list){const idx=list.map((d,i)=>!d.off?i:-1).filter(i=>i>=0);if(!idx.length)return;let pct=.18+Math.random()*.07,toDrop=Math.max(1,Math.round(idx.length*pct));const byW=new Map();idx.forEach(i=>{const w=Math.floor((list[i].day-1)/7);if(!byW.has(w))byW.set(w,[]);byW.get(w).push(i);});const picks=new Set();for(const w of byW.keys()){if(toDrop===0)break;const pool=byW.get(w);picks.add(pool[Math.floor(Math.random()*pool.length)]);toDrop--;}const can=idx.filter(i=>!picks.has(i));for(let i=can.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[can[i],can[j]]=[can[j],can[i]];}const far=i=>{for(const p of picks){if(Math.abs(p-i)<=1)return false;}return true;};for(const i of can){if(toDrop===0)break;if(far(i)){picks.add(i);toDrop--;}}for(const i of can){if(toDrop===0)break;if(!picks.has(i)){picks.add(i);toDrop--;}}for(const i of picks){list[i].off=true;list[i].off_source='random';list[i].leave='-';list[i].hours=0;list[i].start='-';list[i].end='-';}}
+function weightedHours(min,max){const buckets=[{lo:Math.max(min,6),hi:Math.min(max,8),w:5},{lo:Math.max(min,9),hi:Math.min(max,12),w:7},{lo:Math.max(min,13),hi:Math.min(max,16),w:2}],usable=buckets.filter(b=>b.lo<=b.hi),total=usable.reduce((a,b)=>a+b.w,0);let r=Math.random()*total,pick=usable[0];for(const b of usable){r-=b.w;if(r<=0){pick=b;break;}}return ri(pick.lo,pick.hi);}
+function distribute(total,n,min,max){if(n===0)return total===0?[]:null;const minAll=min*n,maxAll=max*n;if(total<minAll||total>maxAll){alert(`Przy tej liczbie dni możesz rozłożyć od ${minAll} do ${maxAll} godzin.`);return null;}let arr=Array.from({length:n},()=>weightedHours(min,max)),sum=arr.reduce((a,b)=>a+b,0);const inc=()=>{const ids=arr.map((v,i)=>[v,i]).filter(([v])=>v<max).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);if(!ids.length)return false;arr[ids[ri(0,Math.min(3,ids.length-1))]]++;return true;};const dec=()=>{const ids=arr.map((v,i)=>[v,i]).filter(([v])=>v>min).sort((a,b)=>b[0]-a[0]).map(x=>x[1]);if(!ids.length)return false;arr[ids[ri(0,Math.min(3,ids.length-1))]]--;return true;};while(sum<total&&inc())sum++;while(sum>total&&dec())sum--;for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+function sampleEndDistribution(n){let pool=[];const groups=[[Math.max(1,Math.round(n*.25)),14,16],[Math.max(1,Math.round(n*.40)),16,18],[Math.max(1,Math.round(n*.20)),18,19],[Math.max(0,Math.round(n*.15)),20,20]];groups.forEach(([count,a,b])=>{for(let i=0;i<count;i++)pool.push(ri(a,b));});while(pool.length<n)pool.push(ri(16,19));for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return pool.slice(0,n);}
+const clampStartForHours=(s,h)=>clamp(s,MIN_START,MAX_END-h);
+function assignTimes(days,hoursArr){const ends=sampleEndDistribution(days.length);let ps=null,pe=null;for(let i=0;i<days.length;i++){const h=hoursArr[i];let e=clamp(ends[i],MIN_START+h,MAX_END),s=clampStartForHours(e-h+ri(-1,1),h);e=s+h;if(ps!==null&&s===ps&&e===pe){s=clampStartForHours(s+(e<MAX_END?1:-1),h);e=s+h;}if(Math.random()<.3){s=clampStartForHours(s+(Math.random()<.5?-1:1),h);e=s+h;}days[i].hours=h;days[i].start=`${pad(s)}:00`;days[i].end=`${pad(e)}:00`;ps=s;pe=e;}}
+function generate(){const total=Number(document.getElementById('hoursTotal')?.value||0),rows=baseRows();if(ctx.employee.contract_type==='Umowa zlecenie'){if(total<30){alert('Minimalnie 30 godzin.');return;}if(document.getElementById('randomHolidays').checked)applyRandomOff(rows);const working=rows.filter(r=>!r.off),arr=distribute(total,working.length,MIN_H,MAX_H);if(!arr)return;assignTimes(working,arr);}else{const minutes=Math.round((480*(ctx.employee.fte_percent||100))/100);rows.filter(r=>!r.off).forEach(r=>{r.hours=Math.round((minutes/60)*100)/100;r.start='08:00';r.end=formatTimeFromMinutes(480+minutes);});}dayData=rows;needsRegenerate=false;renderTable();setStatus('Tabela wygenerowana. Nadgodziny możesz dopisać bezpośrednio w tabeli.');}
+function syncSavedRows(savedRows){if(!Array.isArray(savedRows)||savedRows.length!==new Date(ctx.year,ctx.month,0).getDate())return savedRows||[];const base=baseRows(),byDay=new Map(savedRows.map(r=>[Number(r.day),r])),result=[];let changed=false;for(const b of base){const s=byDay.get(b.day);if(!s){result.push(b);changed=true;continue;}if(b.off){const same=!!s.off&&s.off_source===b.off_source&&String(s.leave||'-')===String(b.leave||'-');result.push({...s,...b});if(!same)changed=true;continue;}if(['weekend','holiday','leave','custom'].includes(s.off_source)){if(ctx.employee.contract_type==='Umowa zlecenie')result.push({...b});else{const minutes=Math.round((480*(ctx.employee.fte_percent||100))/100);result.push({...b,hours:Math.round((minutes/60)*100)/100,start:'08:00',end:formatTimeFromMinutes(480+minutes)});}changed=true;continue;}result.push({...s,iso:b.iso,weekday:b.weekday,sign_employee:employeeLastName()});}if(changed){needsRegenerate=true;setStatus('Nieobecności zmieniły się od zapisu — wygeneruj tabelę ponownie.');}return result;}
+function updateSum(){const sum=dayData.reduce((a,b)=>a+Number(b.hours||0),0);const el=document.getElementById('hoursSum');if(el)el.textContent=fmtHours(sum);}
+function onCellEdit(event){const td=event.target,tr=td.closest('tr[data-day]');if(!tr)return;const row=dayData.find(r=>r.day===Number(tr.dataset.day));if(!row||row.off)return;const key=td.dataset.key,value=td.textContent.trim();if(key==='hours'){const n=Number(value.replace(',','.'));row.hours=Number.isFinite(n)?clamp(n,0,24):0;td.textContent=fmtHours(row.hours);updateSum();}else if(key==='start'||key==='end'){row[key]=value||'-';}needsRegenerate=false;document.getElementById('submitToHr').disabled=false;setStatus('Ręczna korekta godzin — gotowe do przesłania do Kadr.');}
+function renderTable(){document.getElementById('mname').textContent=`${monthNames[ctx.month-1]} ${ctx.year}`;document.getElementById('pname').textContent=ctx.employee.full_name;document.getElementById('ctype').textContent=ctx.employee.contract_pdf_label;const rows=dayData.map(r=>{const dateText=`${pad(r.day)}.${pad(ctx.month)}.${ctx.year} (${r.weekday})`;if(r.off)return `<tr class="off" data-day="${r.day}"><td class="mono">${r.day}</td><td class="col-date">${dateText}</td><td>-</td><td>-</td><td>0</td><td>${escapeHtml(r.sign_employee||'')}</td><td>${escapeHtml(r.sign_company||'')}</td><td>${escapeHtml(r.leave||'-')}</td></tr>`;return `<tr data-day="${r.day}"><td class="mono">${r.day}</td><td class="col-date">${dateText}</td><td class="mono editable-cell" contenteditable="true" data-key="start">${escapeHtml(r.start||'-')}</td><td class="mono editable-cell" contenteditable="true" data-key="end">${escapeHtml(r.end||'-')}</td><td class="mono editable-cell hours-editable" contenteditable="true" data-key="hours">${escapeHtml(fmtHours(r.hours||0))}</td><td>${escapeHtml(r.sign_employee||'')}</td><td>${escapeHtml(r.sign_company||'')}</td><td>${escapeHtml(r.leave||'-')}</td></tr>`;});const sum=dayData.reduce((a,b)=>a+Number(b.hours||0),0);document.getElementById('output').innerHTML=`<p class="hours-edit-note">Kliknij godzinę rozpoczęcia, zakończenia albo sumę godzin, żeby wpisać korektę lub nadgodziny.</p><table class="table-times"><thead><tr><th class="col-day">Dzień</th><th>Data</th><th class="col-start">Godz. rozpoczęcia</th><th class="col-end">Godz. zakończenia</th><th class="col-hours">Suma godzin</th><th class="col-sign">Podpis zleceniobiorcy</th><th class="col-sign">Podpis zleceniodawcy</th><th class="col-leave">Urlop</th></tr></thead><tbody>${rows.join('')}</tbody><tfoot><tr><td colspan="4">Suma</td><td class="mono" id="hoursSum">${fmtHours(sum)}</td><td colspan="3"></td></tr></tfoot></table>`;document.getElementById('resultWrap').style.display='block';document.getElementById('submitToHr').disabled=needsRegenerate;document.querySelectorAll('#output td[contenteditable="true"]').forEach(cell=>cell.addEventListener('blur',onCellEdit));}
+async function submitToHr(){if(!dayData.length){alert('Najpierw wygeneruj tabelę.');return;}if(needsRegenerate){alert('Najpierw wygeneruj tabelę ponownie po zmianach.');return;}const button=document.getElementById('submitToHr');button.disabled=true;setStatus('Przesyłanie do Kadr…');const target=ctx.employee.contract_type==='Umowa zlecenie'?Number(document.getElementById('hoursTotal').value||0):null;try{const resp=await fetch('{{ url_for("hr_tools.hours_send") }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({year:ctx.year,month:ctx.month,target_hours:target,rows:dayData})});const data=await resp.json().catch(()=>({}));if(!resp.ok||!data.ok){if(data.closed){showSubmittedState(data.last_sent_at||'');return;}throw new Error(data.error||'Nie udało się przesłać rozliczenia.');}ctx.saved={id:data.id,target_hours:target,rows:JSON.parse(JSON.stringify(dayData)),last_sent_at:data.last_sent_at,updated_at:data.last_sent_at};showSubmittedState(data.last_sent_at);}catch(error){console.error(error);button.disabled=false;setStatus(error.message);}}
+function addHoliday(){const d=document.getElementById('holidayPicker').value,t=document.getElementById('holidayTypeSelect').value;if(!d){alert('Wybierz datę.');return;}if(!d.startsWith(`${ctx.year}-${pad(ctx.month)}-`)){alert('Wybierz datę z aktualnie otwartego miesiąca.');return;}if(customHolidays.find(x=>x.date===d)){alert('Ta data już jest dodana.');return;}customHolidays.push({date:d,type:t});renderHolidays();needsRegenerate=dayData.length>0;if(needsRegenerate){document.getElementById('submitToHr').disabled=true;setStatus('Dodano dzień wolny — wygeneruj tabelę ponownie.');}}
+
+document.getElementById('monthPickerForm').addEventListener('submit',()=>updateMonthValue());document.getElementById('hoursMonth').addEventListener('change',updateMonthValue);document.getElementById('hoursYear').addEventListener('change',updateMonthValue);document.getElementById('addHoliday')?.addEventListener('click',addHoliday);document.getElementById('generateHours')?.addEventListener('click',generate);document.getElementById('submitToHr')?.addEventListener('click',submitToHr);updateMonthValue();restoreCustomFromSaved();if(!ctx.saved?.rows&&ctx.employee.contract_type==='Umowa zlecenie'&&document.getElementById('randomHolidays'))document.getElementById('randomHolidays').checked=true;if(!ctx.is_submitted&&ctx.saved?.rows){dayData=syncSavedRows(ctx.saved.rows);if(dayData.length)renderTable();}
+})();
+</script>
+{% else %}
+<div class="card"><div class="empty-state">Brak aktywnego konta pracownika.</div></div>
+{% endif %}
+{% endblock %}
