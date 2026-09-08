@@ -238,6 +238,13 @@ def init_db():
             FOREIGN KEY (updated_by) REFERENCES users(id)
         )
     """)
+    for name, definition in {
+        "correction_open": "INTEGER NOT NULL DEFAULT 0",
+        "correction_reason": "TEXT",
+        "correction_opened_by": "INTEGER",
+        "correction_opened_at": "TEXT",
+    }.items():
+        _ensure_column(cur, "hour_timesheets", name, definition)
 
     # Indeksy pod najczęstsze widoki: kalendarz, obecność, limity, historia i powiadomienia.
     for statement in [
