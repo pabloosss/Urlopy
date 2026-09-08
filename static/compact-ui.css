@@ -1,18 +1,37 @@
 /* Drobne zagęszczenie interfejsu bez zmiany układu aplikacji. */
+.final-main,
+.final-main * {
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.final-main {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.final-main .card,
+.final-main .filters-card,
+.final-main .employees-list-card {
+    max-width: 100%;
+}
+
 .final-main table {
-    font-size: 13px;
+    width: 100%;
+    font-size: 12.5px;
 }
 
 .final-main th,
 .final-main td {
-    padding: 9px 10px;
-    line-height: 1.3;
+    padding: 8px 9px;
+    line-height: 1.28;
     overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .final-main .card h2,
 .final-main .section-head-row h2 {
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.2;
 }
 
@@ -22,53 +41,117 @@
 .final-main select,
 .final-main input,
 .final-main textarea {
-    font-size: 13px;
+    max-width: 100%;
+    font-size: 12.5px;
 }
 
 .final-main .btn-mini,
 .final-main .request-admin-actions button,
 .final-main .request-admin-actions a {
-    font-size: 12px;
+    font-size: 11.5px;
     white-space: nowrap;
 }
 
 .final-main .status,
 .final-main .chip,
 .final-main small {
-    font-size: 11px;
+    font-size: 10.5px;
+}
+
+.final-main .filters-form,
+.final-main .employee-form-grid,
+.final-main .date-grid,
+.final-main .stats-grid {
+    max-width: 100%;
+}
+
+.final-main .filters-form > *,
+.final-main .employee-form-grid > *,
+.final-main .date-grid > *,
+.final-main .stats-grid > * {
+    min-width: 0;
+    max-width: 100%;
 }
 
 .request-admin-actions {
     gap: 5px;
+    flex-wrap: wrap;
 }
 
 .table-wrapper {
+    width: 100%;
     max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
 }
 
 .bulk-pdf-form {
     display: grid;
-    grid-template-columns: minmax(180px, 230px) minmax(180px, 260px) max-content;
-    gap: 10px;
+    grid-template-columns: minmax(160px, 220px) minmax(160px, 240px) max-content;
+    gap: 9px;
     align-items: end;
+    max-width: 100%;
 }
 
 .bulk-pdf-form label {
     display: block;
     margin-bottom: 5px;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 700;
 }
 
 .compact-help {
-    margin: 9px 0 0;
-    font-size: 12px;
+    margin: 8px 0 0;
+    font-size: 11.5px;
     color: #667085;
 }
 
+/* Na dużym kaflu głównym tytuł jest najważniejszy, opis pomocniczy mniejszy. */
+.home-timesheet-priority .home-timesheet-copy strong {
+    display: block;
+    max-width: 100%;
+    font-size: clamp(32px, 4vw, 52px) !important;
+    line-height: .98 !important;
+    overflow-wrap: anywhere;
+}
+
+.home-timesheet-priority .home-timesheet-copy span {
+    display: block;
+    margin: 9px 0 0 !important;
+    font-size: 11px !important;
+    line-height: 1.2;
+}
+
+.home-timesheet-priority {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.home-timesheet-priority > div {
+    min-width: 0;
+}
+
+.home-quick-stats strong,
+.home-manager-tools strong,
+.panel-info-list strong {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+    .all-requests-filters,
+    .filters-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 760px) {
-    .bulk-pdf-form {
+    .bulk-pdf-form,
+    .all-requests-filters,
+    .filters-form {
         grid-template-columns: 1fr;
+    }
+
+    .home-timesheet-priority .home-timesheet-copy strong {
+        font-size: clamp(28px, 9vw, 38px) !important;
     }
 }
