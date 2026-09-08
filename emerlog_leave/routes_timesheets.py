@@ -8,8 +8,8 @@ from .routes_timesheets_v2 import (
     _send_brevo_pdf,
     _serialize_saved,
     _validate_rows,
-    register_timesheet_routes,
 )
+from .routes_timesheets_v3 import register_timesheet_routes
 
 __all__ = [
     "MONTH_NAMES",
