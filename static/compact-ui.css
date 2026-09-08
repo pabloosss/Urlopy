@@ -137,6 +137,68 @@
     overflow-wrap: anywhere;
 }
 
+/* Rozliczenia godzin: szerszy arkusz, czytelne nagłówki i logo EMERLOG. */
+.sheet-scroll {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+.sheet-wrap {
+    width: 1160px !important;
+    min-width: 1160px !important;
+}
+
+.sheet-wrap .sheet-head {
+    padding: 14px 18px 10px !important;
+}
+
+.sheet-wrap .sheet-head::before {
+    content: "";
+    display: block;
+    width: 250px;
+    height: 48px;
+    margin: 0 0 10px 0;
+    background-image: url("/static/img/logo.svg?v=2");
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: contain;
+}
+
+.sheet-wrap .table-times th,
+.sheet-wrap .table-times td {
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+}
+
+.sheet-wrap .table-times .col-day,
+.sheet-wrap .table-times th:first-child,
+.sheet-wrap .table-times td:first-child {
+    width: 78px !important;
+    min-width: 78px !important;
+    max-width: 78px !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: keep-all !important;
+}
+
+.sheet-wrap .table-times .col-start,
+.sheet-wrap .table-times .col-end {
+    width: 118px !important;
+}
+
+.sheet-wrap .table-times .col-hours {
+    width: 105px !important;
+}
+
+.sheet-wrap .table-times .col-sign {
+    width: 175px !important;
+}
+
+.sheet-wrap .table-times .col-leave {
+    width: 125px !important;
+}
+
 @media (max-width: 1180px) {
     .all-requests-filters,
     .filters-form {
