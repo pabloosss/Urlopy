@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='final-ui-extra.css') }}?v=4">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-settings.css') }}?v=2">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-backups.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='compact-ui.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='compact-ui.css') }}?v=4">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
@@ -166,11 +166,19 @@
     const contractLabel = checkedContract ? checkedContract.closest('label') : null;
     const isUop = contractLabel && contractLabel.textContent.includes('Umowa o pracę');
     if (!isUop) return;
-    if (Array.from(select.options).some(option => option.value === 'Urlop')) return;
-    const option = document.createElement('option');
-    option.value = 'Urlop';
-    option.textContent = 'Urlop wypoczynkowy';
-    select.insertBefore(option, select.firstChild);
+
+    const odbiorOption = Array.from(select.options).find(option => option.value === 'Odbiór' || option.textContent.trim() === 'Odbiór dnia wolnego');
+    if (odbiorOption) {
+        odbiorOption.value = 'Odbiór dnia wolnego za święto';
+        odbiorOption.textContent = 'Odbiór dnia wolnego za święto';
+    }
+
+    if (!Array.from(select.options).some(option => option.value === 'Urlop')) {
+        const option = document.createElement('option');
+        option.value = 'Urlop';
+        option.textContent = 'Urlop wypoczynkowy';
+        select.insertBefore(option, select.firstChild);
+    }
 })();
 </script>
 {% endif %}
