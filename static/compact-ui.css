@@ -137,16 +137,18 @@
     overflow-wrap: anywhere;
 }
 
-/* Rozliczenia godzin: szerszy arkusz, czytelne nagłówki i logo EMERLOG. */
+/* Rozliczenia godzin: cały arkusz ma się mieścić w dostępnej ramce. */
 .sheet-scroll {
+    width: 100% !important;
     max-width: 100% !important;
-    overflow-x: auto !important;
+    overflow-x: hidden !important;
     overflow-y: hidden !important;
 }
 
 .sheet-wrap {
-    width: 1160px !important;
-    min-width: 1160px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
 }
 
 .sheet-wrap .sheet-head {
@@ -157,6 +159,7 @@
     content: "";
     display: block;
     width: 250px;
+    max-width: 42%;
     height: 48px;
     margin: 0 0 10px 0;
     background-image: url("/static/img/logo.svg?v=2");
@@ -165,38 +168,57 @@
     background-size: contain;
 }
 
+.sheet-wrap .table-times {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+
 .sheet-wrap .table-times th,
 .sheet-wrap .table-times td {
+    padding: 6px 4px !important;
+    font-size: 11px !important;
+    line-height: 1.18 !important;
     overflow-wrap: normal !important;
     word-break: normal !important;
 }
 
-.sheet-wrap .table-times .col-day,
 .sheet-wrap .table-times th:first-child,
 .sheet-wrap .table-times td:first-child {
-    width: 78px !important;
-    min-width: 78px !important;
-    max-width: 78px !important;
+    width: 7% !important;
+    min-width: 0 !important;
+    max-width: none !important;
     white-space: nowrap !important;
     overflow-wrap: normal !important;
     word-break: keep-all !important;
 }
 
-.sheet-wrap .table-times .col-start,
-.sheet-wrap .table-times .col-end {
-    width: 118px !important;
+.sheet-wrap .table-times th:nth-child(2),
+.sheet-wrap .table-times td:nth-child(2) {
+    width: 24% !important;
 }
 
-.sheet-wrap .table-times .col-hours {
-    width: 105px !important;
+.sheet-wrap .table-times th:nth-child(3),
+.sheet-wrap .table-times td:nth-child(3),
+.sheet-wrap .table-times th:nth-child(4),
+.sheet-wrap .table-times td:nth-child(4) {
+    width: 9% !important;
 }
 
-.sheet-wrap .table-times .col-sign {
-    width: 175px !important;
+.sheet-wrap .table-times th:nth-child(5),
+.sheet-wrap .table-times td:nth-child(5) {
+    width: 9% !important;
 }
 
-.sheet-wrap .table-times .col-leave {
-    width: 125px !important;
+.sheet-wrap .table-times th:nth-child(6),
+.sheet-wrap .table-times td:nth-child(6),
+.sheet-wrap .table-times th:nth-child(7),
+.sheet-wrap .table-times td:nth-child(7) {
+    width: 15% !important;
+}
+
+.sheet-wrap .table-times th:nth-child(8),
+.sheet-wrap .table-times td:nth-child(8) {
+    width: 12% !important;
 }
 
 @media (max-width: 1180px) {
@@ -215,5 +237,11 @@
 
     .home-timesheet-priority .home-timesheet-copy strong {
         font-size: clamp(28px, 9vw, 38px) !important;
+    }
+
+    .sheet-wrap .table-times th,
+    .sheet-wrap .table-times td {
+        padding: 5px 2px !important;
+        font-size: 9.5px !important;
     }
 }
