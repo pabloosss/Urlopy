@@ -74,13 +74,33 @@
         </form>
         {% endif %}
 
+        {% if session.get('role') == 'admin' %}
+        <div class="section-head-row" style="margin-top:24px;"><h2>Dostęp do konta</h2></div>
+        <div class="backup-note" style="margin-bottom:12px;">
+            <strong>Aktualnego hasła nie da się podejrzeć</strong>
+            <span>Hasła są przechowywane jako bezpieczny skrót. Administrator może ustawić nowe hasło tymczasowe i skopiować je przed zapisaniem.</span>
+        </div>
+        <div class="employee-form-grid" style="margin-bottom:12px;">
+            <label>Login użytkownika</label>
+            <div style="display:flex;gap:8px;align-items:center;min-width:0;">
+                <input id="adminAccountLogin" value="{{ user.login }}" readonly style="flex:1;min-width:0;">
+                <button type="button" class="btn-secondary btn-mini" id="copyAccountLogin">Kopiuj login</button>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('employees.change_employee_password', user_id=user.id) }}" class="employee-form-grid" id="adminPasswordForm">
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <label>Nowe hasło tymczasowe</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;">
+                <input id="adminNewPassword" name="new_password" type="password" minlength="8" required autocomplete="new-password" style="flex:1;min-width:220px;">
+                <button type="button" class="btn-secondary btn-mini" id="generateAdminPassword">Generuj</button>
+                <button type="button" class="btn-secondary btn-mini" id="toggleAdminPassword">Pokaż</button>
+                <button type="button" class="btn-secondary btn-mini" id="copyAdminPassword">Kopiuj</button>
+            </div>
+            <button type="submit" class="btn-secondary">Ustaw nowe hasło</button>
+        </form>
+        {% endif %}
+
         <div class="employee-side-actions employee-profile-actions">
-            <form method="post" action="{{ url_for('employees.change_employee_password', user_id=user.id) }}">
-                <input type="hidden" name="next" value="{{ request.path }}">
-                <label>Nowe hasło</label>
-                <input name="new_password" type="password" minlength="8" required autocomplete="new-password">
-                <button type="submit" class="btn-secondary">Zmień hasło</button>
-            </form>
             {% if user.id != session.get('user_id') %}
             <form method="post" action="{{ url_for('employees.toggle_employee', user_id=user.id) }}">
                 <input type="hidden" name="next" value="{{ request.path }}">
@@ -173,6 +193,65 @@
             });
         });
     });
+
+    const loginInput = document.getElementById('adminAccountLogin');
+    const passwordInput = document.getElementById('adminNewPassword');
+    const copyLogin = document.getElementById('copyAccountLogin');
+    const generatePassword = document.getElementById('generateAdminPassword');
+    const togglePassword = document.getElementById('toggleAdminPassword');
+    const copyPassword = document.getElementById('copyAdminPassword');
+
+    function randomPassword(length = 14) {
+        const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const lower = 'abcdefghijkmnopqrstuvwxyz';
+        const digits = '23456789';
+        const symbols = '!@#$%*-_';
+        const all = upper + lower + digits + symbols;
+        const bytes = new Uint32Array(length);
+        crypto.getRandomValues(bytes);
+        const chars = [
+            upper[bytes[0] % upper.length],
+            lower[bytes[1] % lower.length],
+            digits[bytes[2] % digits.length],
+            symbols[bytes[3] % symbols.length],
+        ];
+        for (let i = 4; i < length; i++) chars.push(all[bytes[i] % all.length]);
+        for (let i = chars.length - 1; i > 0; i--) {
+            const swapBytes = new Uint32Array(1);
+            crypto.getRandomValues(swapBytes);
+            const j = swapBytes[0] % (i + 1);
+            [chars[i], chars[j]] = [chars[j], chars[i]];
+        }
+        return chars.join('');
+    }
+
+    async function copyText(value, button) {
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+            const old = button.textContent;
+            button.textContent = 'Skopiowano';
+            setTimeout(() => { button.textContent = old; }, 1200);
+        } catch (_) {
+            alert('Nie udało się skopiować automatycznie.');
+        }
+    }
+
+    copyLogin?.addEventListener('click', () => copyText(loginInput?.value || '', copyLogin));
+    generatePassword?.addEventListener('click', () => {
+        if (!passwordInput) return;
+        passwordInput.value = randomPassword();
+        passwordInput.type = 'text';
+        if (togglePassword) togglePassword.textContent = 'Ukryj';
+        passwordInput.focus();
+        passwordInput.select();
+    });
+    togglePassword?.addEventListener('click', () => {
+        if (!passwordInput) return;
+        passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+        togglePassword.textContent = passwordInput.type === 'password' ? 'Pokaż' : 'Ukryj';
+    });
+    copyPassword?.addEventListener('click', () => copyText(passwordInput?.value || '', copyPassword));
 })();
 </script>
 {% endblock %}
