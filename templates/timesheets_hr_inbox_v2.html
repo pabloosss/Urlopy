@@ -8,8 +8,12 @@
     </div>
 </section>
 
+<style>
+.hours-inbox-filters{display:grid;grid-template-columns:minmax(110px,.7fr) minmax(150px,1fr) minmax(220px,1.4fr) auto;gap:10px;align-items:end;max-width:100%}.hours-inbox-filters>div{min-width:0}.hours-inbox-filters label{display:block;margin-bottom:5px;font-size:12px;font-weight:700}.hours-inbox-filters input,.hours-inbox-filters select{width:100%;max-width:100%}.hours-inbox-actions{display:flex;gap:7px;flex-wrap:wrap}.timesheet-inbox-table{min-width:760px}@media(max-width:900px){.hours-inbox-filters{grid-template-columns:1fr 1fr}.hours-inbox-actions{grid-column:1/-1}}@media(max-width:600px){.hours-inbox-filters{grid-template-columns:1fr}}
+</style>
+
 <div class="card" style="margin-bottom:18px;">
-    <form method="get" class="employee-form-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));align-items:end;">
+    <form method="get" class="hours-inbox-filters">
         <div>
             <label>Rok</label>
             <input name="year" type="number" min="2000" max="2100" value="{{ selected_year }}" placeholder="{{ current_year }}">
@@ -32,7 +36,7 @@
                 {% endfor %}
             </select>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div class="hours-inbox-actions">
             <button type="submit">Filtruj</button>
             <a class="btn-secondary" href="{{ url_for('hr_tools.hours_inbox') }}">Wyczyść</a>
         </div>
@@ -42,11 +46,11 @@
 <div class="card employees-list-card">
     <div class="section-head-row"><h2>Przesłane rozliczenia</h2><span class="chip">{{ items|length }}</span></div>
     <div class="table-wrapper">
-        <table>
+        <table class="timesheet-inbox-table">
             <thead><tr><th>Nazwisko i imię</th><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Przesłano</th><th>Status</th><th></th></tr></thead>
-            <tbody id="timesheetInboxRows">
+            <tbody>
                 {% for item in items %}
-                <tr data-sort-name="{{ item.full_name|surname_first|lower }}">
+                <tr>
                     <td><strong>{{ item.full_name|surname_first }}</strong><br><small>{{ item.company_name or '—' }}{% if item.department %} · {{ item.department }}{% endif %}</small></td>
                     <td>{{ '%02d'|format(item.month) }}.{{ item.year }}</td>
                     <td>{{ item.contract_type }}</td>
@@ -62,14 +66,4 @@
         </table>
     </div>
 </div>
-
-<script>
-(function () {
-    const tbody = document.getElementById('timesheetInboxRows');
-    if (!tbody) return;
-    const rows = Array.from(tbody.querySelectorAll('tr[data-sort-name]'));
-    rows.sort((a, b) => (a.dataset.sortName || '').localeCompare(b.dataset.sortName || '', 'pl', {sensitivity: 'base'}));
-    rows.forEach(row => tbody.appendChild(row));
-})();
-</script>
 {% endblock %}
