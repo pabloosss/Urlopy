@@ -156,5 +156,23 @@
 })();
 </script>
 {% endif %}
+
+{% if request.endpoint == 'hr_tools.hours_view' %}
+<script>
+(function () {
+    const select = document.getElementById('holidayTypeSelect');
+    if (!select) return;
+    const checkedContract = document.querySelector('.hours-contract input:checked');
+    const contractLabel = checkedContract ? checkedContract.closest('label') : null;
+    const isUop = contractLabel && contractLabel.textContent.includes('Umowa o pracę');
+    if (!isUop) return;
+    if (Array.from(select.options).some(option => option.value === 'Urlop')) return;
+    const option = document.createElement('option');
+    option.value = 'Urlop';
+    option.textContent = 'Urlop wypoczynkowy';
+    select.insertBefore(option, select.firstChild);
+})();
+</script>
+{% endif %}
 </body>
 </html>
