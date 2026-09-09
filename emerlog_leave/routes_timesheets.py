@@ -9,7 +9,7 @@ from .routes_timesheets_v2 import (
     _serialize_saved,
     _validate_rows,
 )
-from .routes_timesheets_v4 import register_timesheet_routes
+from .routes_timesheets_v5 import register_timesheet_routes
 
 __all__ = [
     "MONTH_NAMES",
