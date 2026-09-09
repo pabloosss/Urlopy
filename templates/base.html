@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='final-ui-extra.css') }}?v=4">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-settings.css') }}?v=2">
     <link rel="stylesheet" href="{{ url_for('static', filename='admin-backups.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='compact-ui.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='compact-ui.css') }}?v=5">
 </head>
 <body class="{% if not session.get('user_id') %}login-body{% endif %}">
 
@@ -131,7 +131,7 @@
     const card = document.createElement('div');
     card.className = 'card employees-list-card';
     card.style.marginTop = '18px';
-    card.innerHTML = '<div class="section-head-row"><h2>Rozliczenia godzin</h2><span class="chip" id="employeeHoursCount">…</span></div><div class="table-wrapper"><table><thead><tr><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Status</th><th>Przesłano</th><th></th></tr></thead><tbody id="employeeHoursRows"><tr><td colspan="6" class="empty-state">Wczytywanie…</td></tr></tbody></table></div>';
+    card.innerHTML = '<div class="section-head-row"><h2>Rozliczenia godzin</h2><span class="chip" id="employeeHoursCount">…</span></div><div class="table-wrapper"><table><thead><tr><th>Miesiąc</th><th>Umowa</th><th>Godziny</th><th>Wersje</th><th>Przesłano</th><th></th></tr></thead><tbody id="employeeHoursRows"><tr><td colspan="6" class="empty-state">Wczytywanie…</td></tr></tbody></table></div>';
     target.insertAdjacentElement('afterend', card);
     try {
         const response = await fetch("{{ url_for('hr_tools.hours_employee_history_json', user_id=request.view_args.get('user_id')) }}");
@@ -146,7 +146,7 @@
         tbody.innerHTML = data.items.map(item => {
             const statusClass = item.status === 'Przesłane' ? 'status-zaakceptowany' : 'status-oczekuje';
             const submitted = item.submitted_at || '—';
-            return `<tr><td><strong>${String(item.month).padStart(2,'0')}.${item.year}</strong></td><td>${escapeHtml(item.contract_type)}</td><td><strong>${escapeHtml(item.total_hours)}</strong> h</td><td><span class="status ${statusClass}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(submitted)}</td><td><a class="btn-secondary btn-mini" href="${escapeHtml(item.detail_url)}">Otwórz</a></td></tr>`;
+            return `<tr><td><strong>${String(item.month).padStart(2,'0')}.${item.year}</strong></td><td>${escapeHtml(item.contract_type)}</td><td><strong>${escapeHtml(item.total_hours)}</strong> h</td><td><span class="status ${statusClass}">${escapeHtml(item.versions_count || 1)} · otwórz najnowszą</span></td><td>${escapeHtml(submitted)}</td><td><a class="btn-secondary btn-mini" href="${escapeHtml(item.detail_url)}">Otwórz</a></td></tr>`;
         }).join('');
     } catch (error) {
         console.error(error);

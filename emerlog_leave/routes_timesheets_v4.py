@@ -1,8 +1,10 @@
 from collections import OrderedDict
+from calendar import monthrange
 from datetime import date
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
+from .config import CONTRACT_UOP, CONTRACT_ZLECENIE, normalize_contract_type
 from .database import get_db
 from .services import login_required, log_action, polish_holidays, role_required, surname_first
 from .routes_timesheets_v2 import (
@@ -161,6 +163,29 @@ def _submission_item(row):
     }
 
 
+def _validate_employee_rows(conn, employee, year, month, rows, target_hours):
+    """Sprawdza dane względem konta i aktualnych nieobecności, nie pól klienta."""
+    contract = normalize_contract_type(employee["contract_type"])
+    absences = _month_absences(conn, employee["id"], date(year, month, 1), date(year, month, monthrange(year, month)[1]))
+    holidays = polish_holidays(year)
+    for row in rows:
+        day = date(year, month, row["day"])
+        absence = absences.get(row["iso"])
+        if (day.weekday() >= 5 or day in holidays or absence) and not row["off"]:
+            raise ValueError(f"Dzień {row['day']} jest wolny lub ma zaakceptowaną nieobecność. Przelicz tabelę ponownie.")
+        if absence and day.weekday() < 5 and day not in holidays:
+            row["leave"] = absence["label"]
+            row["off_source"] = "leave"
+        if contract != CONTRACT_UOP and row["overtime"]:
+            raise ValueError("Osobna kolumna nadgodzin dotyczy wyłącznie umowy o pracę.")
+    if contract == CONTRACT_ZLECENIE:
+        if target_hours is None or not target_hours.is_integer() or target_hours < 30:
+            raise ValueError("Dla zlecenia podaj docelową liczbę pełnych godzin, minimum 30.")
+        total = round(sum(row["hours"] for row in rows), 2)
+        if total != target_hours:
+            raise ValueError("Suma godzin nie zgadza się z celem. Przelicz tabelę ponownie.")
+
+
 def register_timesheet_routes(bp):
     @bp.route("/kadry/rozliczenia-godzin")
     @bp.route("/rozliczenie-godzin")
@@ -221,7 +246,7 @@ def register_timesheet_routes(bp):
         payload = request.get_json(silent=True) or {}
         try:
             year, month, rows, target_hours = _validate_payload(payload)
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError, OverflowError) as error:
             return jsonify({"ok": False, "error": str(error) or "Niepoprawne dane rozliczenia."}), 400
 
         conn = get_db()
@@ -231,6 +256,11 @@ def register_timesheet_routes(bp):
             conn.close()
             return jsonify({"ok": False, "error": "Nie znaleziono aktywnego pracownika."}), 404
 
+        try:
+            _validate_employee_rows(conn, employee, year, month, rows, target_hours)
+        except ValueError as error:
+            conn.close()
+            return jsonify({"ok": False, "error": str(error)}), 400
         timesheet_id = _upsert_timesheet(conn, employee, year, month, rows, target_hours, submitted=False)
         log_action(
             conn,
@@ -251,7 +281,7 @@ def register_timesheet_routes(bp):
         payload = request.get_json(silent=True) or {}
         try:
             year, month, rows, target_hours = _validate_payload(payload)
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError, OverflowError) as error:
             return jsonify({"ok": False, "error": str(error) or "Niepoprawne dane rozliczenia."}), 400
 
         conn = get_db()
@@ -261,6 +291,11 @@ def register_timesheet_routes(bp):
             conn.close()
             return jsonify({"ok": False, "error": "Nie znaleziono aktywnego pracownika."}), 404
 
+        try:
+            _validate_employee_rows(conn, employee, year, month, rows, target_hours)
+        except ValueError as error:
+            conn.close()
+            return jsonify({"ok": False, "error": str(error)}), 400
         previous = _submission_info(conn, employee["id"], year, month)
         timesheet_id = _upsert_timesheet(conn, employee, year, month, rows, target_hours, submitted=True)
         submission = _insert_submission(conn, timesheet_id, session["user_id"])

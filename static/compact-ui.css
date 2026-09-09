@@ -221,25 +221,6 @@
     width: 12% !important;
 }
 
-/* Po wysłaniu pracownik może od razu wygenerować kolejną wersję.
-   Poprzednia wersja jest już niezmiennym snapshotem po stronie Kadr. */
-.hours-generator #timesheetEditor[hidden] {
-    display: block !important;
-}
-
-.hours-generator .hours-submitted span:last-child {
-    display: none !important;
-}
-
-.hours-generator .hours-submitted::after {
-    content: "Możesz wygenerować tabelę ponownie i przesłać kolejną wersję. Poprzednie wersje pozostają w historii Kadr.";
-    display: block;
-    margin-top: 7px;
-    color: #4b5563;
-    font-size: 12px;
-    line-height: 1.45;
-}
-
 @media (max-width: 1180px) {
     .all-requests-filters,
     .filters-form {

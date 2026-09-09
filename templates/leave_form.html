@@ -98,6 +98,7 @@
 (function () {
     const showBalance = {{ show_balance|tojson }};
     const availableDays = Number({{ vacation_summary.available|default(0) }});
+    const balanceYear = {{ vacation_summary.year }};
     const limitTypes = {{ limit_types|tojson }};
     const replacementRequired = {{ require_spedycja_replacement|tojson }};
     const replacementPeople = [
@@ -175,6 +176,7 @@
 
     function countWorkdays(start, end) {
         if (!start || !end || end < start) return null;
+        if (start.getFullYear() !== end.getFullYear()) return null;
         const holidays = new Set();
         for (let year = start.getFullYear(); year <= end.getFullYear(); year++) holidaySet(year).forEach(day => holidays.add(day));
         let days = 0;
@@ -201,6 +203,7 @@
         const days = countWorkdays(start, end);
         const type = selectedType();
         const usesLimit = showBalance && limitTypes.includes(type);
+        const knownBalance = start && start.getFullYear() === balanceYear;
         commentField.required = type === 'Inne';
 
         if (days === null) {
@@ -208,7 +211,7 @@
             liveDaysText.textContent = 'dni roboczych';
             if (afterRequestDays) afterRequestDays.textContent = availableDays;
             summaryTitle.textContent = 'Podsumowanie';
-            summaryAlert.textContent = 'Sprawdź daty.';
+            summaryAlert.textContent = start && end && start.getFullYear() !== end.getFullYear() ? 'Złóż osobny wniosek dla każdego roku.' : 'Sprawdź daty.';
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = false;
             return;
@@ -217,13 +220,17 @@
         const after = usesLimit ? availableDays - days : availableDays;
         liveDays.textContent = days;
         liveDaysText.textContent = days === 1 ? 'dzień roboczy' : 'dni roboczych';
-        if (afterRequestDays) afterRequestDays.textContent = after;
+        if (afterRequestDays) afterRequestDays.textContent = usesLimit && !knownBalance ? 'Do sprawdzenia' : after;
         summaryTitle.textContent = type || 'Podsumowanie';
 
         if (days <= 0) {
             summaryAlert.textContent = 'Brak dni roboczych.';
             summaryAlert.className = 'summary-alert is-bad';
             submitBtn.disabled = true;
+        } else if (usesLimit && !knownBalance) {
+            summaryAlert.textContent = `Saldo za ${start.getFullYear()} zostanie sprawdzone przy zapisie.`;
+            summaryAlert.className = 'summary-alert is-neutral';
+            submitBtn.disabled = false;
         } else if (usesLimit && after < 0) {
             summaryAlert.textContent = `Brakuje ${Math.abs(after)} dni.`;
             summaryAlert.className = 'summary-alert is-bad';

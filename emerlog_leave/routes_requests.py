@@ -187,6 +187,9 @@ def _csv_cell(value):
 @login_required
 def new_leave_request():
     conn = get_db()
+    if request.method == "POST":
+        # Walidacja salda i nakładania terminów oraz zapis stanowią jedną operację.
+        conn.execute("BEGIN IMMEDIATE")
     user = current_user(conn)
     is_spedycja = (user["department"] or "").strip().lower() == "spedycja"
     limit_enabled = get_app_setting(conn, "enforce_uop_vacation_limit", "1") == "1"
@@ -249,6 +252,10 @@ def new_leave_request():
             try:
                 start = parse_date(form_data["date_from"])
                 end = parse_date(form_data["date_to"])
+                if start.year != end.year or not 2000 <= start.year <= 2100:
+                    raise ValueError("Wybierz daty w jednym roku, w zakresie 2000–2100.")
+                form_data["date_from"] = start.isoformat()
+                form_data["date_to"] = end.isoformat()
                 days = count_workdays(start, end)
             except Exception as error:
                 errors.append(str(error))
@@ -423,6 +430,7 @@ def all_requests_view():
 def change_request_status(request_id, action):
     next_url = request.form.get("next", "")
     conn = get_db()
+    conn.execute("BEGIN IMMEDIATE")
     leave_request = conn.execute("SELECT * FROM leave_requests WHERE id=?", (request_id,)).fetchone()
     if not leave_request:
         conn.close()

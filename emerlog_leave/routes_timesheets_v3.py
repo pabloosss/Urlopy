@@ -1,4 +1,6 @@
 import json
+import math
+import re
 from datetime import date
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
@@ -45,7 +47,7 @@ def _validate_rows_with_overtime(rows, year, month):
             overtime = round(float(raw.get("overtime") or 0), 2)
         except (TypeError, ValueError) as error:
             raise ValueError(f"Niepoprawne nadgodziny dla dnia {row['day']}.") from error
-        if overtime < 0 or overtime > MAX_OVERTIME_PER_DAY:
+        if not math.isfinite(overtime) or overtime < 0 or overtime > MAX_OVERTIME_PER_DAY:
             raise ValueError(
                 f"Nadgodziny dla dnia {row['day']} muszą mieścić się w zakresie 0–{MAX_OVERTIME_PER_DAY} h."
             )
@@ -56,10 +58,31 @@ def _validate_rows_with_overtime(rows, year, month):
                 f"Łączny czas dla dnia {row['day']} nie może przekraczać {MAX_TOTAL_HOURS_PER_DAY} h."
             )
         row["overtime"] = overtime
+        if row["off"]:
+            if row["hours"] or row["start"] != "-" or row["end"] != "-":
+                raise ValueError(f"Dzień wolny {row['day']} nie może zawierać godzin pracy.")
+            continue
+        start = _time_minutes(row["start"])
+        end = _time_minutes(row["end"], allow_midnight=True)
+        if end <= start or not math.isclose(
+            end - start, round((row["hours"] + overtime) * 60), abs_tol=1
+        ):
+            raise ValueError(f"Godziny rozpoczęcia i zakończenia dnia {row['day']} nie zgadzają się z sumą godzin i nadgodzin.")
     return cleaned
 
 
+def _time_minutes(value, *, allow_midnight=False):
+    if allow_midnight and value == "24:00":
+        return 1440
+    if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+        raise ValueError("Podaj poprawne godziny w formacie HH:MM.")
+    hours, minutes = map(int, value.split(":"))
+    return hours * 60 + minutes
+
+
 def _validate_payload(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("Niepoprawny format danych rozliczenia.")
     year = int(payload.get("year"))
     month = int(payload.get("month"))
     if year < 2000 or year > 2100 or month < 1 or month > 12:
@@ -67,7 +90,7 @@ def _validate_payload(payload):
     rows = _validate_rows_with_overtime(payload.get("rows"), year, month)
     target_raw = payload.get("target_hours")
     target_hours = None if target_raw in (None, "") else float(target_raw)
-    if target_hours is not None and (target_hours < 0 or target_hours > 744):
+    if target_hours is not None and (not math.isfinite(target_hours) or target_hours < 0 or target_hours > 744):
         raise ValueError("Łączna liczba godzin jest poza dozwolonym zakresem.")
     return year, month, rows, target_hours
 

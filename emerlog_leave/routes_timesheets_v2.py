@@ -1,5 +1,6 @@
 import calendar
 import json
+import math
 from datetime import date, timedelta
 
 from flask import jsonify, render_template, request, session
@@ -121,6 +122,8 @@ def _validate_rows(rows, year, month):
         if day < 1 or day > days_in_month or day in seen:
             raise ValueError("Niepoprawna albo powtórzona data w rozliczeniu.")
         seen.add(day)
+        if not isinstance(raw.get("off"), bool):
+            raise ValueError(f"Niepoprawne oznaczenie dnia wolnego: {day}.")
 
         expected_iso = date(year, month, day).isoformat()
         iso = _clean_cell(raw.get("iso"), 10)
@@ -131,13 +134,13 @@ def _validate_rows(rows, year, month):
             hours = round(float(raw.get("hours") or 0), 2)
         except (TypeError, ValueError) as error:
             raise ValueError(f"Niepoprawna liczba godzin dla dnia {day}.") from error
-        if hours < 0 or hours > 24:
+        if not math.isfinite(hours) or hours < 0 or hours > 24:
             raise ValueError(f"Godziny dla dnia {day} muszą mieścić się w zakresie 0–24.")
 
         cleaned.append({
             "day": day,
             "iso": iso,
-            "weekday": _clean_cell(raw.get("weekday"), 12),
+            "weekday": ["pon.", "wt.", "śr.", "czw.", "pt.", "sob.", "niedz."][date(year, month, day).weekday()],
             "start": _clean_cell(raw.get("start"), 12) or "-",
             "end": _clean_cell(raw.get("end"), 12) or "-",
             "hours": hours,

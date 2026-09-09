@@ -1,7 +1,7 @@
 from datetime import date
 import calendar
 
-from flask import Blueprint, flash, render_template, request
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from .config import LEAVE_TYPES
 from .database import get_db
@@ -97,15 +97,8 @@ def settings_view():
                 log_action(conn, "dodano dział", "department", None, department_name)
                 conn.commit()
                 flash("Dział zapisany.")
-    departments = conn.execute("SELECT * FROM departments ORDER BY name").fetchall()
-    logs = conn.execute("""
-        SELECT al.*, u.full_name AS actor_name
-        FROM audit_logs al
-        LEFT JOIN users u ON al.actor_user_id = u.id
-        ORDER BY al.created_at DESC LIMIT 25
-    """).fetchall()
     conn.close()
-    return render_template("settings.html", departments=departments, logs=logs, leave_types=LEAVE_TYPES)
+    return redirect(url_for("admin.settings_view"))
 
 
 @bp.route("/audit")

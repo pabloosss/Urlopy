@@ -28,7 +28,7 @@
     <div class="section-head-row"><h2>Wnioski</h2><span class="chip">{{ requests_list|length }}</span></div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Pracownik</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
+            <thead><tr><th>Nazwisko i imię</th><th>Spółka</th><th>Typ</th><th>Termin</th><th>Dni</th><th>Status</th><th>Akcje</th></tr></thead>
             <tbody>
             {% for req in requests_list|sort(attribute='date_from') %}
                 <tr>
